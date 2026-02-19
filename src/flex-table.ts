@@ -84,7 +84,16 @@ export class FlexTable extends LitElement {
   private _scrollTop = 0;
 
   @state()
+  private _scrollLeft = 0;
+
+  @state()
   private _viewportHeight = 0;
+
+  @state()
+  private _viewportWidth = 0;
+
+  private _colLeftOffsets: number[] = [];
+  private _totalRowWidth = 0;
 
   @state()
   private _activeCell: CellPosition | null = null;
@@ -114,6 +123,13 @@ export class FlexTable extends LitElement {
 
   get visibleColumns(): ColumnDefinition[] {
     return this.columns.filter(col => !col.hidden);
+  }
+
+  private get _prefixWidth(): number {
+    let w = 0;
+    if (this.selectable) w += 36;
+    if (this.showRowNumbers) w += 48;
+    return w;
   }
 
   /** Whether an undo operation is available. */
@@ -592,18 +608,8 @@ export class FlexTable extends LitElement {
     return this._columnWidths.get(key);
   }
 
-  private get gridTemplateColumns(): string {
-    const cols = this.visibleColumns
-      .map(col => {
-        const w = this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
-        const min = col.minWidth ?? MIN_COL_WIDTH;
-        return `minmax(${min}px, ${w}px)`;
-      })
-      .join(' ');
-    let prefix = '';
-    if (this.selectable) prefix += '36px ';
-    if (this.showRowNumbers) prefix += '48px ';
-    return `${prefix}${cols}`;
+  private _getColWidth(col: ColumnDefinition): number {
+    return this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
   }
 
   private get headerHeight(): number {
@@ -660,10 +666,54 @@ export class FlexTable extends LitElement {
     this._measureViewport();
   }
 
+  private _updateColOffsets(): void {
+    const cols = this.visibleColumns;
+    const offsets: number[] = [];
+    let x = this._prefixWidth;
+    for (const col of cols) {
+      offsets.push(x);
+      x += this._getColWidth(col);
+    }
+    this._colLeftOffsets = offsets;
+    this._totalRowWidth = x;
+  }
+
+  private get visibleColRange(): { start: number; end: number } {
+    const cols = this.visibleColumns;
+    if (cols.length === 0) return { start: 0, end: 0 };
+
+    const offsets = this._colLeftOffsets;
+    if (offsets.length === 0) return { start: 0, end: cols.length };
+
+    const scrollLeft = this._scrollLeft;
+    const viewRight = scrollLeft + this._viewportWidth;
+
+    let start = 0;
+    for (let i = 0; i < offsets.length; i++) {
+      if (offsets[i] + this._getColWidth(cols[i]) > scrollLeft) {
+        start = i;
+        break;
+      }
+    }
+    start = Math.max(0, start - OVERSCAN);
+
+    let end = cols.length;
+    for (let i = start; i < offsets.length; i++) {
+      if (offsets[i] > viewRight) {
+        end = i;
+        break;
+      }
+    }
+    end = Math.min(cols.length, end + OVERSCAN);
+
+    return { start, end };
+  }
+
   protected willUpdate(): void {
     // Always recompute: data is often mutated in-place (splice, direct assignment)
     // which doesn't trigger Lit's change detection
     this._recomputeView();
+    this._updateColOffsets();
     this._selection.setDimensions(this._visibleRowCount, this.visibleColumns.length);
     this._rowSelection.setRowCount(this._visibleRowCount);
   }
@@ -724,13 +774,14 @@ export class FlexTable extends LitElement {
 
   private _measureViewport(): void {
     const h = this.clientHeight;
-    if (h !== this._viewportHeight) {
-      this._viewportHeight = h;
-    }
+    const w = this.clientWidth;
+    if (h !== this._viewportHeight) this._viewportHeight = h;
+    if (w !== this._viewportWidth) this._viewportWidth = w;
   }
 
   private _onScroll(): void {
     this._scrollTop = this.scrollTop;
+    this._scrollLeft = this.scrollLeft;
   }
 
   private _onDocumentClick(): void {
@@ -747,13 +798,11 @@ export class FlexTable extends LitElement {
     ) as HTMLElement | undefined;
     if (!cellEl) return;
 
-    // Find row and col from data attributes or position
+    // Find row and col from data attributes
     const rowEl = cellEl.parentElement;
     if (!rowEl || !rowEl.classList.contains('ft-row')) return;
 
-    // Calculate row/col indices from DOM position
-    const cells = Array.from(rowEl.querySelectorAll('.ft-cell'));
-    const colIndex = cells.indexOf(cellEl);
+    const colIndex = parseInt(cellEl.dataset.colIndex ?? '-1', 10);
     const rowAttr = rowEl.style.top;
     const top = parseInt(rowAttr, 10);
     const rowIndex = Math.round(top / this.rowHeight);
@@ -1332,14 +1381,19 @@ export class FlexTable extends LitElement {
         : 'none')
       : undefined;
 
-    const pinnedStyle = isPinned
-      ? `position: sticky; left: ${this._getPinnedLeft(colIndex)}px; z-index: 4;`
-      : '';
+    const width = this._getColWidth(col);
+    const hdrH = this.headerHeight;
+    const left = this._colLeftOffsets[colIndex] ?? 0;
+
+    const cellStyle = isPinned
+      ? `position: sticky; left: ${this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`
+      : `left: ${left}px; width: ${width}px; height: ${hdrH}px;`;
 
     return html`
       <div class=${classes}
         role="columnheader"
-        style=${pinnedStyle}
+        data-col-index=${colIndex}
+        style=${cellStyle}
         aria-sort=${ariaSortValue ?? nothing}
         @click=${sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined}>
         <span>${col.header}</span>
@@ -1483,16 +1537,14 @@ export class FlexTable extends LitElement {
     const col = this.visibleColumns[colIndex];
     if (!col) return;
 
-    // Measure content widths by scanning visible cells
-    const cells = this.shadowRoot?.querySelectorAll(`.ft-row .ft-cell:nth-child(${colIndex + (this.showRowNumbers ? 2 : 1)})`);
+    // Measure content widths by scanning visible cells using data-col-index attribute
+    const cells = this.shadowRoot?.querySelectorAll(`.ft-cell[data-col-index="${colIndex}"]`);
     let maxWidth = 0;
 
-    // Measure header text width
-    const headerCells = this.shadowRoot?.querySelectorAll('.ft-header-cell');
-    if (headerCells && headerCells[colIndex]) {
-      const headerEl = headerCells[colIndex] as HTMLElement;
-      // Use scrollWidth to get full text width
-      maxWidth = Math.max(maxWidth, headerEl.scrollWidth);
+    // Measure header text width using data-col-index attribute
+    const headerCell = this.shadowRoot?.querySelector(`.ft-header-cell[data-col-index="${colIndex}"]`) as HTMLElement | null;
+    if (headerCell) {
+      maxWidth = Math.max(maxWidth, headerCell.scrollWidth);
     }
 
     // Measure data cell widths
@@ -1567,11 +1619,25 @@ export class FlexTable extends LitElement {
       return html`<div class="ft-empty">No columns defined</div>`;
     }
 
-    const gtc = this.gridTemplateColumns;
+    const hdrH = this.headerHeight;
+    const tw = this._totalRowWidth;
 
-    // Header prefix cells
+    // Compute which columns are in the horizontal viewport
+    const { start: colStart, end: colEnd } = this.visibleColRange;
+
+    // Determine pinned column indices that are outside the visible range (always render)
+    const pinnedIndices: number[] = [];
+    for (let i = 0; i < cols.length; i++) {
+      if (cols[i].pinned === 'left' && (i < colStart || i >= colEnd)) {
+        pinnedIndices.push(i);
+      }
+    }
+
+    // --- Header prefix cells ---
+    let prefixLeft = 0;
     const selectAllHeader = this.selectable
-      ? html`<div class="ft-checkbox-header">
+      ? html`<div class="ft-checkbox-header"
+            style="position: sticky; left: ${prefixLeft}px; width: 36px; height: ${hdrH}px; z-index: 4;">
           ${this._rowSelection.mode === 'multi' ? html`
             <input type="checkbox"
               .checked=${this._rowSelection.isAllSelected}
@@ -1580,15 +1646,29 @@ export class FlexTable extends LitElement {
           ` : ''}
         </div>`
       : '';
+    if (this.selectable) prefixLeft += 36;
+
     const rowNumHeader = this.showRowNumbers
-      ? html`<div class="ft-row-num-header">#</div>` : '';
+      ? html`<div class="ft-row-num-header"
+            style="position: sticky; left: ${prefixLeft}px; width: 48px; height: ${hdrH}px; z-index: 4;">#</div>` : '';
+
+    // --- Header cells (pinned outside range + visible range) ---
+    const headerCells = [];
+    // Render pinned columns outside visible range
+    for (const pi of pinnedIndices) {
+      headerCells.push(this._renderHeaderCell(cols[pi], pi));
+    }
+    // Render visible range
+    for (let i = colStart; i < colEnd; i++) {
+      headerCells.push(this._renderHeaderCell(cols[i], i));
+    }
 
     if (this.data.length === 0 || this._visibleRowCount === 0) {
       const msg = this.data.length === 0 ? 'No data' : 'No matching data';
       return html`
-        <div class="ft-header" role="row" style="grid-template-columns: ${gtc}">
+        <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
           ${selectAllHeader}${rowNumHeader}
-          ${cols.map((col, i) => this._renderHeaderCell(col, i))}
+          ${headerCells}
         </div>
         <div class="ft-empty">${msg}</div>
       `;
@@ -1597,18 +1677,18 @@ export class FlexTable extends LitElement {
     const { start, end } = this.visibleRange;
     const rows = [];
     for (let i = start; i < end; i++) {
-      rows.push(this._renderRow(i, cols, gtc));
+      rows.push(this._renderRow(i, colStart, colEnd, pinnedIndices));
     }
 
     return html`
-      <div class="ft-header" role="row" style="grid-template-columns: ${gtc}">
+      <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
         ${selectAllHeader}${rowNumHeader}
-        ${cols.map((col, i) => this._renderHeaderCell(col, i))}
+        ${headerCells}
       </div>
-      <div class="ft-body" style="height: ${this.totalBodyHeight}px">
+      <div class="ft-body" style="height: ${this.totalBodyHeight}px; width: ${tw}px;">
         ${rows}
       </div>
-      ${this.footerData ? this._renderFooter(cols, gtc) : ''}
+      ${this.footerData ? this._renderFooter(colStart, colEnd, pinnedIndices) : ''}
     `;
   }
 
@@ -1630,37 +1710,100 @@ export class FlexTable extends LitElement {
     this._dispatchRowSelectionEvent();
   }
 
-  private _renderFooter(cols: ColumnDefinition[], gtc: string) {
+  private _renderFooter(colStart: number, colEnd: number, pinnedIndices: number[]) {
     if (!this.footerData) return '';
+    const cols = this.visibleColumns;
+    const rowH = this.rowHeight;
+    const tw = this._totalRowWidth;
+
+    // Footer prefix cells
+    let prefixLeft = 0;
+    const checkboxFooter = this.selectable
+      ? html`<div class="ft-footer-cell ft-checkbox-cell"
+            style="position: sticky; left: ${prefixLeft}px; width: 36px; height: ${rowH}px; z-index: 2;"></div>`
+      : '';
+    if (this.selectable) prefixLeft += 36;
+
+    const rowNumFooter = this.showRowNumbers
+      ? html`<div class="ft-footer-cell ft-row-num"
+            style="position: sticky; left: ${prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2;"></div>`
+      : '';
+
+    // Footer cells (pinned outside range + visible range)
+    const footerCells = [];
+    for (const pi of pinnedIndices) {
+      const col = cols[pi];
+      const width = this._getColWidth(col);
+      footerCells.push(html`
+        <div class="ft-footer-cell ft-pinned"
+          style="position: sticky; left: ${this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;">
+          ${this.footerData![col.key] ?? ''}</div>
+      `);
+    }
+    for (let i = colStart; i < colEnd; i++) {
+      const col = cols[i];
+      const width = this._getColWidth(col);
+      const left = this._colLeftOffsets[i] ?? 0;
+      const isPinned = col.pinned === 'left';
+      const cellStyle = isPinned
+        ? `position: sticky; left: ${this._getPinnedLeft(i)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
+        : `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
+      footerCells.push(html`
+        <div class="ft-footer-cell ${isPinned ? 'ft-pinned' : ''}" style=${cellStyle}>
+          ${this.footerData![col.key] ?? ''}</div>
+      `);
+    }
+
     return html`
-      <div class="ft-footer" role="row" style="grid-template-columns: ${gtc}">
-        ${this.selectable ? html`<div class="ft-footer-cell ft-checkbox-cell"></div>` : ''}
-        ${this.showRowNumbers ? html`<div class="ft-footer-cell ft-row-num"></div>` : ''}
-        ${cols.map(col => html`
-          <div class="ft-footer-cell">${this.footerData![col.key] ?? ''}</div>
-        `)}
+      <div class="ft-footer" role="row" style="width: ${tw}px; height: ${rowH}px;">
+        ${checkboxFooter}${rowNumFooter}
+        ${footerCells}
       </div>
     `;
   }
 
-  private _renderRow(index: number, cols: ColumnDefinition[], gtc: string) {
+  private _renderRow(index: number, colStart: number, colEnd: number, pinnedIndices: number[]) {
+    const cols = this.visibleColumns;
     const dataIndex = this._toDataIndex(index);
     const row = this.data[dataIndex];
     const top = index * this.rowHeight;
+    const rowH = this.rowHeight;
+    const tw = this._totalRowWidth;
     const parity = index % 2 === 0 ? 'ft-row-even' : 'ft-row-odd';
     const isRowSelected = this.selectable && this._rowSelection.isSelected(index);
 
+    // Prefix cells with absolute positioning
+    let prefixLeft = 0;
+    const checkboxCell = this.selectable ? html`
+      <div class="ft-checkbox-cell"
+        style="position: sticky; left: ${prefixLeft}px; width: 36px; height: ${rowH}px; z-index: 2;">
+        <input type="checkbox"
+          .checked=${isRowSelected}
+          @change=${(e: Event) => this._onRowCheckboxChange(e, index)}>
+      </div>
+    ` : '';
+    if (this.selectable) prefixLeft += 36;
+
+    const rowNumCell = this.showRowNumbers ? html`
+      <div class="ft-row-num"
+        style="position: sticky; left: ${prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2;"
+        @click=${() => this._onRowNumberClick(index)}>${dataIndex + 1}</div>
+    ` : '';
+
+    // Data cells: pinned outside range + visible range
+    const cells = [];
+    for (const pi of pinnedIndices) {
+      cells.push(this._renderCell(row, cols[pi], index, pi));
+    }
+    for (let i = colStart; i < colEnd; i++) {
+      cells.push(this._renderCell(row, cols[i], index, i));
+    }
+
     return html`
-      <div class="ft-row ${parity} ${isRowSelected ? 'ft-row-selected' : ''}" role="row" style="grid-template-columns: ${gtc}; top: ${top}px; height: ${this.rowHeight}px">
-        ${this.selectable ? html`
-          <div class="ft-checkbox-cell">
-            <input type="checkbox"
-              .checked=${isRowSelected}
-              @change=${(e: Event) => this._onRowCheckboxChange(e, index)}>
-          </div>
-        ` : ''}
-        ${this.showRowNumbers ? html`<div class="ft-row-num" @click=${() => this._onRowNumberClick(index)}>${dataIndex + 1}</div>` : ''}
-        ${cols.map((col, colIndex) => this._renderCell(row, col, index, colIndex))}
+      <div class="ft-row ${parity} ${isRowSelected ? 'ft-row-selected' : ''}" role="row"
+        style="top: ${top}px; height: ${rowH}px; width: ${tw}px;">
+        ${checkboxCell}${rowNumCell}
+        ${cells}
       </div>
     `;
   }
@@ -1671,18 +1814,23 @@ export class FlexTable extends LitElement {
     const isSelected = this._selection.isInRange(rowIndex, colIndex);
     const isPinned = col.pinned === 'left';
 
-    const pinnedStyle = isPinned
-      ? `position: sticky; left: ${this._getPinnedLeft(colIndex)}px; z-index: 2;`
-      : '';
+    const width = this._getColWidth(col);
+    const rowH = this.rowHeight;
+    const left = this._colLeftOffsets[colIndex] ?? 0;
+
+    const cellStyle = isPinned
+      ? `position: sticky; left: ${this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
+      : `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
 
     const readonly = !this._isCellEditable(col);
 
     if (isEditing) {
       return html`
         <div class="ft-cell ft-editing ft-active ${isPinned ? 'ft-pinned' : ''}" role="gridcell"
+          data-col-index=${colIndex}
           aria-selected="true"
           aria-readonly=${readonly ? 'true' : nothing}
-          style=${pinnedStyle}>
+          style=${cellStyle}>
           ${this._renderEditor(row, col)}
         </div>
       `;
@@ -1700,9 +1848,10 @@ export class FlexTable extends LitElement {
     return html`
       <div class=${classes}
         role="gridcell"
+        data-col-index=${colIndex}
         aria-selected=${selected ? 'true' : 'false'}
         aria-readonly=${readonly ? 'true' : nothing}
-        style=${pinnedStyle}
+        style=${cellStyle}
         @click=${(e: MouseEvent) => this._onCellClickEvent(e, rowIndex, colIndex)}
         @dblclick=${() => this._onCellDblClick(rowIndex, colIndex)}>
         ${renderCell(row[col.key], row, col)}

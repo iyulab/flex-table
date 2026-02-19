@@ -76,14 +76,15 @@ export const flexTableStyles = css`
   }
 
   .ft-header {
-    display: grid;
+    display: block;
     position: sticky;
     top: 0;
     z-index: 2;
   }
 
   .ft-header-cell {
-    position: relative;
+    position: absolute;
+    top: 0;
     padding: 8px 12px;
     background: var(--ft-header-bg);
     color: var(--ft-header-text-color);
@@ -130,12 +131,14 @@ export const flexTableStyles = css`
   .ft-body { position: relative; }
 
   .ft-row {
-    display: grid;
+    display: block;
     position: absolute;
-    left: 0; right: 0;
+    left: 0;
   }
 
   .ft-cell {
+    position: absolute;
+    top: 0;
     padding: 6px 12px;
     border-bottom: 1px solid var(--ft-border-color);
     overflow: hidden;
@@ -199,6 +202,8 @@ export const flexTableStyles = css`
     padding: 6px 4px;
     box-sizing: border-box;
     user-select: none;
+    position: absolute;
+    top: 0;
   }
 
   .ft-row-num-header {
@@ -206,17 +211,11 @@ export const flexTableStyles = css`
     font-weight: 600;
     border-bottom: 2px solid var(--ft-border-color);
     padding: 8px 4px;
-    position: sticky;
-    left: 0;
-    z-index: 4;
   }
 
   .ft-row-num {
     border-bottom: 1px solid var(--ft-border-color);
     cursor: pointer;
-    position: sticky;
-    left: 0;
-    z-index: 2;
     background: var(--ft-row-even-bg);
   }
 
@@ -330,21 +329,17 @@ export const flexTableStyles = css`
     padding: 0 4px;
     box-sizing: border-box;
     user-select: none;
+    position: absolute;
+    top: 0;
   }
 
   .ft-checkbox-header {
     background: var(--ft-header-bg);
     border-bottom: 2px solid var(--ft-border-color);
-    position: sticky;
-    left: 0;
-    z-index: 4;
   }
 
   .ft-checkbox-cell {
     border-bottom: 1px solid var(--ft-border-color);
-    position: sticky;
-    left: 0;
-    z-index: 2;
     background: var(--ft-row-even-bg);
   }
 
@@ -365,7 +360,7 @@ export const flexTableStyles = css`
   /* --- Footer Row --- */
 
   .ft-footer {
-    display: grid;
+    display: block;
     position: sticky;
     bottom: 0;
     z-index: 2;
@@ -374,6 +369,8 @@ export const flexTableStyles = css`
   }
 
   .ft-footer-cell {
+    position: absolute;
+    top: 0;
     padding: 6px 12px;
     font-weight: 600;
     font-size: 13px;

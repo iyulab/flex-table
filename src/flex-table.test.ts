@@ -58,16 +58,19 @@ describe('FlexTable', () => {
     expect(cells[1].textContent).toContain('42');
   });
 
-  it('should apply CSS Grid template columns', async () => {
+  it('should position header cells with absolute left and width', async () => {
     const el = createElement();
     el.columns = [
       { key: 'a', header: 'A', width: 100 },
       { key: 'b', header: 'B', width: 200 },
     ];
     await el.updateComplete;
-    const header = el.shadowRoot!.querySelector('.ft-header') as HTMLElement;
-    expect(header.style.gridTemplateColumns).toContain('100px');
-    expect(header.style.gridTemplateColumns).toContain('200px');
+    const headers = el.shadowRoot!.querySelectorAll('.ft-header-cell') as NodeListOf<HTMLElement>;
+    expect(headers.length).toBe(2);
+    expect(headers[0].style.width).toBe('100px');
+    expect(headers[0].style.left).toBe('0px');
+    expect(headers[1].style.width).toBe('200px');
+    expect(headers[1].style.left).toBe('100px');
   });
 
   it('should hide columns with hidden flag', async () => {
