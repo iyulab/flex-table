@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-20
+
+### Added
+- Horizontal virtual scrolling: only columns visible in the viewport (+ 5 overscan) are rendered to DOM
+- Constant DOM footprint regardless of column count (50, 100, or more columns)
+- `data-col-index` attribute on cells for reliable column identification
+- Demo: 100-column horizontal virtual scroll test section
+
+### Changed
+- Row/cell layout changed from CSS Grid to absolute positioning for selective column rendering
+- Auto-fit resize and context menu now use `data-col-index` instead of DOM position
+- `_scrollToActiveCell` uses cached column offsets instead of manual recomputation
+
+### Fixed
+- Filter predicate error handling wraps predicates in try-catch (fail-open)
+- Data mutation reactivity: `hasChanged: () => true` on data property, public `refreshData()` method
+
+## [0.5.0] - 2026-02-19
+
+### Added
+- Row selection via checkbox (`selectable` property, `selection-mode` attribute)
+- `selectAll()`, `deselectAll()`, `getSelectedRows()` public API
+- `selection-change` event with `{ selectedIndices, selectedRows }` detail
+- Footer/summary row support (`footer-data` property)
+- Data mode: `dataMode` property (`'client'` / `'server'`)
+- Context menu event: `context-menu` with position, row data, and column info
+
 ## [0.4.0] - 2026-02-19
 
 ### Added
@@ -95,7 +122,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 16 CSS custom properties for theming
 - README with full API documentation
 
-[unreleased]: https://github.com/iyulab/flex-table/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/iyulab/flex-table/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/iyulab/flex-table/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/iyulab/flex-table/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/iyulab/flex-table/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/iyulab/flex-table/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/iyulab/flex-table/compare/v0.1.0...v0.2.0
