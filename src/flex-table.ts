@@ -688,7 +688,8 @@ export class FlexTable extends LitElement {
     const scrollLeft = this._scrollLeft;
     const viewRight = scrollLeft + this._viewportWidth;
 
-    let start = 0;
+    // Default to past-end when all columns are left of scrollLeft
+    let start = cols.length;
     for (let i = 0; i < offsets.length; i++) {
       if (offsets[i] + this._getColWidth(cols[i]) > scrollLeft) {
         start = i;
@@ -1299,16 +1300,11 @@ export class FlexTable extends LitElement {
       this.scrollTop = rowBottom - this.clientHeight;
     }
 
-    // Horizontal scroll
+    // Horizontal scroll — use cached column offsets
     const cols = this.visibleColumns;
     const colIndex = this._activeCell.col;
-    let colLeft = 0;
-    if (this.selectable) colLeft += 36;
-    if (this.showRowNumbers) colLeft += 48;
-    for (let i = 0; i < colIndex; i++) {
-      colLeft += this._columnWidths.get(cols[i].key) ?? cols[i].width ?? DEFAULT_COL_WIDTH;
-    }
-    const colWidth = this._columnWidths.get(cols[colIndex]?.key ?? '') ?? cols[colIndex]?.width ?? DEFAULT_COL_WIDTH;
+    const colLeft = this._colLeftOffsets[colIndex] ?? 0;
+    const colWidth = this._getColWidth(cols[colIndex]);
     const colRight = colLeft + colWidth;
 
     if (colLeft < this.scrollLeft) {
