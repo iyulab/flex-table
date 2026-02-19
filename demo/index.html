@@ -72,6 +72,10 @@
     <span id="undo-status"></span>
   </div>
 
+  <h2 style="margin-top: 32px;">Horizontal Virtual Scroll Test</h2>
+  <p class="info"><span id="wide-col-count"></span> columns &middot; <span id="wide-row-count"></span> rows &middot; Column 0 pinned left</p>
+  <flex-table id="wide-table" row-height="32" show-row-numbers></flex-table>
+
   <script type="module">
     import '../src/index.ts';
 
@@ -227,6 +231,30 @@
     document.getElementById('export-csv-btn').addEventListener('click', () => {
       table.exportToFile('csv', 'flex-table-export.csv');
     });
+
+    // --- 100-Column Wide Table ---
+    const wideTable = document.getElementById('wide-table');
+    const WIDE_COLS = 100;
+    const WIDE_ROWS = 1000;
+    document.getElementById('wide-col-count').textContent = WIDE_COLS;
+    document.getElementById('wide-row-count').textContent = WIDE_ROWS.toLocaleString();
+
+    wideTable.columns = Array.from({ length: WIDE_COLS }, (_, i) => ({
+      key: `col_${i}`,
+      header: `Column ${i}`,
+      width: 120,
+      pinned: i === 0 ? 'left' : undefined,
+    }));
+
+    const wideData = [];
+    for (let r = 0; r < WIDE_ROWS; r++) {
+      const row = {};
+      for (let c = 0; c < WIDE_COLS; c++) {
+        row[`col_${c}`] = `R${r}-C${c}`;
+      }
+      wideData.push(row);
+    }
+    wideTable.data = wideData;
   </script>
 </body>
 </html>
