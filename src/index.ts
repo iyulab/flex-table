@@ -1,0 +1,10 @@
+export { FlexTable } from './flex-table.js';
+export type { ColumnDefinition, ColumnType, DataRow, CellRenderer } from './models/types.js';
+export type { CellPosition, CellRange } from './core/selection.js';
+export type { SortCriteria, SortDirection } from './core/sorting.js';
+export type { ColumnFilter, FilterPredicate } from './core/filtering.js';
+export { UndoStack } from './core/undo.js';
+export type { UndoAction } from './core/undo.js';
+export type { ExportFormat } from './export/export.js';
+export { exportData } from './export/export.js';
+export { renderCell } from './renderers/cell-renderer.js';
