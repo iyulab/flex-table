@@ -29,7 +29,7 @@ export class FlexTable extends LitElement {
   @property({ type: Array })
   columns: ColumnDefinition[] = [];
 
-  @property({ type: Array })
+  @property({ type: Array, hasChanged: () => true })
   data: DataRow[] = [];
 
   @property({ type: Number, attribute: 'row-height' })
@@ -223,6 +223,14 @@ export class FlexTable extends LitElement {
    */
   get filterKeys(): string[] {
     return this._filters.map(f => f.key);
+  }
+
+  /**
+   * Explicitly request a re-render after external data mutations.
+   * Useful when `data` array contents are mutated in-place without reassignment.
+   */
+  refreshData(): void {
+    this.requestUpdate('data');
   }
 
   private _dispatchUndoStateEvent(): void {
@@ -677,7 +685,13 @@ export class FlexTable extends LitElement {
       return;
     }
 
-    this._filteredIndices = computeFilteredIndices(this.data, this._filters);
+    this._filteredIndices = computeFilteredIndices(this.data, this._filters, (error, row, filter) => {
+      this.dispatchEvent(new CustomEvent('filter-error', {
+        detail: { error, row, filterKey: filter.key },
+        bubbles: true,
+        composed: true,
+      }));
+    });
     // Build filtered data subset for sorting
     if (this._filters.length === 0 && this._sortCriteria.length === 0) {
       this._sortedIndices = Array.from({ length: this.data.length }, (_, i) => i);
