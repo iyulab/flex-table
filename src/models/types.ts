@@ -1,9 +1,10 @@
 import type { TemplateResult } from 'lit';
 
 /**
- * Supported column data types for built-in rendering and editing.
+ * Built-in column data types for rendering and editing.
+ * Any string is accepted as a type — unknown types fall back to 'text' behavior.
  */
-export type ColumnType = 'text' | 'number' | 'boolean' | 'date' | 'datetime';
+export type ColumnType = 'text' | 'number' | 'boolean' | 'date' | 'datetime' | (string & {});
 
 /**
  * Custom cell renderer function.
@@ -28,6 +29,27 @@ export type CellEditor = (
 ) => TemplateResult;
 
 /**
+ * Cell validator function. Returns null/undefined if valid, or an error message string.
+ */
+export type CellValidator = (
+  value: unknown,
+  row: DataRow,
+  col: ColumnDefinition
+) => string | null | undefined;
+
+/**
+ * Row selection mode.
+ */
+export type SelectionMode = 'single' | 'multi';
+
+/**
+ * Data processing mode.
+ * - 'client': flex-table performs sorting/filtering locally (default).
+ * - 'server': flex-table only dispatches events; consumer provides pre-sorted/filtered data.
+ */
+export type DataMode = 'client' | 'server';
+
+/**
  * Definition of a single column in the table.
  */
 export interface ColumnDefinition {
@@ -35,7 +57,7 @@ export interface ColumnDefinition {
   key: string;
   /** Display header text */
   header: string;
-  /** Data type for rendering/editing (default: 'text') */
+  /** Data type for rendering/editing (default: 'text'). Unknown types fall back to 'text'. */
   type?: ColumnType;
   /** Column width in pixels (default: auto) */
   width?: number;
@@ -53,6 +75,8 @@ export interface ColumnDefinition {
   editor?: CellEditor;
   /** Pin the column to one side during horizontal scroll */
   pinned?: 'left';
+  /** Cell validator — called before committing edits */
+  validator?: CellValidator;
 }
 
 /**

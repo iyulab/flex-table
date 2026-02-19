@@ -1,8 +1,9 @@
 export { FlexTable } from './flex-table.js';
-export type { ColumnDefinition, ColumnType, DataRow, CellRenderer, CellEditor } from './models/types.js';
+export type { ColumnDefinition, ColumnType, DataRow, CellRenderer, CellEditor, CellValidator, SelectionMode, DataMode } from './models/types.js';
 export type { CellPosition, CellRange } from './core/selection.js';
 export type { SortCriteria, SortDirection } from './core/sorting.js';
 export type { ColumnFilter, FilterPredicate } from './core/filtering.js';
+export { RowSelectionState } from './core/row-selection.js';
 export { UndoStack } from './core/undo.js';
 export type { UndoAction } from './core/undo.js';
 export type { ExportFormat } from './export/export.js';

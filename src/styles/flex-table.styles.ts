@@ -319,4 +319,68 @@ export const flexTableStyles = css`
     background: var(--ft-header-hover-bg);
     color: var(--ft-text-color);
   }
+
+  /* --- Row Selection (Checkbox) --- */
+
+  .ft-checkbox-header,
+  .ft-checkbox-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+  .ft-checkbox-header {
+    background: var(--ft-header-bg);
+    border-bottom: 2px solid var(--ft-border-color);
+    position: sticky;
+    left: 0;
+    z-index: 4;
+  }
+
+  .ft-checkbox-cell {
+    border-bottom: 1px solid var(--ft-border-color);
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--ft-row-even-bg);
+  }
+
+  .ft-row-odd .ft-checkbox-cell { background: var(--ft-row-odd-bg); }
+  .ft-row:hover .ft-checkbox-cell { background: var(--ft-row-hover-bg); }
+  .ft-row-selected .ft-checkbox-cell { background: var(--ft-selection-bg); }
+  .ft-row-selected .ft-cell { background: var(--ft-selection-bg) !important; }
+  .ft-row-selected .ft-row-num { background: var(--ft-selection-bg); }
+
+  .ft-checkbox-header input[type="checkbox"],
+  .ft-checkbox-cell input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--ft-active-color);
+  }
+
+  /* --- Footer Row --- */
+
+  .ft-footer {
+    display: grid;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--ft-header-bg);
+    border-top: 2px solid var(--ft-border-color);
+  }
+
+  .ft-footer-cell {
+    padding: 6px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ft-header-text-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
 `;

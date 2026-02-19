@@ -4,6 +4,7 @@ import { flexTableStyles } from './styles/flex-table.styles.js';
 import { renderCell } from './renderers/cell-renderer.js';
 import { SelectionState } from './core/selection.js';
 import { EditingState } from './core/editing.js';
+import { RowSelectionState } from './core/row-selection.js';
 import { computeSortedIndices, toggleSort } from './core/sorting.js';
 import { computeFilteredIndices } from './core/filtering.js';
 import { UndoStack } from './core/undo.js';
@@ -13,7 +14,8 @@ import type { ExportFormat } from './export/export.js';
 import type { CellPosition } from './core/selection.js';
 import type { SortCriteria } from './core/sorting.js';
 import type { ColumnFilter, FilterPredicate } from './core/filtering.js';
-import type { ColumnDefinition, DataRow } from './models/types.js';
+import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './models/types.js';
+import type { TemplateResult } from 'lit';
 
 const DEFAULT_COL_WIDTH = 120;
 const MIN_COL_WIDTH = 40;
@@ -48,6 +50,28 @@ export class FlexTable extends LitElement {
   @property({ type: Boolean, attribute: 'show-filters' })
   showFilters: boolean = false;
 
+  /** Enable row-level checkbox selection. */
+  @property({ type: Boolean })
+  selectable: boolean = false;
+
+  /** Row selection mode: 'single' or 'multi' (default: 'multi'). */
+  @property({ type: String, attribute: 'selection-mode' })
+  set selectionMode(value: SelectionMode) {
+    this._rowSelection.mode = value;
+    this.requestUpdate();
+  }
+  get selectionMode(): SelectionMode {
+    return this._rowSelection.mode;
+  }
+
+  /** Data processing mode: 'client' (default) or 'server'. */
+  @property({ type: String, attribute: 'data-mode' })
+  dataMode: DataMode = 'client';
+
+  /** Footer/summary row data. Keys match column keys; values are display strings. */
+  @property({ type: Object, attribute: 'footer-data' })
+  footerData: Record<string, string | TemplateResult> | null = null;
+
   @property({ type: Number, attribute: 'max-undo-size' })
   set maxUndoSize(value: number) {
     this._undo.maxSize = value;
@@ -73,12 +97,16 @@ export class FlexTable extends LitElement {
 
   private _selection = new SelectionState();
   private _editing = new EditingState();
+  private _rowSelection = new RowSelectionState();
   private _undo = new UndoStack();
   private _filters: ColumnFilter[] = [];
   private _filteredIndices: number[] = [];
   private _sortedIndices: number[] = [];
   @state()
   private _openFilterKey: string | null = null;
+
+  @state()
+  private _rowSelectionVersion = 0;
 
   private _resizing: { colIndex: number; startX: number; startWidth: number } | null = null;
   private _resizeCleanup: (() => void) | null = null;
@@ -113,6 +141,44 @@ export class FlexTable extends LitElement {
   /** Number of rows after filtering (before pagination). */
   get filteredRowCount(): number {
     return this._filteredIndices.length;
+  }
+
+  // --- Public API: Row Selection ---
+
+  /** Get data indices of currently selected rows. */
+  getSelectedRows(): { selectedIndices: number[]; selectedRows: DataRow[] } {
+    const indices = this._rowSelection.selectedIndices
+      .map(vi => this._toDataIndex(vi))
+      .filter(i => i >= 0 && i < this.data.length);
+    return {
+      selectedIndices: indices,
+      selectedRows: indices.map(i => this.data[i]),
+    };
+  }
+
+  /** Select all visible rows (multi mode only). */
+  selectAll(): void {
+    if (!this.selectable) return;
+    this._rowSelection.selectAll();
+    this._rowSelectionVersion++;
+    this._dispatchRowSelectionEvent();
+  }
+
+  /** Deselect all rows. */
+  deselectAll(): void {
+    if (!this.selectable) return;
+    this._rowSelection.deselectAll();
+    this._rowSelectionVersion++;
+    this._dispatchRowSelectionEvent();
+  }
+
+  private _dispatchRowSelectionEvent(): void {
+    const { selectedIndices, selectedRows } = this.getSelectedRows();
+    this.dispatchEvent(new CustomEvent('selection-change', {
+      detail: { selectedIndices, selectedRows },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   // --- Public API: Filtering ---
@@ -526,7 +592,10 @@ export class FlexTable extends LitElement {
         return `minmax(${min}px, ${w}px)`;
       })
       .join(' ');
-    return this.showRowNumbers ? `48px ${cols}` : cols;
+    let prefix = '';
+    if (this.selectable) prefix += '36px ';
+    if (this.showRowNumbers) prefix += '48px ';
+    return `${prefix}${cols}`;
   }
 
   private get headerHeight(): number {
@@ -555,8 +624,10 @@ export class FlexTable extends LitElement {
     this._onScroll = this._onScroll.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onDocumentClick = this._onDocumentClick.bind(this);
+    this._onContextMenu = this._onContextMenu.bind(this);
     this.addEventListener('scroll', this._onScroll, { passive: true });
     this.addEventListener('keydown', this._onKeyDown);
+    this.addEventListener('contextmenu', this._onContextMenu);
 
     if (!this.hasAttribute('tabindex')) {
       this.setAttribute('tabindex', '0');
@@ -568,6 +639,7 @@ export class FlexTable extends LitElement {
     super.disconnectedCallback();
     this.removeEventListener('scroll', this._onScroll);
     this.removeEventListener('keydown', this._onKeyDown);
+    this.removeEventListener('contextmenu', this._onContextMenu);
     document.removeEventListener('click', this._onDocumentClick);
     // Clean up any in-progress resize listeners
     if (this._resizeCleanup) {
@@ -585,6 +657,7 @@ export class FlexTable extends LitElement {
     // which doesn't trigger Lit's change detection
     this._recomputeView();
     this._selection.setDimensions(this._visibleRowCount, this.visibleColumns.length);
+    this._rowSelection.setRowCount(this._visibleRowCount);
   }
 
   protected updated(): void {
@@ -597,6 +670,13 @@ export class FlexTable extends LitElement {
 
   /** Recompute filter → sort pipeline. */
   private _recomputeView(): void {
+    // Server mode: data is already sorted/filtered by the consumer
+    if (this.dataMode === 'server') {
+      this._filteredIndices = Array.from({ length: this.data.length }, (_, i) => i);
+      this._sortedIndices = this._filteredIndices;
+      return;
+    }
+
     this._filteredIndices = computeFilteredIndices(this.data, this._filters);
     // Build filtered data subset for sorting
     if (this._filters.length === 0 && this._sortCriteria.length === 0) {
@@ -643,6 +723,46 @@ export class FlexTable extends LitElement {
     if (this._openFilterKey) {
       this._openFilterKey = null;
     }
+  }
+
+  private _onContextMenu(e: MouseEvent): void {
+    // Find the cell element from the event path
+    const path = e.composedPath();
+    const cellEl = path.find(
+      (el) => el instanceof HTMLElement && el.classList.contains('ft-cell')
+    ) as HTMLElement | undefined;
+    if (!cellEl) return;
+
+    // Find row and col from data attributes or position
+    const rowEl = cellEl.parentElement;
+    if (!rowEl || !rowEl.classList.contains('ft-row')) return;
+
+    // Calculate row/col indices from DOM position
+    const cells = Array.from(rowEl.querySelectorAll('.ft-cell'));
+    const colIndex = cells.indexOf(cellEl);
+    const rowAttr = rowEl.style.top;
+    const top = parseInt(rowAttr, 10);
+    const rowIndex = Math.round(top / this.rowHeight);
+
+    if (colIndex < 0 || rowIndex < 0) return;
+
+    const dataIndex = this._toDataIndex(rowIndex);
+    const col = this.visibleColumns[colIndex];
+    if (!col) return;
+
+    this.dispatchEvent(new CustomEvent('context-menu', {
+      detail: {
+        x: e.clientX,
+        y: e.clientY,
+        row: dataIndex,
+        col: colIndex,
+        key: col.key,
+        value: this.data[dataIndex]?.[col.key],
+        rowData: this.data[dataIndex],
+      },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   private _onCellClickEvent(e: MouseEvent, rowIndex: number, colIndex: number): void {
@@ -737,6 +857,19 @@ export class FlexTable extends LitElement {
     const dataRow = this._toDataIndex(row);
     const colDef = this.visibleColumns[col];
     const oldValue = editState.originalValue;
+
+    // Run validator if present
+    if (colDef.validator) {
+      const error = colDef.validator(newValue, this.data[dataRow], colDef);
+      if (error) {
+        this.dispatchEvent(new CustomEvent('validation-error', {
+          detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
+          bubbles: true,
+          composed: true,
+        }));
+        return;
+      }
+    }
 
     // Mutate data
     this.data[dataRow][colDef.key] = newValue;
@@ -1106,7 +1239,9 @@ export class FlexTable extends LitElement {
     // Horizontal scroll
     const cols = this.visibleColumns;
     const colIndex = this._activeCell.col;
-    let colLeft = this.showRowNumbers ? 48 : 0;
+    let colLeft = 0;
+    if (this.selectable) colLeft += 36;
+    if (this.showRowNumbers) colLeft += 48;
     for (let i = 0; i < colIndex; i++) {
       colLeft += this._columnWidths.get(cols[i].key) ?? cols[i].width ?? DEFAULT_COL_WIDTH;
     }
@@ -1133,7 +1268,11 @@ export class FlexTable extends LitElement {
   private _onHeaderClick(e: MouseEvent, col: ColumnDefinition): void {
     if (col.sortable === false) return;
     this._sortCriteria = toggleSort(this._sortCriteria, col.key, e.shiftKey);
-    this._recomputeView();
+
+    // In server mode, only dispatch the event — don't recompute locally
+    if (this.dataMode !== 'server') {
+      this._recomputeView();
+    }
     this.requestUpdate();
 
     this.dispatchEvent(new CustomEvent('sort-change', {
@@ -1146,7 +1285,9 @@ export class FlexTable extends LitElement {
   /** Calculate cumulative left offset for a pinned column */
   private _getPinnedLeft(colIndex: number): number {
     const cols = this.visibleColumns;
-    let left = this.showRowNumbers ? 48 : 0;
+    let left = 0;
+    if (this.selectable) left += 36;
+    if (this.showRowNumbers) left += 48;
     for (let i = 0; i < colIndex; i++) {
       if (cols[i].pinned === 'left') {
         left += this._columnWidths.get(cols[i].key) ?? cols[i].width ?? DEFAULT_COL_WIDTH;
@@ -1414,6 +1555,17 @@ export class FlexTable extends LitElement {
 
     const gtc = this.gridTemplateColumns;
 
+    // Header prefix cells
+    const selectAllHeader = this.selectable
+      ? html`<div class="ft-checkbox-header">
+          ${this._rowSelection.mode === 'multi' ? html`
+            <input type="checkbox"
+              .checked=${this._rowSelection.isAllSelected}
+              .indeterminate=${this._rowSelection.isSomeSelected}
+              @change=${this._onSelectAllChange}>
+          ` : ''}
+        </div>`
+      : '';
     const rowNumHeader = this.showRowNumbers
       ? html`<div class="ft-row-num-header">#</div>` : '';
 
@@ -1421,7 +1573,7 @@ export class FlexTable extends LitElement {
       const msg = this.data.length === 0 ? 'No data' : 'No matching data';
       return html`
         <div class="ft-header" role="row" style="grid-template-columns: ${gtc}">
-          ${rowNumHeader}
+          ${selectAllHeader}${rowNumHeader}
           ${cols.map((col, i) => this._renderHeaderCell(col, i))}
         </div>
         <div class="ft-empty">${msg}</div>
@@ -1436,11 +1588,43 @@ export class FlexTable extends LitElement {
 
     return html`
       <div class="ft-header" role="row" style="grid-template-columns: ${gtc}">
-        ${rowNumHeader}
+        ${selectAllHeader}${rowNumHeader}
         ${cols.map((col, i) => this._renderHeaderCell(col, i))}
       </div>
       <div class="ft-body" style="height: ${this.totalBodyHeight}px">
         ${rows}
+      </div>
+      ${this.footerData ? this._renderFooter(cols, gtc) : ''}
+    `;
+  }
+
+  private _onSelectAllChange(e: Event): void {
+    const checked = (e.target as HTMLInputElement).checked;
+    if (checked) {
+      this._rowSelection.selectAll();
+    } else {
+      this._rowSelection.deselectAll();
+    }
+    this._rowSelectionVersion++;
+    this._dispatchRowSelectionEvent();
+  }
+
+  private _onRowCheckboxChange(e: Event, rowIndex: number): void {
+    e.stopPropagation();
+    this._rowSelection.toggle(rowIndex);
+    this._rowSelectionVersion++;
+    this._dispatchRowSelectionEvent();
+  }
+
+  private _renderFooter(cols: ColumnDefinition[], gtc: string) {
+    if (!this.footerData) return '';
+    return html`
+      <div class="ft-footer" role="row" style="grid-template-columns: ${gtc}">
+        ${this.selectable ? html`<div class="ft-footer-cell ft-checkbox-cell"></div>` : ''}
+        ${this.showRowNumbers ? html`<div class="ft-footer-cell ft-row-num"></div>` : ''}
+        ${cols.map(col => html`
+          <div class="ft-footer-cell">${this.footerData![col.key] ?? ''}</div>
+        `)}
       </div>
     `;
   }
@@ -1450,9 +1634,17 @@ export class FlexTable extends LitElement {
     const row = this.data[dataIndex];
     const top = index * this.rowHeight;
     const parity = index % 2 === 0 ? 'ft-row-even' : 'ft-row-odd';
+    const isRowSelected = this.selectable && this._rowSelection.isSelected(index);
 
     return html`
-      <div class="ft-row ${parity}" role="row" style="grid-template-columns: ${gtc}; top: ${top}px; height: ${this.rowHeight}px">
+      <div class="ft-row ${parity} ${isRowSelected ? 'ft-row-selected' : ''}" role="row" style="grid-template-columns: ${gtc}; top: ${top}px; height: ${this.rowHeight}px">
+        ${this.selectable ? html`
+          <div class="ft-checkbox-cell">
+            <input type="checkbox"
+              .checked=${isRowSelected}
+              @change=${(e: Event) => this._onRowCheckboxChange(e, index)}>
+          </div>
+        ` : ''}
         ${this.showRowNumbers ? html`<div class="ft-row-num" @click=${() => this._onRowNumberClick(index)}>${dataIndex + 1}</div>` : ''}
         ${cols.map((col, colIndex) => this._renderCell(row, col, index, colIndex))}
       </div>
