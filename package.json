@@ -1,6 +1,6 @@
 {
   "name": "@iyulab/flex-table",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "A minimalist, input-centric data grid web component",
   "type": "module",
   "main": "./dist/flex-table.js",
@@ -18,8 +18,10 @@
   "scripts": {
     "dev": "vite serve demo",
     "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "web-component",
@@ -29,9 +31,14 @@
     "spreadsheet"
   ],
   "license": "MIT",
+  "author": "iyulab",
+  "homepage": "https://github.com/iyulab/flex-table#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/iyulab/flex-table.git"
+  },
+  "bugs": {
+    "url": "https://github.com/iyulab/flex-table/issues"
   },
   "dependencies": {
     "lit": "^3.2.0"

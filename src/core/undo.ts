@@ -10,7 +10,7 @@ export interface UndoAction {
   redo: () => void;
 }
 
-const MAX_UNDO_STACK = 100;
+const DEFAULT_MAX_UNDO = 100;
 
 /**
  * Manages undo/redo history.
@@ -18,6 +18,20 @@ const MAX_UNDO_STACK = 100;
 export class UndoStack {
   private _undoStack: UndoAction[] = [];
   private _redoStack: UndoAction[] = [];
+  private _maxSize: number = DEFAULT_MAX_UNDO;
+
+  /** Get/set the maximum number of undo actions stored. */
+  get maxSize(): number {
+    return this._maxSize;
+  }
+
+  set maxSize(value: number) {
+    this._maxSize = Math.max(1, value);
+    // Trim existing stack if needed
+    while (this._undoStack.length > this._maxSize) {
+      this._undoStack.shift();
+    }
+  }
 
   get canUndo(): boolean {
     return this._undoStack.length > 0;
@@ -41,7 +55,7 @@ export class UndoStack {
    */
   push(action: UndoAction): void {
     this._undoStack.push(action);
-    if (this._undoStack.length > MAX_UNDO_STACK) {
+    if (this._undoStack.length > this._maxSize) {
       this._undoStack.shift();
     }
     this._redoStack.length = 0;

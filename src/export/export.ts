@@ -20,6 +20,14 @@ export function exportData(
   }
 }
 
+function formatValueForExport(value: unknown, col: ColumnDefinition): string {
+  if (value == null) return '';
+  if ((col.type === 'date' || col.type === 'datetime') && value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value);
+}
+
 function exportDelimited(
   data: DataRow[],
   columns: ColumnDefinition[],
@@ -28,9 +36,8 @@ function exportDelimited(
   const header = columns.map(col => escapeDelimited(col.header, delimiter)).join(delimiter);
   const rows = data.map(row =>
     columns.map(col => {
-      const value = row[col.key];
-      if (value == null) return '';
-      return escapeDelimited(String(value), delimiter);
+      const formatted = formatValueForExport(row[col.key], col);
+      return escapeDelimited(formatted, delimiter);
     }).join(delimiter)
   );
   return [header, ...rows].join('\n');
@@ -45,11 +52,15 @@ function escapeDelimited(value: string, delimiter: string): string {
 }
 
 function exportJson(data: DataRow[], columns: ColumnDefinition[]): string {
-  const keys = columns.map(col => col.key);
   const filtered = data.map(row => {
     const obj: DataRow = {};
-    for (const key of keys) {
-      obj[key] = row[key] ?? null;
+    for (const col of columns) {
+      const value = row[col.key];
+      if ((col.type === 'date' || col.type === 'datetime') && value instanceof Date) {
+        obj[col.key] = value.toISOString();
+      } else {
+        obj[col.key] = value ?? null;
+      }
     }
     return obj;
   });

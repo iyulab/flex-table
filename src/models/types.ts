@@ -17,6 +17,17 @@ export type CellRenderer = (
 ) => TemplateResult | string;
 
 /**
+ * Custom cell editor function.
+ * Receives the cell value, the full row data, and the column definition.
+ * Should return a Lit TemplateResult containing an input element with class "ft-editor".
+ */
+export type CellEditor = (
+  value: unknown,
+  row: DataRow,
+  col: ColumnDefinition
+) => TemplateResult;
+
+/**
  * Definition of a single column in the table.
  */
 export interface ColumnDefinition {
@@ -36,6 +47,12 @@ export interface ColumnDefinition {
   sortable?: boolean;
   /** Custom cell renderer — overrides built-in type rendering */
   renderer?: CellRenderer;
+  /** Whether the column is editable (default: true — follows global editable setting) */
+  editable?: boolean;
+  /** Custom cell editor — overrides built-in type editing */
+  editor?: CellEditor;
+  /** Pin the column to one side during horizontal scroll */
+  pinned?: 'left';
 }
 
 /**

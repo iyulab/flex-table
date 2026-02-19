@@ -1,138 +1,178 @@
 # Roadmap
 
-flex-table 개발 로드맵. 각 Phase는 이전 Phase 완료를 전제로 한다.
+> Last updated: 2026-02-19
+> Current version: **v0.4.0** (162 tests, 56.80 KB / 13.09 KB gzip)
+
+flex-table 개발 로드맵. 완료된 기능과 향후 계획을 추적한다.
 
 ---
 
-## Phase 0: Project Bootstrap
+## Completed Releases
 
-프로젝트 스켈레톤 세팅. 이 Phase 완료 후 `npm run dev`로 빈 테이블이 렌더링되어야 한다.
+<details>
+<summary><strong>v0.1.0 — Foundation</strong> (20 cycles, 102 tests, 39.77 KB)</summary>
 
-- [ ] npm 프로젝트 초기화 (`package.json`, `tsconfig.json`)
-- [ ] Lit 3, Vite, TypeScript 의존성 설치 및 설정
-- [ ] Vite config: library mode 빌드 + demo dev server
-- [ ] `src/flex-table.ts` — 빈 `<flex-table>` 컴포넌트 등록
-- [ ] `demo/index.html` — 기본 데모 페이지
-- [ ] Vitest + @open-wc/testing 설정, 첫 번째 스모크 테스트
-- [ ] `.gitignore` 정리, `CLAUDE.md` 최종 반영
+CSS Grid 렌더링, 가상 스크롤(10K+), 셀 편집, 클립보드(TSV), 다중 정렬,
+필터 API, Undo/Redo, 컬럼 리사이즈, 테마(Dark/Light), Export(CSV/TSV/JSON), ARIA 기본.
+→ [CHANGELOG v0.1.0](CHANGELOG.md#010---2026-02-19)
 
----
+</details>
 
-## Phase 1: Table Rendering
+<details>
+<summary><strong>v0.2.0 — Stability & Editing UX</strong> (10 cycles, 122 tests, 44.51 KB)</summary>
 
-데이터를 화면에 보여주는 것. 편집 없이 "보기"에 집중한다.
+버그 4건 수정, `editable` 속성, undo API(`canUndo`/`canRedo`), `cell-edit-start` 이벤트,
+커스텀 에디터(`editor` 콜백), RFC 4180 클립보드 파서, 수평 스크롤 추적, 컬럼 auto-fit.
+→ [CHANGELOG v0.2.0](CHANGELOG.md#020---2026-02-19)
 
-- [ ] **Column Model** 설계: `ColumnDefinition` 인터페이스 (`key`, `header`, `type`, `width`, `hidden`, `sortable`, `renderer`)
-- [ ] **Data Model** 설계: `Record<string, unknown>[]` 기반, schema-agnostic
-- [ ] **기본 테이블 렌더링**: 헤더 행 + 데이터 행, CSS Grid 또는 table 레이아웃
-- [ ] **컬럼 타입별 기본 렌더러**: text, number, boolean, date, datetime — 포맷팅 로직 포함
-- [ ] **커스텀 렌더러**: `renderer` 콜백으로 사용자 정의 셀 렌더링 지원
-- [ ] **가상 스크롤**: 10,000행 이상 부드러운 스크롤 (고정 행 높이 기준)
-- [ ] **컬럼 리사이즈**: 드래그로 컬럼 너비 조정
-- [ ] **행 번호 컬럼**: 선택적 행 번호 표시
-- [ ] demo: 1,000행 샘플 데이터 렌더링 확인
+</details>
 
----
+<details>
+<summary><strong>v0.3.0 — Column Operations & Filter UI</strong> (10 cycles, 157 tests, 56.38 KB)</summary>
 
-## Phase 2: Selection & Navigation
+컬럼 CRUD(`addColumn`/`deleteColumn`/`moveColumn`), 핀 컬럼(`pinned: 'left'`),
+내장 필터 UI(text/number/boolean), batch update(`updateRows`),
+선택 범위 내보내기(`selectionOnly`), undo 스택 크기 설정(`maxUndoSize`).
+→ [CHANGELOG v0.3.0](CHANGELOG.md#030---2026-02-19)
 
-키보드 중심의 셀 탐색 경험. 이 Phase 완료 후 마우스 없이 테이블 전체를 탐색할 수 있어야 한다.
+</details>
 
-- [ ] **셀 포커스**: 클릭으로 셀 선택, 활성 셀 시각적 강조
-- [ ] **키보드 네비게이션**: Arrow, Tab, Shift+Tab, Home, End, Ctrl+Home, Ctrl+End
-- [ ] **범위 선택**: Shift+Arrow, Shift+Click으로 다중 셀 범위 선택
-- [ ] **행 선택**: 행 번호 클릭으로 전체 행 선택, Shift+클릭으로 범위 행 선택
-- [ ] **컬럼 선택**: 헤더 클릭으로 전체 컬럼 선택
-- [ ] **선택 시각화**: 선택 범위 파란색 하이라이트, 활성 셀 테두리
+<details>
+<summary><strong>v0.4.0 — Documentation & Accessibility</strong> (10 cycles, 162 tests, 56.76 KB)</summary>
+
+README 전면 재작성(Properties/Methods/Events/Usage Guide), `aria-selected`,
+`aria-readonly`, filter button `aria-label`/`aria-expanded`, editor focus outline.
+→ [CHANGELOG v0.4.0](CHANGELOG.md#040---2026-02-19)
+
+</details>
 
 ---
 
-## Phase 3: Inline Editing
+## Known Defects & Limitations
 
-셀 단위 즉시 편집. Enter로 편집 모드 진입, Escape로 취소.
+코드 감사에서 식별된 결함과 한계. 각 항목은 해당 Phase에서 해결한다.
 
-- [ ] **편집 모드 진입/종료**: Enter/F2로 진입, Escape으로 취소, Tab/Enter로 확정 후 이동
-- [ ] **타입별 에디터**: text input, number input, checkbox (boolean), date picker, select (enum)
-- [ ] **커스텀 에디터**: `editor` 콜백으로 사용자 정의 편집기 지원
-- [ ] **유효성 표시**: 잘못된 입력 시 셀 테두리 빨간색 표시
-- [ ] **이벤트 발행**: `cell-edit-start`, `cell-edit-commit`, `cell-edit-cancel` CustomEvent
-- [ ] **빈 행 자동 추가**: 마지막 행에서 Tab/Enter 시 새 행 자동 생성 (선택적)
-
----
-
-## Phase 4: Clipboard
-
-스프레드시트와 자유롭게 데이터를 주고받는 것. 이것이 flex-table의 킬러 기능.
-
-- [ ] **Copy** (Ctrl+C): 선택된 셀 범위를 TSV 형식으로 클립보드에 복사
-- [ ] **Paste** (Ctrl+V): TSV/CSV 데이터 붙여넣기, 필요 시 행/컬럼 자동 확장
-- [ ] **Cut** (Ctrl+X): 선택 범위 잘라내기
-- [ ] **Delete/Backspace**: 선택 범위 값 삭제
-- [ ] **Excel/Google Sheets 호환**: 실제 스프레드시트에서 복사한 데이터로 테스트
-- [ ] **붙여넣기 미리보기**: 대량 붙여넣기 전 확인 다이얼로그 (선택적)
-- [ ] 이벤트: `clipboard-paste`, `clipboard-copy` CustomEvent
+| ID | Severity | Description | Phase | Workaround |
+|----|----------|-------------|-------|------------|
+| BUG-01 | **Medium** | 직접 `data[i].x = y` 변경 시 UI 미갱신 (Lit 반응형 미추적) | Documented | `requestUpdate()` 또는 `updateRows()` — README에 명시 |
+| BUG-02 | **Low** | `deleteColumn` 시 data 객체의 해당 키 값은 유지됨 | — | 데이터 정리는 소비자 책임 |
+| LIM-01 | **Medium** | jsdom에서 sticky/scroll 동작 검증 불가 | v0.5.0 | Playwright E2E로 해결 |
+| LIM-02 | **Low** | 필터 predicate 예외 시 그리드 중단 | v0.6.0 | predicate 내 try/catch |
+| LIM-03 | **Low** | clipboard paste는 TSV만 지원 (CSV 미보장) | — | Excel/Sheets 기본 TSV 사용 |
+| LIM-04 | **Low** | date/datetime 필터 UI 미구현 (text 폴백) | v0.6.0 | 외부 필터 API 사용 |
+| LIM-05 | **Low** | 필터 드롭다운이 테이블 경계 밖 렌더링 가능 | v0.6.0 | — |
 
 ---
 
-## Phase 5: Sorting & Filtering
+## Phase 5: Code Quality & Infrastructure — v0.5.0
 
-데이터를 원하는 시각으로 볼 수 있는 기능.
+> **목표**: 코드 품질 자동화, 테스트 인프라 강화, 리팩토링.
+> **근거**: ESLint/CI 미설정. `_onKeyDown` 125줄, `_handlePaste` 85줄. 테스트 77개가 단일 describe 블록.
 
-- [ ] **컬럼 정렬**: 헤더 클릭으로 asc/desc/none 순환
-- [ ] **다중 컬럼 정렬**: Shift+클릭으로 보조 정렬 추가
-- [ ] **정렬 표시**: 헤더에 화살표 아이콘 + 정렬 순서 번호
-- [ ] **필터 UI**: 컬럼 헤더 드롭다운 필터 (text: contains/equals, number: >, <, =, date: range)
-- [ ] **활성 필터 표시**: 필터가 적용된 컬럼 헤더 시각적 구분
-- [ ] 이벤트: `sort-change`, `filter-change` CustomEvent (외부 서버사이드 정렬/필터 지원)
+### 5.1 Tooling & CI
 
----
+| ID | Task | Priority | Description |
+|----|------|----------|-------------|
+| T-01 | ESLint 설정 | **High** | `@typescript-eslint` + `eslint-plugin-lit` |
+| T-02 | CI/CD | **High** | GitHub Actions — test, typecheck, build (PR 자동 검증) |
+| T-03 | Playwright E2E 기초 | **Medium** | sticky column, scroll, resize 브라우저 통합 테스트 (LIM-01 해결) |
 
-## Phase 6: Row Operations
+### 5.2 Refactoring
 
-행 단위 CRUD.
-
-- [ ] **행 추가**: API + 키보드 단축키 (Ctrl+Enter 또는 설정 가능)
-- [ ] **행 삭제**: 선택된 행 삭제, 확인 없이 즉시 (undo로 복구)
-- [ ] **다중 행 삭제**: 범위 선택 후 일괄 삭제
-- [ ] **행 드래그 정렬**: 드래그 앤 드롭으로 행 순서 변경 (선택적)
-- [ ] **Undo/Redo**: Ctrl+Z / Ctrl+Shift+Z, 편집 히스토리 스택
-- [ ] 이벤트: `row-add`, `row-delete`, `rows-reorder` CustomEvent
-
----
-
-## Phase 7: Column Operations
-
-동적 스키마 지원.
-
-- [ ] **컬럼 추가**: API를 통한 런타임 컬럼 추가
-- [ ] **컬럼 삭제**: API를 통한 컬럼 제거
-- [ ] **컬럼 숨기기/표시**: 특정 컬럼 토글
-- [ ] **컬럼 순서 변경**: 드래그 앤 드롭으로 컬럼 재배치
-- [ ] **컬럼 고정 (Freeze)**: 좌측 컬럼 고정, 수평 스크롤 시 유지
-- [ ] 이벤트: `column-add`, `column-delete`, `column-reorder`, `column-resize` CustomEvent
+| ID | Task | Priority | Description |
+|----|------|----------|-------------|
+| R-01 | `_onKeyDown` 분리 | **Medium** | 125줄 → navigation / editing / clipboard 핸들러 추출 |
+| R-02 | `_handlePaste` 분리 | **Medium** | 85줄 → 검증 / 변환 / 적용 단계 추출 |
+| R-03 | 테스트 스위트 구조화 | **Medium** | 77개 통합 테스트를 `describe` 블록별 분리 (API, events, keyboard, editing) |
+| R-04 | 누락 API 테스트 추가 | **Medium** | `exportToFile`, `getColumnWidth`, property getters (`activeCell` 등) |
+| R-05 | JSDoc 보완 | **Low** | `activeCell`, `editingCell`, `sortCriteria`, `filterKeys` getter 문서화 |
+| R-06 | `minWidth` 처리 | **Low** | 렌더링에서 `min-width` 적용하거나 types에서 제거 |
 
 ---
 
-## Phase 8: Theming & Accessibility
+## Phase 6: Filter & UX Polish — v0.6.0
 
-범용 컴포넌트로서 필수적인 마무리.
+> **목표**: 필터 시스템 완성, 입력 경험 개선.
+> **근거**: date/datetime 필터 미구현, 드롭다운 오버플로, 키보드 리사이즈 미지원.
 
-- [ ] **CSS Custom Properties**: 색상, 폰트, 간격, 테두리 등 전체 테마 변수
-- [ ] **Dark/Light 테마**: 기본 제공 테마 2종
-- [ ] **ARIA 속성**: `role="grid"`, `role="row"`, `role="gridcell"`, `aria-selected`, `aria-sort`
-- [ ] **스크린 리더 지원**: 셀 탐색 시 적절한 안내
-- [ ] **고대비 모드**: 접근성 고대비 테마
+| ID | Task | Priority | Description |
+|----|------|----------|-------------|
+| F-01 | Date/datetime 필터 UI | **High** | date range 입력 구현 (현재 text 폴백, LIM-04 해결) |
+| F-02 | 필터 드롭다운 위치 보정 | **Medium** | boundary detection으로 오버플로 방지 (LIM-05 해결) |
+| F-03 | Number 필터 양방향 동기화 | **Medium** | `setFilter()` API 호출 시 UI 상태 반영, 역방향 연동 |
+| F-04 | 키보드 컬럼 리사이즈 | **Medium** | 포커스 컬럼에서 단축키로 너비 조정 |
+| F-05 | 필터 predicate 오류 방어 | **Low** | 사용자 predicate 예외 시 graceful 처리 (LIM-02 해결) |
+| N-03 | 컬럼 선택 | **Low** | 헤더 클릭으로 전체 컬럼 선택 |
+| V-01 | 유효성 시각 피드백 | **Low** | 잘못된 입력 시 셀 테두리 빨간색 표시 |
 
 ---
 
-## Phase 9: Export & Integration
+## Phase 7: Performance & Advanced Features — v0.7.0
 
-외부 시스템과의 데이터 교환.
+> **목표**: 대규모 데이터 최적화, 고급 기능.
+> **근거**: MorphDB 연동 시 100K+ 행, 50+ 컬럼 시나리오 대비 필요.
 
-- [ ] **Export API**: `export('csv')`, `export('json')`, `export('tsv')`
-- [ ] **React Wrapper**: `@lit/react`를 사용한 React 컴포넌트 래퍼 패키지
-- [ ] **API 문서**: 모든 속성, 이벤트, 메서드의 JSDoc + 사용 예제
-- [ ] **npm 배포**: 첫 `0.1.0` 릴리스
+| ID | Task | Priority | Description |
+|----|------|----------|-------------|
+| P-01 | 100K+ row 최적화 | **High** | `willUpdate()` dirty flag 패턴으로 `_recomputeView()` 호출 최소화 |
+| P-02 | Column virtualization | **Medium** | 50+ 컬럼에서 가로 가상화 |
+| P-03 | `pinned: 'right'` | **Low** | 우측 고정 컬럼 지원 |
+| D-07 | 행 드래그 정렬 | **Low** | 드래그 앤 드롭으로 행 순서 변경 |
+| E-06 | 붙여넣기 미리보기 | **Low** | 대량 붙여넣기 전 확인 다이얼로그 |
+| A-06 | 고대비 테마 | **Low** | `@media (prefers-contrast: more)` 대응 |
+| A-07 | `aria-live` | **Low** | 동적 변경(필터, 정렬) 알림 (`aria-live="polite"`) |
+
+---
+
+## Phase 8: Ecosystem & Production — v0.8.0
+
+> **목표**: 프로덕션 배포 인프라, 프레임워크 에코시스템 확장.
+
+| ID | Task | Priority | Description |
+|----|------|----------|-------------|
+| E-01 | React Wrapper | **High** | `@lit/react` 기반 래퍼 패키지 (MorphDB Studio 전환 대비) |
+| E-02 | npm publish 자동화 | **Medium** | `npm publish --dry-run` 검증, README badge, CI release 연동 |
+| A-08 | 스크린 리더 지원 강화 | **Low** | 셀 탐색 시 맥락 안내 강화 |
+
+---
+
+## Priority Matrix
+
+```
+              HIGH IMPACT                      LOW IMPACT
+         ┌─────────────────────────────────────────────────┐
+         │                                                 │
+ HIGH    │  T-01 ESLint            R-05 JSDoc 보완         │
+ URGENCY │  T-02 CI/CD             R-06 minWidth 처리      │
+         │                                                 │
+         ├─────────────────────────────────────────────────┤
+         │                                                 │
+ NORMAL  │  F-01 date 필터         F-05 predicate 방어     │
+ URGENCY │  P-01 100K+ 최적화     N-03 컬럼 선택          │
+         │  R-01 _onKeyDown 분리  V-01 유효성 피드백      │
+         │  E-01 React wrapper    D-07 행 드래그 정렬      │
+         │  T-03 Playwright E2E   E-06 붙여넣기 미리보기   │
+         │  F-04 키보드 리사이즈   P-03 pinned right       │
+         │                        A-06 고대비 테마         │
+         │                        A-07 aria-live           │
+         │                                                 │
+         └─────────────────────────────────────────────────┘
+```
+
+---
+
+## Metrics Tracker
+
+| Version | Tests | Bundle | gzip | Key Milestone |
+|---------|-------|--------|------|---------------|
+| **v0.1.0** ✅ | 102 | 39.77 KB | 9.73 KB | 핵심 기능 (렌더링, 편집, 클립보드, 정렬, 필터 API, Export) |
+| **v0.2.0** ✅ | 122 | 44.51 KB | 10.77 KB | 안정성 + 편집 UX (editable, undo API, RFC 4180) |
+| **v0.3.0** ✅ | 157 | 56.38 KB | 12.99 KB | 컬럼 CRUD, 필터 UI, 핀 컬럼, batch update |
+| **v0.4.0** ✅ | 162 | 56.80 KB | 13.09 KB | 문서 완성 + 접근성 필수 (aria-selected, aria-readonly, focus outline) |
+| v0.5.0 | — | — | — | 코드 품질 + CI/CD + 리팩토링 |
+| v0.6.0 | — | — | — | 필터 완성 + UX 개선 |
+| v0.7.0 | — | — | — | 성능 최적화 + 고급 기능 |
+| v0.8.0 | — | — | — | React wrapper + 프로덕션 |
 
 ---
 
@@ -141,3 +181,4 @@ flex-table 개발 로드맵. 각 Phase는 이전 Phase 완료를 전제로 한�
 - 각 Phase 완료 시 demo 페이지에 해당 기능 데모 추가
 - 모든 공개 API는 CustomEvent 기반 — 프레임워크 무관 연동 보장
 - 성능 기준: 10,000행 × 20컬럼에서 60fps 스크롤 유지
+- 메이저 버전(1.0.0)은 Phase 8 완료 + 커뮤니티 검증 후 수동 결정

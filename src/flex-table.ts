@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { flexTableStyles } from './styles/flex-table.styles.js';
 import { renderCell } from './renderers/cell-renderer.js';
@@ -36,6 +36,26 @@ export class FlexTable extends LitElement {
   @property({ type: Boolean, attribute: 'show-row-numbers' })
   showRowNumbers: boolean = false;
 
+  @property({ type: String, reflect: true })
+  theme: 'light' | 'dark' | undefined = undefined;
+
+  @property({ type: Number, attribute: 'max-rows' })
+  maxRows: number = 0;
+
+  @property({ type: Boolean })
+  editable: boolean = true;
+
+  @property({ type: Boolean, attribute: 'show-filters' })
+  showFilters: boolean = false;
+
+  @property({ type: Number, attribute: 'max-undo-size' })
+  set maxUndoSize(value: number) {
+    this._undo.maxSize = value;
+  }
+  get maxUndoSize(): number {
+    return this._undo.maxSize;
+  }
+
   @state()
   private _scrollTop = 0;
 
@@ -57,11 +77,25 @@ export class FlexTable extends LitElement {
   private _filters: ColumnFilter[] = [];
   private _filteredIndices: number[] = [];
   private _sortedIndices: number[] = [];
+  @state()
+  private _openFilterKey: string | null = null;
+
   private _resizing: { colIndex: number; startX: number; startWidth: number } | null = null;
   private _resizeCleanup: (() => void) | null = null;
+  private _columnWidths: Map<string, number> = new Map();
 
   get visibleColumns(): ColumnDefinition[] {
     return this.columns.filter(col => !col.hidden);
+  }
+
+  /** Whether an undo operation is available. */
+  get canUndo(): boolean {
+    return this._undo.canUndo;
+  }
+
+  /** Whether a redo operation is available. */
+  get canRedo(): boolean {
+    return this._undo.canRedo;
   }
 
   get activeCell(): CellPosition | null {
@@ -125,6 +159,14 @@ export class FlexTable extends LitElement {
     return this._filters.map(f => f.key);
   }
 
+  private _dispatchUndoStateEvent(): void {
+    this.dispatchEvent(new CustomEvent('undo-state-change', {
+      detail: { canUndo: this.canUndo, canRedo: this.canRedo },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   private _dispatchFilterEvent(): void {
     this.dispatchEvent(new CustomEvent('filter-change', {
       detail: { keys: this.filterKeys, filteredCount: this.filteredRowCount },
@@ -133,13 +175,160 @@ export class FlexTable extends LitElement {
     }));
   }
 
+  // --- Public API: Column Operations ---
+
+  /**
+   * Add a column at the specified index (default: end).
+   * Returns the added column definition.
+   */
+  addColumn(def: ColumnDefinition, index?: number): ColumnDefinition {
+    const insertAt = index ?? this.columns.length;
+    this.columns = [
+      ...this.columns.slice(0, insertAt),
+      def,
+      ...this.columns.slice(insertAt),
+    ];
+
+    this._undo.push({
+      label: 'column-add',
+      undo: () => {
+        this.columns = this.columns.filter(c => c !== def);
+        this.requestUpdate();
+      },
+      redo: () => {
+        this.columns = [
+          ...this.columns.slice(0, insertAt),
+          def,
+          ...this.columns.slice(insertAt),
+        ];
+        this.requestUpdate();
+      },
+    });
+
+    this.requestUpdate();
+    this.dispatchEvent(new CustomEvent('column-add', {
+      detail: { column: def, index: insertAt },
+      bubbles: true,
+      composed: true,
+    }));
+    this._dispatchUndoStateEvent();
+
+    return def;
+  }
+
+  /**
+   * Delete a column by its key.
+   * Removes related filters, sort criteria, and column width overrides.
+   */
+  deleteColumn(key: string): void {
+    const colIndex = this.columns.findIndex(c => c.key === key);
+    if (colIndex === -1) return;
+
+    const removed = this.columns[colIndex];
+
+    // Capture related state for undo
+    const hadFilter = this._filters.find(f => f.key === key);
+    const hadSort = this._sortCriteria.find(c => c.key === key);
+    const hadWidth = this._columnWidths.get(key);
+
+    // Clean up related state
+    this._filters = this._filters.filter(f => f.key !== key);
+    this._sortCriteria = this._sortCriteria.filter(c => c.key !== key);
+    this._columnWidths.delete(key);
+
+    // Remove column
+    this.columns = this.columns.filter(c => c.key !== key);
+
+    this._undo.push({
+      label: 'column-delete',
+      undo: () => {
+        this.columns = [
+          ...this.columns.slice(0, colIndex),
+          removed,
+          ...this.columns.slice(colIndex),
+        ];
+        // Restore related state
+        if (hadFilter) this._filters.push(hadFilter);
+        if (hadSort) this._sortCriteria = [...this._sortCriteria, hadSort];
+        if (hadWidth !== undefined) this._columnWidths.set(key, hadWidth);
+        this.requestUpdate();
+      },
+      redo: () => {
+        this._filters = this._filters.filter(f => f.key !== key);
+        this._sortCriteria = this._sortCriteria.filter(c => c.key !== key);
+        this._columnWidths.delete(key);
+        this.columns = this.columns.filter(c => c.key !== key);
+        this.requestUpdate();
+      },
+    });
+
+    // Clear selection if it references a column beyond bounds
+    if (this._activeCell && this._activeCell.col >= this.visibleColumns.length) {
+      this._selection.clear();
+      this._activeCell = null;
+    }
+
+    this.requestUpdate();
+    this.dispatchEvent(new CustomEvent('column-delete', {
+      detail: { column: removed, key, index: colIndex },
+      bubbles: true,
+      composed: true,
+    }));
+    this._dispatchUndoStateEvent();
+  }
+
+  /**
+   * Move a column to a new position.
+   * @param key Column key to move.
+   * @param newIndex Target index in the columns array.
+   */
+  moveColumn(key: string, newIndex: number): void {
+    const oldIndex = this.columns.findIndex(c => c.key === key);
+    if (oldIndex === -1) return;
+    const clampedNew = Math.max(0, Math.min(this.columns.length - 1, newIndex));
+    if (oldIndex === clampedNew) return;
+
+    const col = this.columns[oldIndex];
+    const newCols = [...this.columns];
+    newCols.splice(oldIndex, 1);
+    newCols.splice(clampedNew, 0, col);
+    this.columns = newCols;
+
+    this._undo.push({
+      label: 'column-reorder',
+      undo: () => {
+        const cols = [...this.columns];
+        cols.splice(clampedNew, 1);
+        cols.splice(oldIndex, 0, col);
+        this.columns = cols;
+        this.requestUpdate();
+      },
+      redo: () => {
+        const cols = [...this.columns];
+        cols.splice(oldIndex, 1);
+        cols.splice(clampedNew, 0, col);
+        this.columns = cols;
+        this.requestUpdate();
+      },
+    });
+
+    this.requestUpdate();
+    this.dispatchEvent(new CustomEvent('column-reorder', {
+      detail: { key, oldIndex, newIndex: clampedNew },
+      bubbles: true,
+      composed: true,
+    }));
+    this._dispatchUndoStateEvent();
+  }
+
   // --- Public API: Row Operations ---
 
   /**
    * Add a row at the specified index (default: end).
    * Returns the new row.
    */
-  addRow(row?: DataRow, index?: number): DataRow {
+  addRow(row?: DataRow, index?: number): DataRow | null {
+    if (this.maxRows > 0 && this.data.length >= this.maxRows) return null;
     const newRow: DataRow = row ?? this._createEmptyRow();
     const insertAt = index ?? this.data.length;
     this.data.splice(insertAt, 0, newRow);
@@ -162,6 +351,7 @@ export class FlexTable extends LitElement {
       bubbles: true,
       composed: true,
     }));
+    this._dispatchUndoStateEvent();
 
     return newRow;
   }
@@ -223,6 +413,50 @@ export class FlexTable extends LitElement {
       bubbles: true,
       composed: true,
     }));
+    this._dispatchUndoStateEvent();
+  }
+
+  /**
+   * Apply multiple cell changes as a single undo-able operation.
+   * @param changes Array of { row (data index), key, value } objects.
+   */
+  updateRows(changes: Array<{ row: number; key: string; value: unknown }>): void {
+    if (changes.length === 0) return;
+
+    const saved: Array<{ row: number; key: string; oldValue: unknown; newValue: unknown }> = [];
+
+    for (const change of changes) {
+      if (change.row < 0 || change.row >= this.data.length) continue;
+      const oldValue = this.data[change.row][change.key];
+      this.data[change.row][change.key] = change.value;
+      saved.push({ row: change.row, key: change.key, oldValue, newValue: change.value });
+    }
+
+    if (saved.length === 0) return;
+
+    this._undo.push({
+      label: 'batch-update',
+      undo: () => {
+        for (const s of saved) {
+          this.data[s.row][s.key] = s.oldValue;
+        }
+        this.requestUpdate();
+      },
+      redo: () => {
+        for (const s of saved) {
+          this.data[s.row][s.key] = s.newValue;
+        }
+        this.requestUpdate();
+      },
+    });
+
+    this.requestUpdate();
+    this.dispatchEvent(new CustomEvent('batch-update', {
+      detail: { changes: saved },
+      bubbles: true,
+      composed: true,
+    }));
+    this._dispatchUndoStateEvent();
   }
 
   private _createEmptyRow(): DataRow {
@@ -241,8 +475,19 @@ export class FlexTable extends LitElement {
 
   /**
    * Export table data to string in the specified format.
+   * @param options.selectionOnly - Export only the currently selected range
    */
-  exportToString(format: ExportFormat): string {
+  exportToString(format: ExportFormat, options?: { selectionOnly?: boolean }): string {
+    if (options?.selectionOnly) {
+      const range = this._selection.getEffectiveRange();
+      if (!range) return '';
+      const cols = this.visibleColumns.slice(range.startCol, range.endCol + 1);
+      const rows: DataRow[] = [];
+      for (let r = range.startRow; r <= range.endRow; r++) {
+        rows.push(this.data[this._toDataIndex(r)]);
+      }
+      return exportData(rows, cols, format);
+    }
     const visibleData = this._sortedIndices.map(i => this.data[i]);
     return exportData(visibleData, this.visibleColumns, format);
   }
@@ -266,10 +511,17 @@ export class FlexTable extends LitElement {
     return rows;
   }
 
+  /**
+   * Get the effective width for a column, checking internal overrides first.
+   */
+  getColumnWidth(key: string): number | undefined {
+    return this._columnWidths.get(key);
+  }
+
   private get gridTemplateColumns(): string {
     const cols = this.visibleColumns
       .map(col => {
-        const w = col.width ?? DEFAULT_COL_WIDTH;
+        const w = this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
         const min = col.minWidth ?? MIN_COL_WIDTH;
         return `minmax(${min}px, ${w}px)`;
       })
@@ -302,6 +554,7 @@ export class FlexTable extends LitElement {
     super.connectedCallback();
     this._onScroll = this._onScroll.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
+    this._onDocumentClick = this._onDocumentClick.bind(this);
     this.addEventListener('scroll', this._onScroll, { passive: true });
     this.addEventListener('keydown', this._onKeyDown);
 
@@ -315,6 +568,7 @@ export class FlexTable extends LitElement {
     super.disconnectedCallback();
     this.removeEventListener('scroll', this._onScroll);
     this.removeEventListener('keydown', this._onKeyDown);
+    document.removeEventListener('click', this._onDocumentClick);
     // Clean up any in-progress resize listeners
     if (this._resizeCleanup) {
       this._resizeCleanup();
@@ -385,6 +639,12 @@ export class FlexTable extends LitElement {
     this._scrollTop = this.scrollTop;
   }
 
+  private _onDocumentClick(): void {
+    if (this._openFilterKey) {
+      this._openFilterKey = null;
+    }
+  }
+
   private _onCellClickEvent(e: MouseEvent, rowIndex: number, colIndex: number): void {
     if (this._editing.current) {
       this._commitEdit();
@@ -423,11 +683,18 @@ export class FlexTable extends LitElement {
 
   // --- Editing ---
 
+  /** Check if a column is editable based on global + per-column settings */
+  private _isCellEditable(col: ColumnDefinition): boolean {
+    if (!this.editable) return false;
+    if (col.editable === false) return false;
+    return true;
+  }
+
   private _startEdit(): void {
     if (!this._activeCell) return;
     const cols = this.visibleColumns;
     const col = cols[this._activeCell.col];
-    if (!col) return;
+    if (!col || !this._isCellEditable(col)) return;
 
     // Boolean: toggle immediately, don't enter edit mode
     if (col.type === 'boolean') {
@@ -437,9 +704,16 @@ export class FlexTable extends LitElement {
       return;
     }
 
-    const row = this.data[this._toDataIndex(this._activeCell.row)];
+    const dataRow = this._toDataIndex(this._activeCell.row);
+    const row = this.data[dataRow];
     this._editing.start(this._activeCell, row[col.key]);
     this._editingCell = { ...this._activeCell };
+
+    this.dispatchEvent(new CustomEvent('cell-edit-start', {
+      detail: { row: dataRow, col: this._activeCell.col, key: col.key, value: row[col.key] },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   private _commitEdit(): void {
@@ -487,6 +761,7 @@ export class FlexTable extends LitElement {
       bubbles: true,
       composed: true,
     }));
+    this._dispatchUndoStateEvent();
   }
 
   private _cancelEdit(): void {
@@ -569,6 +844,7 @@ export class FlexTable extends LitElement {
           this._undo.undo();
         }
         this.requestUpdate();
+        this._dispatchUndoStateEvent();
         return;
       }
       // Redo: Ctrl+Y
@@ -576,6 +852,7 @@ export class FlexTable extends LitElement {
         e.preventDefault();
         this._undo.redo();
         this.requestUpdate();
+        this._dispatchUndoStateEvent();
         return;
       }
       // Clipboard
@@ -586,19 +863,22 @@ export class FlexTable extends LitElement {
       }
       if (e.key === 'x' || e.key === 'X') {
         e.preventDefault();
-        this._handleCopy(true);
+        this._handleCopy(this.editable);
         return;
       }
       if (e.key === 'v' || e.key === 'V') {
         e.preventDefault();
-        this._handlePaste();
+        if (this.editable) this._handlePaste();
         return;
       }
     }
 
     // Printable character starts editing with that character
     if (this._activeCell && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      this._startEdit();
+      const col = this.visibleColumns[this._activeCell.col];
+      if (col && this._isCellEditable(col)) {
+        this._startEdit();
+      }
       return;
     }
 
@@ -642,7 +922,7 @@ export class FlexTable extends LitElement {
         break;
       case 'Delete':
       case 'Backspace':
-        this._handleDelete();
+        if (this.editable) this._handleDelete();
         break;
       default:
         handled = false;
@@ -666,8 +946,12 @@ export class FlexTable extends LitElement {
 
     try {
       await navigator.clipboard.writeText(tsv);
-    } catch {
-      // Fallback: dispatch event with text for external handling
+    } catch (err) {
+      this.dispatchEvent(new CustomEvent('clipboard-error', {
+        detail: { action: 'copy', error: err },
+        bubbles: true,
+        composed: true,
+      }));
     }
 
     if (cut) {
@@ -686,7 +970,12 @@ export class FlexTable extends LitElement {
     let text: string;
     try {
       text = await navigator.clipboard.readText();
-    } catch {
+    } catch (err) {
+      this.dispatchEvent(new CustomEvent('clipboard-error', {
+        detail: { action: 'paste', error: err },
+        bubbles: true,
+        composed: true,
+      }));
       return;
     }
     const parsed = parseClipboardText(text);
@@ -698,7 +987,8 @@ export class FlexTable extends LitElement {
 
     // Auto-expand rows if paste exceeds current data bounds
     const requiredRows = this._activeCell.row + parsed.length;
-    while (this.data.length < requiredRows) {
+    const rowLimit = this.maxRows > 0 ? this.maxRows : Infinity;
+    while (this.data.length < requiredRows && this.data.length < rowLimit) {
       const newRow = this._createEmptyRow();
       const insertAt = this.data.length;
       this.data.push(newRow);
@@ -756,6 +1046,9 @@ export class FlexTable extends LitElement {
       bubbles: true,
       composed: true,
     }));
+    if (changes.length > 0 || addedRows.length > 0) {
+      this._dispatchUndoStateEvent();
+    }
   }
 
   private _handleDelete(): void {
@@ -791,6 +1084,7 @@ export class FlexTable extends LitElement {
           this.requestUpdate();
         },
       });
+      this._dispatchUndoStateEvent();
     }
 
     this.requestUpdate();
@@ -798,6 +1092,8 @@ export class FlexTable extends LitElement {
 
   private _scrollToActiveCell(): void {
     if (!this._activeCell) return;
+
+    // Vertical scroll
     const rowTop = this._activeCell.row * this.rowHeight + this.headerHeight;
     const rowBottom = rowTop + this.rowHeight;
 
@@ -805,6 +1101,22 @@ export class FlexTable extends LitElement {
       this.scrollTop = rowTop - this.headerHeight;
     } else if (rowBottom > this.scrollTop + this.clientHeight) {
       this.scrollTop = rowBottom - this.clientHeight;
+    }
+
+    // Horizontal scroll
+    const cols = this.visibleColumns;
+    const colIndex = this._activeCell.col;
+    let colLeft = this.showRowNumbers ? 48 : 0;
+    for (let i = 0; i < colIndex; i++) {
+      colLeft += this._columnWidths.get(cols[i].key) ?? cols[i].width ?? DEFAULT_COL_WIDTH;
+    }
+    const colWidth = this._columnWidths.get(cols[colIndex]?.key ?? '') ?? cols[colIndex]?.width ?? DEFAULT_COL_WIDTH;
+    const colRight = colLeft + colWidth;
+
+    if (colLeft < this.scrollLeft) {
+      this.scrollLeft = colLeft;
+    } else if (colRight > this.scrollLeft + this.clientWidth) {
+      this.scrollLeft = colRight - this.clientWidth;
     }
   }
 
@@ -831,6 +1143,18 @@ export class FlexTable extends LitElement {
     }));
   }
 
+  /** Calculate cumulative left offset for a pinned column */
+  private _getPinnedLeft(colIndex: number): number {
+    const cols = this.visibleColumns;
+    let left = this.showRowNumbers ? 48 : 0;
+    for (let i = 0; i < colIndex; i++) {
+      if (cols[i].pinned === 'left') {
+        left += this._columnWidths.get(cols[i].key) ?? cols[i].width ?? DEFAULT_COL_WIDTH;
+      }
+    }
+    return left;
+  }
+
   private _renderHeaderCell(col: ColumnDefinition, colIndex: number) {
     const sortable = col.sortable !== false;
     const criterion = this._sortCriteria.find(c => c.key === col.key);
@@ -838,37 +1162,211 @@ export class FlexTable extends LitElement {
       ? this._sortCriteria.findIndex(c => c.key === col.key)
       : -1;
 
+    const hasFilter = this._filters.some(f => f.key === col.key);
+    const isPinned = col.pinned === 'left';
+
     const classes = [
       'ft-header-cell',
       sortable ? 'ft-sortable' : '',
+      isPinned ? 'ft-pinned' : '',
     ].filter(Boolean).join(' ');
 
-    const ariaSortValue = criterion
-      ? (criterion.direction === 'asc' ? 'ascending' : 'descending')
+    const ariaSortValue = sortable
+      ? (criterion
+        ? (criterion.direction === 'asc' ? 'ascending' : 'descending')
+        : 'none')
       : undefined;
+
+    const pinnedStyle = isPinned
+      ? `position: sticky; left: ${this._getPinnedLeft(colIndex)}px; z-index: 4;`
+      : '';
 
     return html`
       <div class=${classes}
         role="columnheader"
-        aria-sort=${ariaSortValue ?? 'none'}
+        style=${pinnedStyle}
+        aria-sort=${ariaSortValue ?? nothing}
         @click=${sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined}>
         <span>${col.header}</span>
         ${criterion ? html`<span class="ft-sort-indicator">${criterion.direction === 'asc' ? '\u25B2' : '\u25BC'}</span>` : ''}
         ${sortIndex >= 0 ? html`<span class="ft-sort-order">${sortIndex + 1}</span>` : ''}
+        ${this.showFilters ? html`
+          <button class="ft-filter-btn ${hasFilter ? 'ft-filter-active' : ''}"
+            title="Filter"
+            aria-label=${`Filter ${col.header}`}
+            aria-expanded=${this._openFilterKey === col.key ? 'true' : 'false'}
+            @click=${(e: MouseEvent) => this._onFilterBtnClick(e, col)}>
+            \u25BD
+          </button>
+        ` : ''}
         <div class="ft-resize-handle"
-          @mousedown=${(e: MouseEvent) => this._onResizeStart(e, colIndex)}></div>
+          @mousedown=${(e: MouseEvent) => this._onResizeStart(e, colIndex)}
+          @dblclick=${(e: MouseEvent) => this._onResizeAutoFit(e, colIndex)}></div>
+      </div>
+      ${this._openFilterKey === col.key ? this._renderFilterDropdown(col) : ''}
+    `;
+  }
+
+  // --- Filter UI ---
+
+  private _onFilterBtnClick(e: MouseEvent, col: ColumnDefinition): void {
+    e.preventDefault();
+    e.stopPropagation();
+    const newKey = this._openFilterKey === col.key ? null : col.key;
+    this._openFilterKey = newKey;
+
+    if (newKey) {
+      // Delay to avoid immediate close from current click
+      requestAnimationFrame(() => {
+        document.addEventListener('click', this._onDocumentClick, { once: true });
+      });
+    }
+  }
+
+  private _renderFilterDropdown(col: ColumnDefinition) {
+    const type = col.type ?? 'text';
+
+    return html`
+      <div class="ft-filter-dropdown" @click=${(e: MouseEvent) => e.stopPropagation()}>
+        ${type === 'boolean' ? this._renderBooleanFilter(col)
+          : type === 'number' ? this._renderNumberFilter(col)
+          : this._renderTextFilter(col)}
+        <div class="ft-filter-actions">
+          <button class="ft-filter-clear" @click=${() => this._clearColumnFilter(col.key)}>Clear</button>
+        </div>
       </div>
     `;
   }
 
+  private _renderTextFilter(col: ColumnDefinition) {
+    return html`
+      <input class="ft-filter-input" type="text" placeholder="Search..."
+        @input=${(e: InputEvent) => {
+          const value = (e.target as HTMLInputElement).value;
+          if (value) {
+            this.setFilter(col.key, (v) => String(v ?? '').toLowerCase().includes(value.toLowerCase()));
+          } else {
+            this.removeFilter(col.key);
+          }
+        }}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Escape') this._openFilterKey = null;
+          e.stopPropagation();
+        }}>
+    `;
+  }
+
+  private _renderNumberFilter(col: ColumnDefinition) {
+    return html`
+      <div class="ft-filter-range">
+        <input class="ft-filter-input" type="number" placeholder="Min"
+          @input=${(e: InputEvent) => this._applyNumberFilter(col.key, e, 'min')}
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+        <input class="ft-filter-input" type="number" placeholder="Max"
+          @input=${(e: InputEvent) => this._applyNumberFilter(col.key, e, 'max')}
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+      </div>
+    `;
+  }
+
+  private _numberFilterState: Map<string, { min?: number; max?: number }> = new Map();
+
+  private _applyNumberFilter(key: string, e: InputEvent, bound: 'min' | 'max'): void {
+    const value = (e.target as HTMLInputElement).value;
+    const state = this._numberFilterState.get(key) ?? {};
+    if (value === '') {
+      delete state[bound];
+    } else {
+      state[bound] = Number(value);
+    }
+    this._numberFilterState.set(key, state);
+
+    if (state.min == null && state.max == null) {
+      this.removeFilter(key);
+    } else {
+      this.setFilter(key, (v) => {
+        const n = Number(v);
+        if (isNaN(n)) return false;
+        if (state.min != null && n < state.min) return false;
+        if (state.max != null && n > state.max) return false;
+        return true;
+      });
+    }
+  }
+
+  private _renderBooleanFilter(col: ColumnDefinition) {
+    return html`
+      <select class="ft-filter-input"
+        @change=${(e: Event) => {
+          const value = (e.target as HTMLSelectElement).value;
+          if (value === 'all') {
+            this.removeFilter(col.key);
+          } else {
+            this.setFilter(col.key, (v) => Boolean(v) === (value === 'true'));
+          }
+        }}
+        @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+        <option value="all">All</option>
+        <option value="true">\u2714 True</option>
+        <option value="false">\u2718 False</option>
+      </select>
+    `;
+  }
+
+  private _clearColumnFilter(key: string): void {
+    this.removeFilter(key);
+    this._numberFilterState.delete(key);
+    this._openFilterKey = null;
+  }
+
   // --- Column Resize ---
+
+  private _onResizeAutoFit(e: MouseEvent, colIndex: number): void {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const col = this.visibleColumns[colIndex];
+    if (!col) return;
+
+    // Measure content widths by scanning visible cells
+    const cells = this.shadowRoot?.querySelectorAll(`.ft-row .ft-cell:nth-child(${colIndex + (this.showRowNumbers ? 2 : 1)})`);
+    let maxWidth = 0;
+
+    // Measure header text width
+    const headerCells = this.shadowRoot?.querySelectorAll('.ft-header-cell');
+    if (headerCells && headerCells[colIndex]) {
+      const headerEl = headerCells[colIndex] as HTMLElement;
+      // Use scrollWidth to get full text width
+      maxWidth = Math.max(maxWidth, headerEl.scrollWidth);
+    }
+
+    // Measure data cell widths
+    if (cells) {
+      for (const cell of cells) {
+        const el = cell as HTMLElement;
+        maxWidth = Math.max(maxWidth, el.scrollWidth);
+      }
+    }
+
+    // Apply with padding and minimum
+    const minW = col.minWidth ?? MIN_COL_WIDTH;
+    const newWidth = Math.max(minW, maxWidth + 8); // 8px buffer
+    this._columnWidths.set(col.key, newWidth);
+    this.requestUpdate();
+
+    this.dispatchEvent(new CustomEvent('column-resize', {
+      detail: { key: col.key, width: newWidth, colIndex },
+      bubbles: true,
+      composed: true,
+    }));
+  }
 
   private _onResizeStart(e: MouseEvent, colIndex: number): void {
     e.preventDefault();
     e.stopPropagation(); // Prevent sort toggle
 
     const col = this.visibleColumns[colIndex];
-    const startWidth = col.width ?? DEFAULT_COL_WIDTH;
+    const startWidth = this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
     this._resizing = { colIndex, startX: e.clientX, startWidth };
 
     const onMouseMove = (ev: MouseEvent) => {
@@ -876,7 +1374,7 @@ export class FlexTable extends LitElement {
       const delta = ev.clientX - this._resizing.startX;
       const minW = col.minWidth ?? MIN_COL_WIDTH;
       const newWidth = Math.max(minW, this._resizing.startWidth + delta);
-      col.width = newWidth;
+      this._columnWidths.set(col.key, newWidth);
       this.requestUpdate();
     };
 
@@ -890,7 +1388,7 @@ export class FlexTable extends LitElement {
       cleanup();
 
       if (this._resizing) {
-        const finalWidth = col.width ?? DEFAULT_COL_WIDTH;
+        const finalWidth = this._columnWidths.get(col.key) ?? DEFAULT_COL_WIDTH;
         this.dispatchEvent(new CustomEvent('column-resize', {
           detail: { key: col.key, width: finalWidth, colIndex },
           bubbles: true,
@@ -965,25 +1463,40 @@ export class FlexTable extends LitElement {
     const isActive = this._activeCell?.row === rowIndex && this._activeCell?.col === colIndex;
     const isEditing = this._editingCell?.row === rowIndex && this._editingCell?.col === colIndex;
     const isSelected = this._selection.isInRange(rowIndex, colIndex);
+    const isPinned = col.pinned === 'left';
+
+    const pinnedStyle = isPinned
+      ? `position: sticky; left: ${this._getPinnedLeft(colIndex)}px; z-index: 2;`
+      : '';
+
+    const readonly = !this._isCellEditable(col);
 
     if (isEditing) {
       return html`
-        <div class="ft-cell ft-editing ft-active" role="gridcell">
+        <div class="ft-cell ft-editing ft-active ${isPinned ? 'ft-pinned' : ''}" role="gridcell"
+          aria-selected="true"
+          aria-readonly=${readonly ? 'true' : nothing}
+          style=${pinnedStyle}>
           ${this._renderEditor(row, col)}
         </div>
       `;
     }
 
+    const selected = isActive || isSelected;
     const classes = [
       'ft-cell',
       `ft-type-${col.type ?? 'text'}`,
       isActive ? 'ft-active' : '',
       isSelected ? 'ft-selected' : '',
+      isPinned ? 'ft-pinned' : '',
     ].filter(Boolean).join(' ');
 
     return html`
       <div class=${classes}
         role="gridcell"
+        aria-selected=${selected ? 'true' : 'false'}
+        aria-readonly=${readonly ? 'true' : nothing}
+        style=${pinnedStyle}
         @click=${(e: MouseEvent) => this._onCellClickEvent(e, rowIndex, colIndex)}
         @dblclick=${() => this._onCellDblClick(rowIndex, colIndex)}>
         ${renderCell(row[col.key], row, col)}
@@ -992,6 +1505,11 @@ export class FlexTable extends LitElement {
   }
 
   private _renderEditor(row: DataRow, col: ColumnDefinition) {
+    // Use custom editor if provided
+    if (col.editor) {
+      return col.editor(row[col.key], row, col);
+    }
+
     const value = row[col.key];
     const strValue = value == null ? '' : String(value);
 

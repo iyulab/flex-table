@@ -14,14 +14,28 @@
     }
     body.dark { background: #121212; color: #e8eaed; }
     h1 { margin: 0 0 4px; font-size: 24px; }
-    .toolbar { margin: 0 0 16px; display: flex; align-items: center; gap: 16px; }
+    .toolbar { margin: 0 0 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .info { color: #666; font-size: 14px; margin: 0; }
     body.dark .info { color: #9aa0a6; }
-    .theme-btn {
+    .btn {
       padding: 4px 12px; border-radius: 4px; border: 1px solid #ccc;
       background: #fff; cursor: pointer; font-size: 13px;
     }
-    body.dark .theme-btn { background: #333; color: #e8eaed; border-color: #555; }
+    .btn.active { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    body.dark .btn { background: #333; color: #e8eaed; border-color: #555; }
+    body.dark .btn.active { background: #4da3ff; color: #1e1e1e; border-color: #4da3ff; }
+    .btn.danger { color: #d93025; border-color: #d93025; }
+    .filter-bar { margin: 0 0 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .filter-bar input, .filter-bar select {
+      padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
+    }
+    body.dark .filter-bar input, body.dark .filter-bar select {
+      background: #333; color: #e8eaed; border-color: #555;
+    }
+    .filter-bar label { font-size: 13px; color: #666; }
+    body.dark .filter-bar label { color: #9aa0a6; }
+    .status-bar { margin: 8px 0 0; font-size: 12px; color: #666; }
+    body.dark .status-bar { color: #9aa0a6; }
     flex-table {
       height: 600px;
       border-radius: 4px;
@@ -32,11 +46,31 @@
   <h1>flex-table</h1>
   <div class="toolbar">
     <p class="info">
-      <span id="row-count"></span> rows &middot; Virtual scroll &middot; Click header to sort &middot; Shift+click for multi-sort &middot; Ctrl+Z undo
+      <span id="row-count"></span> rows &middot; Virtual scroll &middot; Click header to sort &middot; Ctrl+Z undo
     </p>
-    <button class="theme-btn" id="theme-toggle">Dark</button>
+    <button class="btn" id="theme-toggle">Dark</button>
+    <button class="btn" id="add-row-btn">+ Add Row</button>
+    <button class="btn" id="add-col-btn">+ Add Column</button>
+    <button class="btn danger" id="del-col-btn">- Delete Column</button>
+    <button class="btn" id="export-csv-btn">Export CSV</button>
   </div>
-  <flex-table id="table" row-height="32" show-row-numbers></flex-table>
+  <div class="filter-bar">
+    <label>External Filter:</label>
+    <input type="text" id="name-filter" placeholder="Name contains..." size="16">
+    <select id="active-filter">
+      <option value="">All</option>
+      <option value="true">Active only</option>
+      <option value="false">Inactive only</option>
+    </select>
+    <input type="number" id="score-min" placeholder="Score min" size="8">
+    <input type="number" id="score-max" placeholder="Score max" size="8">
+    <button class="btn" id="clear-filters-btn">Clear Filters</button>
+  </div>
+  <flex-table id="table" row-height="32" show-row-numbers show-filters></flex-table>
+  <div class="status-bar">
+    <span id="filter-status"></span>
+    <span id="undo-status"></span>
+  </div>
 
   <script type="module">
     import '../src/index.ts';
@@ -49,12 +83,12 @@
     const themeBtn = document.getElementById('theme-toggle');
     themeBtn.addEventListener('click', () => {
       const isDark = document.body.classList.toggle('dark');
-      table.setAttribute('theme', isDark ? 'dark' : 'light');
+      table.theme = isDark ? 'dark' : 'light';
       themeBtn.textContent = isDark ? 'Light' : 'Dark';
     });
 
     table.columns = [
-      { key: 'id', header: 'ID', type: 'number', width: 80 },
+      { key: 'id', header: 'ID', type: 'number', width: 80, editable: false, pinned: 'left' },
       { key: 'name', header: 'Name', type: 'text', width: 200 },
       { key: 'email', header: 'Email', type: 'text', width: 260 },
       { key: 'active', header: 'Active', type: 'boolean', width: 80 },
@@ -77,6 +111,122 @@
       });
     }
     table.data = data;
+
+    // --- External Filter UI ---
+    const nameFilter = document.getElementById('name-filter');
+    const activeFilter = document.getElementById('active-filter');
+    const scoreMin = document.getElementById('score-min');
+    const scoreMax = document.getElementById('score-max');
+    const filterStatus = document.getElementById('filter-status');
+    const undoStatus = document.getElementById('undo-status');
+
+    nameFilter.addEventListener('input', () => {
+      const val = nameFilter.value.trim().toLowerCase();
+      if (val) {
+        table.setFilter('name', (v) => String(v).toLowerCase().includes(val));
+      } else {
+        table.removeFilter('name');
+      }
+    });
+
+    activeFilter.addEventListener('change', () => {
+      const val = activeFilter.value;
+      if (val === 'true') {
+        table.setFilter('active', (v) => v === true);
+      } else if (val === 'false') {
+        table.setFilter('active', (v) => v === false);
+      } else {
+        table.removeFilter('active');
+      }
+    });
+
+    function applyScoreFilter() {
+      const min = scoreMin.value !== '' ? Number(scoreMin.value) : null;
+      const max = scoreMax.value !== '' ? Number(scoreMax.value) : null;
+      if (min !== null || max !== null) {
+        table.setFilter('score', (v) => {
+          const n = Number(v);
+          if (min !== null && n < min) return false;
+          if (max !== null && n > max) return false;
+          return true;
+        });
+      } else {
+        table.removeFilter('score');
+      }
+    }
+    scoreMin.addEventListener('input', applyScoreFilter);
+    scoreMax.addEventListener('input', applyScoreFilter);
+
+    document.getElementById('clear-filters-btn').addEventListener('click', () => {
+      nameFilter.value = '';
+      activeFilter.value = '';
+      scoreMin.value = '';
+      scoreMax.value = '';
+      table.clearFilters();
+    });
+
+    // --- Filter/Undo Status ---
+    table.addEventListener('filter-change', (e) => {
+      const { filteredCount, keys } = e.detail;
+      if (keys.length > 0) {
+        filterStatus.textContent = `Filtered: ${filteredCount.toLocaleString()} rows (${keys.join(', ')})`;
+      } else {
+        filterStatus.textContent = '';
+      }
+    });
+
+    table.addEventListener('undo-state-change', (e) => {
+      const { canUndo, canRedo } = e.detail;
+      const parts = [];
+      if (canUndo) parts.push('Ctrl+Z to undo');
+      if (canRedo) parts.push('Ctrl+Y to redo');
+      undoStatus.textContent = parts.length > 0 ? ` | ${parts.join(', ')}` : '';
+    });
+
+    // --- Add Row ---
+    document.getElementById('add-row-btn').addEventListener('click', () => {
+      const nextId = table.data.length + 1;
+      table.addRow({
+        id: nextId,
+        name: `User ${nextId}`,
+        email: `user${nextId}@example.com`,
+        active: true,
+        created: new Date(),
+        score: 0,
+        tag: 'New',
+      });
+    });
+
+    // --- Add/Delete Column ---
+    let customColCounter = 0;
+    document.getElementById('add-col-btn').addEventListener('click', () => {
+      customColCounter++;
+      const key = `custom_${customColCounter}`;
+      table.addColumn({
+        key,
+        header: `Custom ${customColCounter}`,
+        type: 'text',
+        width: 120,
+      });
+    });
+
+    document.getElementById('del-col-btn').addEventListener('click', () => {
+      const cols = table.columns;
+      if (cols.length > 1) {
+        // Delete last non-pinned column
+        for (let i = cols.length - 1; i >= 0; i--) {
+          if (!cols[i].pinned) {
+            table.deleteColumn(cols[i].key);
+            break;
+          }
+        }
+      }
+    });
+
+    // --- Export ---
+    document.getElementById('export-csv-btn').addEventListener('click', () => {
+      table.exportToFile('csv', 'flex-table-export.csv');
+    });
   </script>
 </body>
 </html>

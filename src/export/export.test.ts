@@ -82,4 +82,34 @@ describe('exportData', () => {
       expect(parsed[0].age).toBeNull();
     });
   });
+
+  describe('date export ISO 8601', () => {
+    const dateCols: ColumnDefinition[] = [
+      { key: 'created', header: 'Created', type: 'date' },
+      { key: 'updated', header: 'Updated', type: 'datetime' },
+    ];
+
+    it('should export Date objects as ISO 8601 in CSV', () => {
+      const d: DataRow[] = [{ created: new Date('2024-03-15'), updated: new Date('2024-03-15T10:30:00Z') }];
+      const result = exportData(d, dateCols, 'csv');
+      const lines = result.split('\n');
+      expect(lines[1]).toContain('2024-03-15');
+      expect(lines[1]).toContain('T');
+    });
+
+    it('should export Date objects as ISO 8601 in JSON', () => {
+      const d: DataRow[] = [{ created: new Date('2024-03-15'), updated: new Date('2024-03-15T10:30:00Z') }];
+      const result = exportData(d, dateCols, 'json');
+      const parsed = JSON.parse(result);
+      expect(parsed[0].created).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(parsed[0].updated).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('should handle string date values as-is', () => {
+      const d: DataRow[] = [{ created: '2024-03-15', updated: '2024-03-15T10:30:00' }];
+      const result = exportData(d, dateCols, 'csv');
+      const lines = result.split('\n');
+      expect(lines[1]).toBe('2024-03-15,2024-03-15T10:30:00');
+    });
+  });
 });

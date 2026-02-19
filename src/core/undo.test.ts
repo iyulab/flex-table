@@ -90,6 +90,36 @@ describe('UndoStack', () => {
     expect(stack.undoCount).toBe(100);
   });
 
+  it('should allow configuring max size', () => {
+    const stack = new UndoStack();
+    stack.maxSize = 5;
+    expect(stack.maxSize).toBe(5);
+
+    for (let i = 0; i < 10; i++) {
+      stack.push({ label: `action-${i}`, undo: vi.fn(), redo: vi.fn() });
+    }
+    expect(stack.undoCount).toBe(5);
+  });
+
+  it('should trim existing stack when reducing maxSize', () => {
+    const stack = new UndoStack();
+    for (let i = 0; i < 20; i++) {
+      stack.push({ label: `action-${i}`, undo: vi.fn(), redo: vi.fn() });
+    }
+    expect(stack.undoCount).toBe(20);
+
+    stack.maxSize = 5;
+    expect(stack.undoCount).toBe(5);
+  });
+
+  it('should enforce minimum maxSize of 1', () => {
+    const stack = new UndoStack();
+    stack.maxSize = 0;
+    expect(stack.maxSize).toBe(1);
+    stack.maxSize = -5;
+    expect(stack.maxSize).toBe(1);
+  });
+
   it('should clear all history', () => {
     const stack = new UndoStack();
     stack.push({ label: 'a', undo: vi.fn(), redo: vi.fn() });

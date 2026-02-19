@@ -46,6 +46,31 @@ describe('parseClipboardText', () => {
     const result = parseClipboardText('hello');
     expect(result).toEqual([['hello']]);
   });
+
+  it('should parse quoted fields with embedded tabs', () => {
+    const result = parseClipboardText('"A\tB"\tC');
+    expect(result).toEqual([['A\tB', 'C']]);
+  });
+
+  it('should parse quoted fields with embedded newlines', () => {
+    const result = parseClipboardText('"line1\nline2"\tB');
+    expect(result).toEqual([['line1\nline2', 'B']]);
+  });
+
+  it('should parse escaped double quotes (RFC 4180)', () => {
+    const result = parseClipboardText('"He said ""hi"""\tB');
+    expect(result).toEqual([['He said "hi"', 'B']]);
+  });
+
+  it('should handle mixed quoted and unquoted fields', () => {
+    const result = parseClipboardText('A\t"B\tC"\tD\n"E"\tF\tG');
+    expect(result).toEqual([['A', 'B\tC', 'D'], ['E', 'F', 'G']]);
+  });
+
+  it('should handle empty quoted fields', () => {
+    const result = parseClipboardText('""\tA');
+    expect(result).toEqual([['', 'A']]);
+  });
 });
 
 describe('parseValueForColumn', () => {

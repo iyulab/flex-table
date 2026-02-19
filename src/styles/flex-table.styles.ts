@@ -170,6 +170,10 @@ export const flexTableStyles = css`
     background: var(--ft-editor-bg);
     box-sizing: border-box;
   }
+  .ft-editor:focus {
+    outline: 2px solid var(--ft-active-color);
+    outline-offset: -2px;
+  }
 
   .ft-editor-number { text-align: right; }
 
@@ -202,14 +206,117 @@ export const flexTableStyles = css`
     font-weight: 600;
     border-bottom: 2px solid var(--ft-border-color);
     padding: 8px 4px;
+    position: sticky;
+    left: 0;
+    z-index: 4;
   }
 
   .ft-row-num {
     border-bottom: 1px solid var(--ft-border-color);
     cursor: pointer;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--ft-row-even-bg);
   }
+
+  .ft-row-odd .ft-row-num { background: var(--ft-row-odd-bg); }
+  .ft-row:hover .ft-row-num { background: var(--ft-row-hover-bg); }
 
   .ft-row-num:hover {
     background: var(--ft-header-hover-bg);
+  }
+
+  /* --- Pinned Columns --- */
+
+  .ft-pinned {
+    background: var(--ft-bg);
+  }
+
+  .ft-header-cell.ft-pinned {
+    background: var(--ft-header-bg);
+  }
+
+  .ft-row-even .ft-cell.ft-pinned { background: var(--ft-row-even-bg); }
+  .ft-row-odd .ft-cell.ft-pinned { background: var(--ft-row-odd-bg); }
+  .ft-row:hover .ft-cell.ft-pinned { background: var(--ft-row-hover-bg); }
+  .ft-cell.ft-pinned.ft-selected { background: var(--ft-selection-bg) !important; }
+
+  /* --- Filter UI --- */
+
+  .ft-filter-btn {
+    all: unset;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--ft-sort-indicator-color);
+    padding: 0 2px;
+    margin-left: auto;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  .ft-filter-btn:hover { opacity: 1; }
+
+  .ft-filter-btn.ft-filter-active {
+    color: var(--ft-active-color);
+    opacity: 1;
+  }
+
+  .ft-filter-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 160px;
+    background: var(--ft-bg);
+    border: 1px solid var(--ft-border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    z-index: 10;
+    box-sizing: border-box;
+  }
+
+  .ft-filter-input {
+    width: 100%;
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 13px;
+    border: 1px solid var(--ft-border-color);
+    border-radius: 3px;
+    color: var(--ft-text-color);
+    background: var(--ft-editor-bg);
+    box-sizing: border-box;
+  }
+
+  .ft-filter-input:focus {
+    outline: 1px solid var(--ft-active-color);
+  }
+
+  .ft-filter-range {
+    display: flex;
+    gap: 4px;
+  }
+
+  .ft-filter-range .ft-filter-input {
+    width: 50%;
+  }
+
+  .ft-filter-actions {
+    margin-top: 6px;
+    text-align: right;
+  }
+
+  .ft-filter-clear {
+    all: unset;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--ft-sort-indicator-color);
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+
+  .ft-filter-clear:hover {
+    background: var(--ft-header-hover-bg);
+    color: var(--ft-text-color);
   }
 `;
