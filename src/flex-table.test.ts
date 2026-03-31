@@ -1040,10 +1040,12 @@ describe('FlexTable', () => {
     el.data = [{ id: 1, name: 'Alice' }];
     await el.updateComplete;
 
+    // Header pinned cells use absolute positioning (nested sticky doesn't paint correctly)
     const header = el.shadowRoot!.querySelector('.ft-header-cell.ft-pinned') as HTMLElement;
-    expect(header.style.position).toBe('sticky');
+    expect(header.style.position).toBe('absolute');
     expect(header.style.left).toBe('0px');
 
+    // Body pinned cells use sticky positioning for horizontal scroll sticking
     const cell = el.shadowRoot!.querySelector('.ft-cell.ft-pinned') as HTMLElement;
     expect(cell.style.position).toBe('sticky');
     expect(cell.style.left).toBe('0px');

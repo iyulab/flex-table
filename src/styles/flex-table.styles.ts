@@ -79,7 +79,7 @@ export const flexTableStyles = css`
     display: block;
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: 3;
   }
 
   .ft-header-cell {
@@ -234,8 +234,6 @@ export const flexTableStyles = css`
   }
 
   .ft-header-cell.ft-pinned {
-    display: inline-flex;
-    vertical-align: top;
     background: var(--ft-header-bg);
   }
 

@@ -1382,7 +1382,7 @@ export class FlexTable extends LitElement {
     const left = this._colLeftOffsets[colIndex] ?? 0;
 
     const cellStyle = isPinned
-      ? `position: sticky; left: ${this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`
+      ? `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`
       : `left: ${left}px; width: ${width}px; height: ${hdrH}px;`;
 
     return html`
@@ -1631,9 +1631,10 @@ export class FlexTable extends LitElement {
 
     // --- Header prefix cells ---
     let prefixLeft = 0;
+    const sl = this._scrollLeft;
     const selectAllHeader = this.selectable
       ? html`<div class="ft-checkbox-header"
-            style="position: sticky; left: ${prefixLeft}px; width: 36px; height: ${hdrH}px; z-index: 4;">
+            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 36px; height: ${hdrH}px; z-index: 4;">
           ${this._rowSelection.mode === 'multi' ? html`
             <input type="checkbox"
               .checked=${this._rowSelection.isAllSelected}
@@ -1646,7 +1647,7 @@ export class FlexTable extends LitElement {
 
     const rowNumHeader = this.showRowNumbers
       ? html`<div class="ft-row-num-header"
-            style="position: sticky; left: ${prefixLeft}px; width: 48px; height: ${hdrH}px; z-index: 4;">#</div>` : '';
+            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${hdrH}px; z-index: 4;">#</div>` : '';
 
     // --- Header cells (pinned outside range + visible range) ---
     const headerCells = [];
