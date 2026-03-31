@@ -4,6 +4,10 @@ on:
   release:
     types: [published]
 
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -17,13 +21,47 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      - name: Resolve version from tag
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if already published
+        id: check
+        run: |
+          if npm view "@iyulab/flex-table@${{ steps.version.outputs.value }}" version 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip if already published
+        if: steps.check.outputs.exists == 'true'
+        run: echo "Version ${{ steps.version.outputs.value }} already published — skipping."
+
       - run: npm ci
+        if: steps.check.outputs.exists == 'false'
+
       - run: npm run build
+        if: steps.check.outputs.exists == 'false'
+
       - run: npm test
+        if: steps.check.outputs.exists == 'false'
 
       - name: Sync version from release tag
-        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+        if: steps.check.outputs.exists == 'false'
+        run: npm version "${{ steps.version.outputs.value }}" --no-git-tag-version --allow-same-version
 
-      - run: npm publish --access public
+      - name: Publish
+        if: steps.check.outputs.exists == 'false'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### 📦 @iyulab/flex-table@${{ steps.version.outputs.value }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.check.outputs.exists }}" = "true" ]; then
+            echo "Already published — skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Published successfully." >> "$GITHUB_STEP_SUMMARY"
+          fi
