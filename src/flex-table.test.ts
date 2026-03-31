@@ -1045,9 +1045,9 @@ describe('FlexTable', () => {
     expect(header.style.position).toBe('absolute');
     expect(header.style.left).toBe('0px');
 
-    // Body pinned cells use sticky positioning for horizontal scroll sticking
+    // Body pinned cells also use absolute positioning with scrollLeft compensation
     const cell = el.shadowRoot!.querySelector('.ft-cell.ft-pinned') as HTMLElement;
-    expect(cell.style.position).toBe('sticky');
+    expect(cell.style.position).toBe('absolute');
     expect(cell.style.left).toBe('0px');
   });
 

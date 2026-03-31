@@ -1713,17 +1713,18 @@ export class FlexTable extends LitElement {
     const rowH = this.rowHeight;
     const tw = this._totalRowWidth;
 
-    // Footer prefix cells
+    // Footer prefix cells — absolute positioning with scrollLeft compensation
+    const sl = this._scrollLeft;
     let prefixLeft = 0;
     const checkboxFooter = this.selectable
       ? html`<div class="ft-footer-cell ft-checkbox-cell"
-            style="position: sticky; left: ${prefixLeft}px; width: 36px; height: ${rowH}px; z-index: 2;"></div>`
+            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 36px; height: ${rowH}px; z-index: 2;"></div>`
       : '';
     if (this.selectable) prefixLeft += 36;
 
     const rowNumFooter = this.showRowNumbers
       ? html`<div class="ft-footer-cell ft-row-num"
-            style="position: sticky; left: ${prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2;"></div>`
+            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2;"></div>`
       : '';
 
     // Footer cells (pinned outside range + visible range)
@@ -1733,7 +1734,7 @@ export class FlexTable extends LitElement {
       const width = this._getColWidth(col);
       footerCells.push(html`
         <div class="ft-footer-cell ft-pinned"
-          style="position: sticky; left: ${this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;">
+          style="position: absolute; top: 0; left: ${sl + this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;">
           ${this.footerData![col.key] ?? ''}</div>
       `);
     }
@@ -1743,7 +1744,7 @@ export class FlexTable extends LitElement {
       const left = this._colLeftOffsets[i] ?? 0;
       const isPinned = col.pinned === 'left';
       const cellStyle = isPinned
-        ? `position: sticky; left: ${this._getPinnedLeft(i)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
+        ? `position: absolute; top: 0; left: ${sl + this._getPinnedLeft(i)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
         : `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
       footerCells.push(html`
         <div class="ft-footer-cell ${isPinned ? 'ft-pinned' : ''}" style=${cellStyle}>
@@ -1769,11 +1770,13 @@ export class FlexTable extends LitElement {
     const parity = index % 2 === 0 ? 'ft-row-even' : 'ft-row-odd';
     const isRowSelected = this.selectable && this._rowSelection.isSelected(index);
 
-    // Prefix cells with absolute positioning
+    // Prefix cells — use absolute positioning with scrollLeft compensation
+    // (position: sticky inside scrollable containers causes inline whitespace gaps)
+    const sl = this._scrollLeft;
     let prefixLeft = 0;
     const checkboxCell = this.selectable ? html`
       <div class="ft-checkbox-cell"
-        style="position: sticky; left: ${prefixLeft}px; width: 36px; height: ${rowH}px; z-index: 2;">
+        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 36px; height: ${rowH}px; z-index: 2;">
         <input type="checkbox"
           .checked=${isRowSelected}
           @change=${(e: Event) => this._onRowCheckboxChange(e, index)}>
@@ -1783,7 +1786,7 @@ export class FlexTable extends LitElement {
 
     const rowNumCell = this.showRowNumbers ? html`
       <div class="ft-row-num"
-        style="position: sticky; left: ${prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2;"
+        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2;"
         @click=${() => this._onRowNumberClick(index)}>${dataIndex + 1}</div>
     ` : '';
 
@@ -1816,7 +1819,7 @@ export class FlexTable extends LitElement {
     const left = this._colLeftOffsets[colIndex] ?? 0;
 
     const cellStyle = isPinned
-      ? `position: sticky; left: ${this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
+      ? `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
       : `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
 
     const readonly = !this._isCellEditable(col);

@@ -196,10 +196,11 @@ export const flexTableStyles = css`
 
   .ft-row-num-header,
   .ft-row-num {
-    display: inline-flex;
+    position: absolute;
+    top: 0;
+    display: flex;
     align-items: center;
     justify-content: center;
-    vertical-align: top;
     color: var(--ft-sort-indicator-color);
     font-size: 12px;
     padding: 6px 4px;
@@ -237,10 +238,6 @@ export const flexTableStyles = css`
     background: var(--ft-header-bg);
   }
 
-  .ft-cell.ft-pinned {
-    display: inline-block;
-    vertical-align: top;
-  }
   .ft-row-even .ft-cell.ft-pinned { background: var(--ft-row-even-bg); }
   .ft-row-odd .ft-cell.ft-pinned { background: var(--ft-row-odd-bg); }
   .ft-row:hover .ft-cell.ft-pinned { background: var(--ft-row-hover-bg); }
@@ -328,10 +325,11 @@ export const flexTableStyles = css`
 
   .ft-checkbox-header,
   .ft-checkbox-cell {
-    display: inline-flex;
+    position: absolute;
+    top: 0;
+    display: flex;
     align-items: center;
     justify-content: center;
-    vertical-align: top;
     padding: 0 4px;
     box-sizing: border-box;
     user-select: none;
