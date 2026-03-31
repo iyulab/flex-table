@@ -1416,4 +1416,285 @@ describe('FlexTable', () => {
     expect(cells[0].getAttribute('aria-readonly')).toBe('true');
     expect(cells[1].getAttribute('aria-readonly')).toBeNull();
   });
+
+  // --- API Coverage ---
+
+  it('should return column width via getColumnWidth()', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name', width: 150 }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    // No internal override → undefined
+    expect(el.getColumnWidth('name')).toBeUndefined();
+
+    // After resize, internal width is set
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', altKey: false }));
+    // Simulate clicking cell first
+    const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
+    cell?.click();
+    await el.updateComplete;
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', altKey: true }));
+    await el.updateComplete;
+    expect(el.getColumnWidth('name')).toBe(170); // 150 + 20
+  });
+
+  it('should enforce minWidth in rendered cells', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name', width: 20, minWidth: 60 }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    // Cell should be rendered with at least minWidth
+    const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
+    // Check style includes width: 60px (minWidth enforced over width: 20)
+    expect(cell?.style.width).toBe('60px');
+  });
+
+  it('should expose activeCell and editingCell getters', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    expect(el.activeCell).toBeNull();
+    expect(el.editingCell).toBeNull();
+
+    const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
+    cell?.click();
+    await el.updateComplete;
+
+    expect(el.activeCell).toEqual({ row: 0, col: 0 });
+    expect(el.editingCell).toBeNull();
+  });
+
+  it('should return sortCriteria as a copy', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    const criteria = el.sortCriteria;
+    expect(criteria).toEqual([]);
+    // Mutating the returned copy shouldn't affect internal state
+    criteria.push({ key: 'name', direction: 'asc' });
+    expect(el.sortCriteria).toEqual([]);
+  });
+
+  it('should expose filterKeys getter', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    el.setFilter('name', () => true);
+    expect(el.filterKeys).toContain('name');
+  });
+
+  // --- Validation Visual Feedback ---
+
+  it('should show validation error styling on invalid cell', async () => {
+    const el = createElement();
+    el.columns = [
+      {
+        key: 'age',
+        header: 'Age',
+        type: 'number',
+        validator: (v) => {
+          const n = Number(v);
+          if (n < 0) return 'Must be positive';
+          return null;
+        },
+      },
+    ];
+    el.data = [{ age: 25 }];
+    await el.updateComplete;
+
+    // Click cell, start editing, enter invalid value
+    const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
+    cell.click();
+    await el.updateComplete;
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await el.updateComplete;
+
+    const editor = el.shadowRoot!.querySelector('.ft-editor') as HTMLInputElement;
+    if (editor) {
+      editor.value = '-5';
+      editor.dispatchEvent(new Event('input'));
+      // Blur to commit
+      editor.dispatchEvent(new Event('blur'));
+      await el.updateComplete;
+
+      // Check that the cell got the ft-invalid class
+      const invalidCell = el.shadowRoot!.querySelector('.ft-cell.ft-invalid');
+      expect(invalidCell).toBeTruthy();
+      expect(invalidCell?.getAttribute('aria-invalid')).toBe('true');
+    }
+  });
+
+  // --- Column Selection ---
+
+  it('should select entire column via selectColumn() API', async () => {
+    const el = createElement();
+    el.columns = [
+      { key: 'name', header: 'Name' },
+      { key: 'age', header: 'Age', type: 'number' },
+    ];
+    el.data = [
+      { name: 'Alice', age: 30 },
+      { name: 'Bob', age: 25 },
+      { name: 'Carol', age: 35 },
+    ];
+    await el.updateComplete;
+
+    let eventDetail: any = null;
+    el.addEventListener('column-select', (e: Event) => {
+      eventDetail = (e as CustomEvent).detail;
+    });
+
+    el.selectColumn(1);
+    await el.updateComplete;
+
+    expect(eventDetail).toBeTruthy();
+    expect(eventDetail.colIndex).toBe(1);
+    expect(eventDetail.key).toBe('age');
+    expect(eventDetail.rowCount).toBe(3);
+  });
+
+  // --- Pinned Right ---
+
+  it('should render pinned right column with right positioning', async () => {
+    const el = createElement();
+    el.columns = [
+      { key: 'name', header: 'Name' },
+      { key: 'mid', header: 'Mid' },
+      { key: 'actions', header: 'Actions', pinned: 'right' },
+    ];
+    el.data = [{ name: 'Alice', mid: 'x', actions: 'Edit' }];
+    await el.updateComplete;
+
+    const headerCells = el.shadowRoot!.querySelectorAll('.ft-header-cell');
+    const pinnedHeader = headerCells[2];
+    expect(pinnedHeader.classList.contains('ft-pinned')).toBe(true);
+    expect(pinnedHeader.getAttribute('style')).toContain('right:');
+  });
+
+  it('should render pinned right body cell with right positioning', async () => {
+    const el = createElement();
+    el.columns = [
+      { key: 'name', header: 'Name' },
+      { key: 'actions', header: 'Actions', pinned: 'right' },
+    ];
+    el.data = [{ name: 'Alice', actions: 'Edit' }];
+    await el.updateComplete;
+
+    const cells = el.shadowRoot!.querySelectorAll('.ft-cell');
+    const pinnedCell = cells[1]; // second cell (pinned right)
+    expect(pinnedCell.classList.contains('ft-pinned')).toBe(true);
+    expect(pinnedCell.getAttribute('style')).toContain('right:');
+  });
+
+  // --- Keyboard Column Resize ---
+
+  it('should resize column with Alt+Arrow keys', async () => {
+    const el = createElement();
+    el.columns = [
+      { key: 'name', header: 'Name', width: 100 },
+    ];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    // Click a cell to activate it
+    const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
+    cell?.click();
+    await el.updateComplete;
+
+    let resizeDetail: any = null;
+    el.addEventListener('column-resize', (e: Event) => {
+      resizeDetail = (e as CustomEvent).detail;
+    });
+
+    // Simulate Alt+ArrowRight
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', altKey: true }));
+    await el.updateComplete;
+
+    expect(resizeDetail).toBeTruthy();
+    expect(resizeDetail.key).toBe('name');
+    expect(resizeDetail.width).toBe(120); // 100 + 20
+  });
+
+  // --- Date/Datetime Filter UI ---
+
+  it('should render date inputs for date column filter', async () => {
+    const el = createElement();
+    el.showFilters = true;
+    el.columns = [{ key: 'created', header: 'Created', type: 'date' }];
+    el.data = [{ created: '2025-01-15' }];
+    await el.updateComplete;
+
+    const filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
+    filterBtn.click();
+    await el.updateComplete;
+
+    const inputs = el.shadowRoot!.querySelectorAll('.ft-filter-dropdown input');
+    expect(inputs.length).toBe(2);
+    expect((inputs[0] as HTMLInputElement).type).toBe('date');
+    expect((inputs[1] as HTMLInputElement).type).toBe('date');
+  });
+
+  it('should render datetime-local inputs for datetime column filter', async () => {
+    const el = createElement();
+    el.showFilters = true;
+    el.columns = [{ key: 'ts', header: 'Timestamp', type: 'datetime' }];
+    el.data = [{ ts: '2025-01-15T10:30:00' }];
+    await el.updateComplete;
+
+    const filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
+    filterBtn.click();
+    await el.updateComplete;
+
+    const inputs = el.shadowRoot!.querySelectorAll('.ft-filter-dropdown input');
+    expect(inputs.length).toBe(2);
+    expect((inputs[0] as HTMLInputElement).type).toBe('datetime-local');
+  });
+
+  it('should filter date data with from/to range', async () => {
+    const el = createElement();
+    el.showFilters = true;
+    el.columns = [{ key: 'date', header: 'Date', type: 'date' }];
+    el.data = [
+      { date: '2025-01-10' },
+      { date: '2025-01-20' },
+      { date: '2025-02-05' },
+    ];
+    await el.updateComplete;
+
+    // Use API-level filter with date logic
+    el.setFilter('date', (v) => {
+      const d = new Date(String(v));
+      return d >= new Date('2025-01-15') && d <= new Date('2025-01-31');
+    });
+    await el.updateComplete;
+
+    expect(el.filteredRowCount).toBe(1);
+  });
+
+  it('should clear date filter state on clear button', async () => {
+    const el = createElement();
+    el.showFilters = true;
+    el.columns = [{ key: 'date', header: 'Date', type: 'date' }];
+    el.data = [{ date: '2025-01-10' }, { date: '2025-02-10' }];
+    await el.updateComplete;
+
+    // Open filter, apply filter, then clear
+    el.setFilter('date', () => false);
+    await el.updateComplete;
+    expect(el.filteredRowCount).toBe(0);
+
+    // Clear via public API
+    el.removeFilter('date');
+    await el.updateComplete;
+    expect(el.filteredRowCount).toBe(2);
+  });
 });

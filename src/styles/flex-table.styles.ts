@@ -162,6 +162,12 @@ export const flexTableStyles = css`
     background: var(--ft-selection-bg) !important;
   }
 
+  .ft-cell.ft-invalid {
+    outline: 2px solid #d93025;
+    outline-offset: -2px;
+    background: rgba(217, 48, 37, 0.08);
+  }
+
   .ft-cell.ft-editing { padding: 0; overflow: visible; }
 
   .ft-editor {

@@ -74,7 +74,7 @@ export interface ColumnDefinition {
   /** Custom cell editor — overrides built-in type editing */
   editor?: CellEditor;
   /** Pin the column to one side during horizontal scroll */
-  pinned?: 'left';
+  pinned?: 'left' | 'right';
   /** Cell validator — called before committing edits */
   validator?: CellValidator;
 }

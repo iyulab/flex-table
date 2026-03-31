@@ -50,6 +50,7 @@ export function computeFilteredIndices(
         }
       } catch (e) {
         // Fail-open: include the row when predicate throws
+        // eslint-disable-next-line no-console
         console.warn('Filter predicate error for key "%s":', filter.key, e);
         if (onError) {
           onError(e, row, filter);

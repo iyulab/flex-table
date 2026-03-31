@@ -117,6 +117,7 @@ export class FlexTable extends LitElement {
   @state()
   private _rowSelectionVersion = 0;
 
+  private _viewDirty = true;
   private _resizing: { colIndex: number; startX: number; startWidth: number } | null = null;
   private _resizeCleanup: (() => void) | null = null;
   private _columnWidths: Map<string, number> = new Map();
@@ -609,7 +610,8 @@ export class FlexTable extends LitElement {
   }
 
   private _getColWidth(col: ColumnDefinition): number {
-    return this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
+    const width = this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
+    return Math.max(width, col.minWidth ?? MIN_COL_WIDTH);
   }
 
   private get headerHeight(): number {
@@ -710,10 +712,20 @@ export class FlexTable extends LitElement {
     return { start, end };
   }
 
-  protected willUpdate(): void {
-    // Always recompute: data is often mutated in-place (splice, direct assignment)
-    // which doesn't trigger Lit's change detection
-    this._recomputeView();
+  protected willUpdate(changedProperties: Map<string, unknown>): void {
+    // Skip expensive recompute for scroll-only updates
+    const scrollOnly = changedProperties.size <= 2
+      && !changedProperties.has('data')
+      && !changedProperties.has('columns')
+      && !changedProperties.has('_openFilterKey')
+      && !changedProperties.has('_editingCell')
+      && !changedProperties.has('_activeCell')
+      && (changedProperties.has('_scrollTop') || changedProperties.has('_scrollLeft'));
+
+    if (!scrollOnly || this._viewDirty) {
+      this._recomputeView();
+      this._viewDirty = false;
+    }
     this._updateColOffsets();
     this._selection.setDimensions(this._visibleRowCount, this.visibleColumns.length);
     this._rowSelection.setRowCount(this._visibleRowCount);
@@ -722,6 +734,7 @@ export class FlexTable extends LitElement {
   protected updated(): void {
     this._measureViewport();
     this._focusEditor();
+    this._adjustFilterDropdown();
     // Update ARIA live attributes
     this.setAttribute('aria-rowcount', String(this._visibleRowCount));
     this.setAttribute('aria-colcount', String(this.visibleColumns.length));
@@ -926,6 +939,7 @@ export class FlexTable extends LitElement {
     if (colDef.validator) {
       const error = colDef.validator(newValue, this.data[dataRow], colDef);
       if (error) {
+        this._markCellInvalid(row, col, error);
         this.dispatchEvent(new CustomEvent('validation-error', {
           detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
           bubbles: true,
@@ -1006,7 +1020,6 @@ export class FlexTable extends LitElement {
   // --- Navigation ---
 
   private _onKeyDown(e: KeyboardEvent): void {
-    // If editing, let the editor handle keys
     if (this._editing.current) return;
 
     const cols = this.visibleColumns;
@@ -1030,104 +1043,113 @@ export class FlexTable extends LitElement {
       return;
     }
 
-    // Ctrl/Cmd shortcuts
-    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
-      // Undo: Ctrl+Z
-      if (e.key === 'z' || e.key === 'Z') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          this._undo.redo();
-        } else {
-          this._undo.undo();
-        }
-        this.requestUpdate();
-        this._dispatchUndoStateEvent();
-        return;
-      }
-      // Redo: Ctrl+Y
-      if (e.key === 'y' || e.key === 'Y') {
-        e.preventDefault();
-        this._undo.redo();
-        this.requestUpdate();
-        this._dispatchUndoStateEvent();
-        return;
-      }
-      // Clipboard
-      if (e.key === 'c' || e.key === 'C') {
-        e.preventDefault();
-        this._handleCopy(false);
-        return;
-      }
-      if (e.key === 'x' || e.key === 'X') {
-        e.preventDefault();
-        this._handleCopy(this.editable);
-        return;
-      }
-      if (e.key === 'v' || e.key === 'V') {
-        e.preventDefault();
-        if (this.editable) this._handlePaste();
-        return;
-      }
-    }
+    if (this._handleCtrlKey(e)) return;
+    if (this._handleAltKey(e, cols)) return;
 
     // Printable character starts editing with that character
     if (this._activeCell && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      const col = this.visibleColumns[this._activeCell.col];
+      const col = cols[this._activeCell.col];
       if (col && this._isCellEditable(col)) {
         this._startEdit();
       }
       return;
     }
 
-    let handled = true;
-    switch (e.key) {
-      case 'ArrowUp':
-        e.shiftKey ? this._selection.shiftMoveUp() : this._selection.moveUp();
-        break;
-      case 'ArrowDown':
-        e.shiftKey ? this._selection.shiftMoveDown() : this._selection.moveDown();
-        break;
-      case 'ArrowLeft':
-        e.shiftKey ? this._selection.shiftMoveLeft() : this._selection.moveLeft();
-        break;
-      case 'ArrowRight':
-        e.shiftKey ? this._selection.shiftMoveRight() : this._selection.moveRight();
-        break;
-      case 'Tab':
-        if (e.shiftKey) {
-          this._selection.movePrev();
-        } else {
-          this._selection.moveNext();
-        }
-        break;
-      case 'Home':
-        if (e.ctrlKey) {
-          this._selection.moveToStart();
-        } else {
-          this._selection.moveToRowStart();
-        }
-        break;
-      case 'End':
-        if (e.ctrlKey) {
-          this._selection.moveToEnd();
-        } else {
-          this._selection.moveToRowEnd();
-        }
-        break;
-      case 'Escape':
-        this._selection.clear();
-        break;
-      case 'Delete':
-      case 'Backspace':
-        if (this.editable) this._handleDelete();
-        break;
-      default:
-        handled = false;
-    }
+    const handled = this._handleNavigation(e);
 
     if (handled) {
       e.preventDefault();
       this._syncActiveCell();
+    }
+  }
+
+  private _handleCtrlKey(e: KeyboardEvent): boolean {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return false;
+
+    switch (e.key.toLowerCase()) {
+      case 'z':
+        e.preventDefault();
+        if (e.shiftKey) { this._undo.redo(); } else { this._undo.undo(); }
+        this.requestUpdate();
+        this._dispatchUndoStateEvent();
+        return true;
+      case 'y':
+        e.preventDefault();
+        this._undo.redo();
+        this.requestUpdate();
+        this._dispatchUndoStateEvent();
+        return true;
+      case 'c':
+        e.preventDefault();
+        this._handleCopy(false);
+        return true;
+      case 'x':
+        e.preventDefault();
+        this._handleCopy(this.editable);
+        return true;
+      case 'v':
+        e.preventDefault();
+        if (this.editable) this._handlePaste();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private _handleAltKey(e: KeyboardEvent, cols: ColumnDefinition[]): boolean {
+    if (!e.altKey || !this._activeCell) return false;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return false;
+
+    e.preventDefault();
+    const col = cols[this._activeCell.col];
+    if (!col) return true;
+
+    const currentWidth = this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
+    const delta = e.key === 'ArrowRight' ? 20 : -20;
+    const minW = col.minWidth ?? MIN_COL_WIDTH;
+    const newWidth = Math.max(minW, currentWidth + delta);
+    this._columnWidths.set(col.key, newWidth);
+    this.requestUpdate();
+    this.dispatchEvent(new CustomEvent('column-resize', {
+      detail: { key: col.key, width: newWidth, colIndex: this._activeCell.col },
+      bubbles: true,
+      composed: true,
+    }));
+    return true;
+  }
+
+  private _handleNavigation(e: KeyboardEvent): boolean {
+    switch (e.key) {
+      case 'ArrowUp':
+        e.shiftKey ? this._selection.shiftMoveUp() : this._selection.moveUp();
+        return true;
+      case 'ArrowDown':
+        e.shiftKey ? this._selection.shiftMoveDown() : this._selection.moveDown();
+        return true;
+      case 'ArrowLeft':
+        e.shiftKey ? this._selection.shiftMoveLeft() : this._selection.moveLeft();
+        return true;
+      case 'ArrowRight':
+        e.shiftKey ? this._selection.shiftMoveRight() : this._selection.moveRight();
+        return true;
+      case 'Tab':
+        e.shiftKey ? this._selection.movePrev() : this._selection.moveNext();
+        return true;
+      case 'Home':
+        e.ctrlKey ? this._selection.moveToStart() : this._selection.moveToRowStart();
+        return true;
+      case 'End':
+        e.ctrlKey ? this._selection.moveToEnd() : this._selection.moveToRowEnd();
+        return true;
+      case 'Escape':
+        this._selection.clear();
+        return true;
+      case 'Delete':
+      case 'Backspace':
+        if (this.editable) this._handleDelete();
+        return true;
+      default:
+        return false;
     }
   }
 
@@ -1164,53 +1186,15 @@ export class FlexTable extends LitElement {
 
   private async _handlePaste(): Promise<void> {
     if (!this._activeCell) return;
-    let text: string;
-    try {
-      text = await navigator.clipboard.readText();
-    } catch (err) {
-      this.dispatchEvent(new CustomEvent('clipboard-error', {
-        detail: { action: 'paste', error: err },
-        bubbles: true,
-        composed: true,
-      }));
-      return;
-    }
+
+    const text = await this._readClipboardText();
+    if (text == null) return;
+
     const parsed = parseClipboardText(text);
     if (parsed.length === 0) return;
 
-    const cols = this.visibleColumns;
-    const changes: Array<{ row: number; col: number; key: string; oldValue: unknown; newValue: unknown }> = [];
-    const addedRows: number[] = [];
-
-    // Auto-expand rows if paste exceeds current data bounds
-    const requiredRows = this._activeCell.row + parsed.length;
-    const rowLimit = this.maxRows > 0 ? this.maxRows : Infinity;
-    while (this.data.length < requiredRows && this.data.length < rowLimit) {
-      const newRow = this._createEmptyRow();
-      const insertAt = this.data.length;
-      this.data.push(newRow);
-      addedRows.push(insertAt);
-    }
-
-    // Recompute view after potential row additions
-    if (addedRows.length > 0) {
-      this._recomputeView();
-    }
-
-    for (let r = 0; r < parsed.length; r++) {
-      const visualRow = this._activeCell.row + r;
-      if (visualRow >= this._visibleRowCount) break;
-      const dataRow = this._toDataIndex(visualRow);
-      for (let c = 0; c < parsed[r].length; c++) {
-        const colIndex = this._activeCell.col + c;
-        if (colIndex >= cols.length) break;
-        const col = cols[colIndex];
-        const oldValue = this.data[dataRow][col.key];
-        const newValue = parseValueForColumn(parsed[r][c], col);
-        this.data[dataRow][col.key] = newValue;
-        changes.push({ row: dataRow, col: colIndex, key: col.key, oldValue, newValue });
-      }
-    }
+    const addedRows = this._expandRowsForPaste(this._activeCell.row, parsed.length);
+    const changes = this._applyPasteData(this._activeCell, parsed);
 
     if (changes.length > 0 || addedRows.length > 0) {
       const addedCount = addedRows.length;
@@ -1218,14 +1202,12 @@ export class FlexTable extends LitElement {
         label: 'paste',
         undo: () => {
           for (const c of changes) { this.data[c.row][c.key] = c.oldValue; }
-          // Remove auto-added rows
           if (addedCount > 0) {
             this.data.splice(this.data.length - addedCount, addedCount);
           }
           this.requestUpdate();
         },
         redo: () => {
-          // Re-add rows
           if (addedCount > 0) {
             for (let i = 0; i < addedCount; i++) {
               this.data.push(this._createEmptyRow());
@@ -1235,6 +1217,7 @@ export class FlexTable extends LitElement {
           this.requestUpdate();
         },
       });
+      this._dispatchUndoStateEvent();
     }
 
     this.requestUpdate();
@@ -1243,9 +1226,57 @@ export class FlexTable extends LitElement {
       bubbles: true,
       composed: true,
     }));
-    if (changes.length > 0 || addedRows.length > 0) {
-      this._dispatchUndoStateEvent();
+  }
+
+  private async _readClipboardText(): Promise<string | null> {
+    try {
+      return await navigator.clipboard.readText();
+    } catch (err) {
+      this.dispatchEvent(new CustomEvent('clipboard-error', {
+        detail: { action: 'paste', error: err },
+        bubbles: true,
+        composed: true,
+      }));
+      return null;
     }
+  }
+
+  private _expandRowsForPaste(startRow: number, pasteRowCount: number): number[] {
+    const addedRows: number[] = [];
+    const requiredRows = startRow + pasteRowCount;
+    const rowLimit = this.maxRows > 0 ? this.maxRows : Infinity;
+    while (this.data.length < requiredRows && this.data.length < rowLimit) {
+      const insertAt = this.data.length;
+      this.data.push(this._createEmptyRow());
+      addedRows.push(insertAt);
+    }
+    if (addedRows.length > 0) {
+      this._recomputeView();
+    }
+    return addedRows;
+  }
+
+  private _applyPasteData(
+    anchor: { row: number; col: number },
+    parsed: string[][],
+  ): Array<{ row: number; col: number; key: string; oldValue: unknown; newValue: unknown }> {
+    const cols = this.visibleColumns;
+    const changes: Array<{ row: number; col: number; key: string; oldValue: unknown; newValue: unknown }> = [];
+    for (let r = 0; r < parsed.length; r++) {
+      const visualRow = anchor.row + r;
+      if (visualRow >= this._visibleRowCount) break;
+      const dataRow = this._toDataIndex(visualRow);
+      for (let c = 0; c < parsed[r].length; c++) {
+        const colIndex = anchor.col + c;
+        if (colIndex >= cols.length) break;
+        const col = cols[colIndex];
+        const oldValue = this.data[dataRow][col.key];
+        const newValue = parseValueForColumn(parsed[r][c], col);
+        this.data[dataRow][col.key] = newValue;
+        changes.push({ row: dataRow, col: colIndex, key: col.key, oldValue, newValue });
+      }
+    }
+    return changes;
   }
 
   private _handleDelete(): void {
@@ -1325,6 +1356,14 @@ export class FlexTable extends LitElement {
   // --- Sorting ---
 
   private _onHeaderClick(e: MouseEvent, col: ColumnDefinition): void {
+    const colIndex = this.visibleColumns.indexOf(col);
+
+    // Ctrl+Click or Meta+Click → column selection
+    if (e.ctrlKey || e.metaKey) {
+      this._selectColumn(colIndex);
+      return;
+    }
+
     if (col.sortable === false) return;
     this._sortCriteria = toggleSort(this._sortCriteria, col.key, e.shiftKey);
 
@@ -1341,7 +1380,32 @@ export class FlexTable extends LitElement {
     }));
   }
 
-  /** Calculate cumulative left offset for a pinned column */
+  private _selectColumn(colIndex: number): void {
+    const rowCount = this._visibleRowCount;
+    if (rowCount === 0 || colIndex < 0) return;
+
+    this._selection.setActive(0, colIndex);
+    this._selection.setActiveWithRange(rowCount - 1, colIndex);
+    this._activeCell = { row: 0, col: colIndex };
+    this.requestUpdate();
+
+    this.dispatchEvent(new CustomEvent('column-select', {
+      detail: {
+        colIndex,
+        key: this.visibleColumns[colIndex]?.key,
+        rowCount,
+      },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  /** Public API: select an entire column by index. */
+  selectColumn(colIndex: number): void {
+    this._selectColumn(colIndex);
+  }
+
+  /** Calculate cumulative left offset for a left-pinned column */
   private _getPinnedLeft(colIndex: number): number {
     const cols = this.visibleColumns;
     let left = 0;
@@ -1349,10 +1413,22 @@ export class FlexTable extends LitElement {
     if (this.showRowNumbers) left += 48;
     for (let i = 0; i < colIndex; i++) {
       if (cols[i].pinned === 'left') {
-        left += this._columnWidths.get(cols[i].key) ?? cols[i].width ?? DEFAULT_COL_WIDTH;
+        left += this._getColWidth(cols[i]);
       }
     }
     return left;
+  }
+
+  /** Calculate cumulative right offset for a right-pinned column */
+  private _getPinnedRight(colIndex: number): number {
+    const cols = this.visibleColumns;
+    let right = 0;
+    for (let i = cols.length - 1; i > colIndex; i--) {
+      if (cols[i].pinned === 'right') {
+        right += this._getColWidth(cols[i]);
+      }
+    }
+    return right;
   }
 
   private _renderHeaderCell(col: ColumnDefinition, colIndex: number) {
@@ -1363,7 +1439,9 @@ export class FlexTable extends LitElement {
       : -1;
 
     const hasFilter = this._filters.some(f => f.key === col.key);
-    const isPinned = col.pinned === 'left';
+    const isPinnedLeft = col.pinned === 'left';
+    const isPinnedRight = col.pinned === 'right';
+    const isPinned = isPinnedLeft || isPinnedRight;
 
     const classes = [
       'ft-header-cell',
@@ -1381,9 +1459,14 @@ export class FlexTable extends LitElement {
     const hdrH = this.headerHeight;
     const left = this._colLeftOffsets[colIndex] ?? 0;
 
-    const cellStyle = isPinned
-      ? `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`
-      : `left: ${left}px; width: ${width}px; height: ${hdrH}px;`;
+    let cellStyle: string;
+    if (isPinnedLeft) {
+      cellStyle = `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`;
+    } else if (isPinnedRight) {
+      cellStyle = `position: absolute; top: 0; right: ${-this._scrollLeft + this._getPinnedRight(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`;
+    } else {
+      cellStyle = `left: ${left}px; width: ${width}px; height: ${hdrH}px;`;
+    }
 
     return html`
       <div class=${classes}
@@ -1414,6 +1497,25 @@ export class FlexTable extends LitElement {
 
   // --- Filter UI ---
 
+  private _adjustFilterDropdown(): void {
+    if (!this._openFilterKey) return;
+    const dropdown = this.shadowRoot?.querySelector('.ft-filter-dropdown') as HTMLElement | null;
+    if (!dropdown) return;
+
+    // Reset any previous adjustments
+    dropdown.style.top = '';
+    dropdown.style.bottom = '';
+
+    const rect = dropdown.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+
+    // If dropdown extends beyond viewport bottom, flip it above the header
+    if (rect.bottom > viewportHeight) {
+      dropdown.style.top = 'auto';
+      dropdown.style.bottom = '100%';
+    }
+  }
+
   private _onFilterBtnClick(e: MouseEvent, col: ColumnDefinition): void {
     e.preventDefault();
     e.stopPropagation();
@@ -1435,6 +1537,7 @@ export class FlexTable extends LitElement {
       <div class="ft-filter-dropdown" @click=${(e: MouseEvent) => e.stopPropagation()}>
         ${type === 'boolean' ? this._renderBooleanFilter(col)
           : type === 'number' ? this._renderNumberFilter(col)
+          : type === 'date' || type === 'datetime' ? this._renderDateFilter(col)
           : this._renderTextFilter(col)}
         <div class="ft-filter-actions">
           <button class="ft-filter-clear" @click=${() => this._clearColumnFilter(col.key)}>Clear</button>
@@ -1446,8 +1549,10 @@ export class FlexTable extends LitElement {
   private _renderTextFilter(col: ColumnDefinition) {
     return html`
       <input class="ft-filter-input" type="text" placeholder="Search..."
+        .value=${this._textFilterState.get(col.key) ?? ''}
         @input=${(e: InputEvent) => {
           const value = (e.target as HTMLInputElement).value;
+          this._textFilterState.set(col.key, value);
           if (value) {
             this.setFilter(col.key, (v) => String(v ?? '').toLowerCase().includes(value.toLowerCase()));
           } else {
@@ -1462,19 +1567,47 @@ export class FlexTable extends LitElement {
   }
 
   private _renderNumberFilter(col: ColumnDefinition) {
+    const state = this._numberFilterState.get(col.key) ?? {};
     return html`
       <div class="ft-filter-range">
         <input class="ft-filter-input" type="number" placeholder="Min"
+          .value=${state.min != null ? String(state.min) : ''}
           @input=${(e: InputEvent) => this._applyNumberFilter(col.key, e, 'min')}
           @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
         <input class="ft-filter-input" type="number" placeholder="Max"
+          .value=${state.max != null ? String(state.max) : ''}
           @input=${(e: InputEvent) => this._applyNumberFilter(col.key, e, 'max')}
           @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
       </div>
     `;
   }
 
+  private _invalidCells: Map<string, { error: string; timer: ReturnType<typeof setTimeout> }> = new Map();
+
+  private _cellKey(row: number, col: number): string {
+    return `${row}:${col}`;
+  }
+
+  private _markCellInvalid(row: number, col: number, error: string): void {
+    const key = this._cellKey(row, col);
+    const existing = this._invalidCells.get(key);
+    if (existing) clearTimeout(existing.timer);
+
+    const timer = setTimeout(() => {
+      this._invalidCells.delete(key);
+      this.requestUpdate();
+    }, 3000);
+    this._invalidCells.set(key, { error, timer });
+    this.requestUpdate();
+  }
+
+  private _isCellInvalid(row: number, col: number): string | null {
+    const entry = this._invalidCells.get(this._cellKey(row, col));
+    return entry ? entry.error : null;
+  }
+  private _textFilterState: Map<string, string> = new Map();
   private _numberFilterState: Map<string, { min?: number; max?: number }> = new Map();
+  private _dateFilterState: Map<string, { from?: string; to?: string }> = new Map();
 
   private _applyNumberFilter(key: string, e: InputEvent, bound: 'min' | 'max'): void {
     const value = (e.target as HTMLInputElement).value;
@@ -1494,6 +1627,57 @@ export class FlexTable extends LitElement {
         if (isNaN(n)) return false;
         if (state.min != null && n < state.min) return false;
         if (state.max != null && n > state.max) return false;
+        return true;
+      });
+    }
+  }
+
+  private _renderDateFilter(col: ColumnDefinition) {
+    const inputType = col.type === 'datetime' ? 'datetime-local' : 'date';
+    const state = this._dateFilterState.get(col.key) ?? {};
+    return html`
+      <div class="ft-filter-range">
+        <input class="ft-filter-input" type=${inputType} placeholder="From"
+          .value=${state.from ?? ''}
+          @input=${(e: InputEvent) => this._applyDateFilter(col.key, e, 'from')}
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+        <input class="ft-filter-input" type=${inputType} placeholder="To"
+          .value=${state.to ?? ''}
+          @input=${(e: InputEvent) => this._applyDateFilter(col.key, e, 'to')}
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+      </div>
+    `;
+  }
+
+  private _applyDateFilter(key: string, e: InputEvent, bound: 'from' | 'to'): void {
+    const value = (e.target as HTMLInputElement).value;
+    const state = this._dateFilterState.get(key) ?? {};
+    if (value === '') {
+      delete state[bound];
+    } else {
+      state[bound] = value;
+    }
+    this._dateFilterState.set(key, state);
+
+    if (state.from == null && state.to == null) {
+      this.removeFilter(key);
+    } else {
+      this.setFilter(key, (v) => {
+        if (v == null || v === '') return false;
+        const d = v instanceof Date ? v : new Date(String(v));
+        if (isNaN(d.getTime())) return false;
+        if (state.from) {
+          const from = new Date(state.from);
+          if (d < from) return false;
+        }
+        if (state.to) {
+          const to = new Date(state.to);
+          // For date type, include the entire end day
+          if (state.to.length === 10) {
+            to.setHours(23, 59, 59, 999);
+          }
+          if (d > to) return false;
+        }
         return true;
       });
     }
@@ -1520,7 +1704,9 @@ export class FlexTable extends LitElement {
 
   private _clearColumnFilter(key: string): void {
     this.removeFilter(key);
+    this._textFilterState.delete(key);
     this._numberFilterState.delete(key);
+    this._dateFilterState.delete(key);
     this._openFilterKey = null;
   }
 
@@ -1624,7 +1810,7 @@ export class FlexTable extends LitElement {
     // Determine pinned column indices that are outside the visible range (always render)
     const pinnedIndices: number[] = [];
     for (let i = 0; i < cols.length; i++) {
-      if (cols[i].pinned === 'left' && (i < colStart || i >= colEnd)) {
+      if ((cols[i].pinned === 'left' || cols[i].pinned === 'right') && (i < colStart || i >= colEnd)) {
         pinnedIndices.push(i);
       }
     }
@@ -1732,9 +1918,11 @@ export class FlexTable extends LitElement {
     for (const pi of pinnedIndices) {
       const col = cols[pi];
       const width = this._getColWidth(col);
+      const pStyle = col.pinned === 'right'
+        ? `position: absolute; top: 0; right: ${-sl + this._getPinnedRight(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
+        : `position: absolute; top: 0; left: ${sl + this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
       footerCells.push(html`
-        <div class="ft-footer-cell ft-pinned"
-          style="position: absolute; top: 0; left: ${sl + this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;">
+        <div class="ft-footer-cell ft-pinned" style=${pStyle}>
           ${this.footerData![col.key] ?? ''}</div>
       `);
     }
@@ -1742,10 +1930,17 @@ export class FlexTable extends LitElement {
       const col = cols[i];
       const width = this._getColWidth(col);
       const left = this._colLeftOffsets[i] ?? 0;
-      const isPinned = col.pinned === 'left';
-      const cellStyle = isPinned
-        ? `position: absolute; top: 0; left: ${sl + this._getPinnedLeft(i)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
-        : `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
+      const isPinnedLeft = col.pinned === 'left';
+      const isPinnedRight = col.pinned === 'right';
+      const isPinned = isPinnedLeft || isPinnedRight;
+      let cellStyle: string;
+      if (isPinnedLeft) {
+        cellStyle = `position: absolute; top: 0; left: ${sl + this._getPinnedLeft(i)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
+      } else if (isPinnedRight) {
+        cellStyle = `position: absolute; top: 0; right: ${-sl + this._getPinnedRight(i)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
+      } else {
+        cellStyle = `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
+      }
       footerCells.push(html`
         <div class="ft-footer-cell ${isPinned ? 'ft-pinned' : ''}" style=${cellStyle}>
           ${this.footerData![col.key] ?? ''}</div>
@@ -1812,15 +2007,22 @@ export class FlexTable extends LitElement {
     const isActive = this._activeCell?.row === rowIndex && this._activeCell?.col === colIndex;
     const isEditing = this._editingCell?.row === rowIndex && this._editingCell?.col === colIndex;
     const isSelected = this._selection.isInRange(rowIndex, colIndex);
-    const isPinned = col.pinned === 'left';
+    const isPinnedLeft = col.pinned === 'left';
+    const isPinnedRight = col.pinned === 'right';
+    const isPinned = isPinnedLeft || isPinnedRight;
 
     const width = this._getColWidth(col);
     const rowH = this.rowHeight;
     const left = this._colLeftOffsets[colIndex] ?? 0;
 
-    const cellStyle = isPinned
-      ? `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
-      : `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
+    let cellStyle: string;
+    if (isPinnedLeft) {
+      cellStyle = `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
+    } else if (isPinnedRight) {
+      cellStyle = `position: absolute; top: 0; right: ${-this._scrollLeft + this._getPinnedRight(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
+    } else {
+      cellStyle = `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
+    }
 
     const readonly = !this._isCellEditable(col);
 
@@ -1837,12 +2039,14 @@ export class FlexTable extends LitElement {
     }
 
     const selected = isActive || isSelected;
+    const validationError = this._isCellInvalid(rowIndex, colIndex);
     const classes = [
       'ft-cell',
       `ft-type-${col.type ?? 'text'}`,
       isActive ? 'ft-active' : '',
       isSelected ? 'ft-selected' : '',
       isPinned ? 'ft-pinned' : '',
+      validationError ? 'ft-invalid' : '',
     ].filter(Boolean).join(' ');
 
     return html`
@@ -1851,6 +2055,8 @@ export class FlexTable extends LitElement {
         data-col-index=${colIndex}
         aria-selected=${selected ? 'true' : 'false'}
         aria-readonly=${readonly ? 'true' : nothing}
+        aria-invalid=${validationError ? 'true' : nothing}
+        title=${validationError ?? nothing}
         style=${cellStyle}
         @click=${(e: MouseEvent) => this._onCellClickEvent(e, rowIndex, colIndex)}
         @dblclick=${() => this._onCellDblClick(rowIndex, colIndex)}>

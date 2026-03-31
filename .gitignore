@@ -22,3 +22,4 @@ Thumbs.db
 # Claude Code
 CLAUDE.md
 claudedocs/
+.playwright-mcp/

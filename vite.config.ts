@@ -4,12 +4,14 @@ import { resolve } from 'path';
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: {
+        'flex-table': resolve(__dirname, 'src/index.ts'),
+        'react': resolve(__dirname, 'src/react.ts'),
+      },
       formats: ['es'],
-      fileName: 'flex-table',
     },
     rollupOptions: {
-      external: ['lit', /^lit\//],
+      external: ['lit', /^lit\//, 'react', /^react\//, '@lit/react', /^@lit\/react/],
     },
   },
 });

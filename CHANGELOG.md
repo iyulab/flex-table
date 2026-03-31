@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-03-31
+
+### Added
+- React wrapper via `@iyulab/flex-table/react` subpath export
+- `FlexTableReact` component wraps `<flex-table>` for idiomatic React usage
+- All 23 custom events mapped to React callback props (onCellSelect, onSortChange, etc.)
+- `react` and `@lit/react` as optional peer dependencies
+
+### Changed
+- Vite build now produces multi-entry output (flex-table + react)
+
+## [0.9.0] - 2026-03-31
+
+### Added
+- `pinned: 'right'` support for right-side fixed columns during horizontal scroll
+- Scroll-only update optimization: `_recomputeView()` skipped during pure scroll events (100K+ row performance)
+- `_getPinnedRight()` method for calculating right-pinned column offsets
+
+### Changed
+- `willUpdate()` uses `changedProperties` analysis to skip unnecessary filter/sort recomputation
+- `ColumnDefinition.pinned` type extended: `'left' | 'right'`
+- Pinned column rendering unified for header, body, and footer cells
+
+## [0.8.0] - 2026-03-31
+
+### Added
+- ESLint configuration (`@typescript-eslint` + `eslint-plugin-lit`, flat config)
+- `lint` and `lint:fix` npm scripts
+- 5 API coverage tests (getColumnWidth, activeCell, editingCell, sortCriteria, filterKeys)
+- `minWidth` enforcement in cell rendering (not just resize)
+
+### Changed
+- `_onKeyDown` refactored: split into `_handleCtrlKey`, `_handleAltKey`, `_handleNavigation`
+- `_handlePaste` refactored: split into `_readClipboardText`, `_expandRowsForPaste`, `_applyPasteData`
+- `_getColWidth` now enforces `minWidth` floor on all rendered cells
+
+## [0.7.0] - 2026-03-31
+
+### Added
+- Date/datetime filter UI with native date range picker (from/to inputs)
+- Column selection via `selectColumn(colIndex)` API and Ctrl+Click on header
+- `column-select` event with column index, key, and row count detail
+- Keyboard column resize with Alt+ArrowLeft/Right (±20px per keystroke)
+- Validation visual feedback: red border + `aria-invalid` on cells that fail validator (auto-clears after 3s)
+- Filter UI state persistence: text, number, and date filter inputs retain values when dropdown reopens
+
+### Fixed
+- Filter dropdown clipped at viewport bottom now flips upward (boundary detection)
+- Number filter inputs now reflect `_numberFilterState` via `.value` binding (API↔UI sync)
+- Text filter inputs now track state across open/close cycles
+
+## [0.6.3] - 2026-03-31
+
+### Fixed
+- Pinned column rendered one row below due to block-level stacking of `position: sticky` elements
+- Header pinned/prefix cells not visible on vertical scroll (nested `position: sticky` paint issue in Chrome)
+- Whitespace gap between row-number and pinned columns caused by inline-flex layout hack
+- Unified all prefix/pinned cell positioning to `position: absolute` with `scrollLeft` compensation across header, body, and footer
+
+### Added
+- GitHub Actions CI/CD: npm publish on release, GitHub Pages demo deployment
+- `build:demo` script and `vite.config.demo.ts` for standalone demo build
+- npm version existence check in publish workflow (idempotent deploys)
+
+### Changed
+- `.ft-header` z-index raised from 2 to 3 to ensure header paints above body sticky cells
+
 ## [0.6.0] - 2026-02-20
 
 ### Added
@@ -122,7 +189,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 16 CSS custom properties for theming
 - README with full API documentation
 
-[unreleased]: https://github.com/iyulab/flex-table/compare/v0.6.0...HEAD
+[unreleased]: https://github.com/iyulab/flex-table/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/iyulab/flex-table/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/iyulab/flex-table/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/iyulab/flex-table/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/iyulab/flex-table/compare/v0.6.3...v0.7.0
+[0.6.3]: https://github.com/iyulab/flex-table/compare/v0.6.0...v0.6.3
 [0.6.0]: https://github.com/iyulab/flex-table/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/iyulab/flex-table/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/iyulab/flex-table/compare/v0.3.0...v0.4.0
