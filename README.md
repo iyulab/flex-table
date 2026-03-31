@@ -35,23 +35,31 @@ npm install @iyulab/flex-table
 
 ## Features
 
-- **Virtual Scroll** — Smooth scrolling through 10,000+ rows
+- **Virtual Scroll** — Smooth scrolling through 100,000+ rows (horizontal + vertical)
 - **Keyboard Navigation** — Arrow, Tab, Home, End, Ctrl+Home/End
 - **Inline Editing** — Enter/F2 to edit, Escape to cancel, type-aware editors
 - **Custom Editor** — `editor` callback for fully custom cell editing UI
+- **Validation** — `validator` callback with visual feedback (red border + `aria-invalid`)
 - **Range Selection** — Shift+Arrow, Shift+Click for multi-cell selection
+- **Column Selection** — Ctrl+Click header or `selectColumn()` API
+- **Row Selection** — Checkbox-based row selection (`selectable`, single/multi mode)
 - **Clipboard** — Ctrl+C/X/V with TSV format (Excel/Google Sheets compatible, RFC 4180)
 - **Sorting** — Click header to sort (asc/desc/none), Shift+click for multi-sort
-- **Column Resize** — Drag header border; double-click to auto-fit
+- **Column Resize** — Drag header border, double-click to auto-fit, Alt+Arrow keyboard resize
 - **Column Operations** — `addColumn()`, `deleteColumn()`, `moveColumn()` with undo
-- **Pinned Columns** — Freeze columns during horizontal scroll (`pinned: 'left'`)
+- **Pinned Columns** — Freeze columns to left or right (`pinned: 'left' | 'right'`)
 - **Filtering** — Programmatic API + built-in header filter UI (`show-filters`)
+- **Filter Types** — Text search, number range, boolean toggle, date/datetime range picker
 - **Row Operations** — `addRow()`, `deleteRows()`, `updateRows()` with undo
 - **Undo/Redo** — Ctrl+Z / Ctrl+Y for all operations; configurable stack size
 - **Export** — CSV, TSV, JSON; full data or selection-only
 - **Dark Theme** — Auto via `prefers-color-scheme`, or manual `theme="dark"`
 - **Row Numbers** — Optional `show-row-numbers` attribute with sticky positioning
-- **ARIA** — `role="grid"`, `aria-sort`, `aria-selected`, `aria-readonly`, `aria-rowcount`, `aria-colcount`
+- **Footer Row** — Summary/aggregate row via `footer-data` property
+- **Data Mode** — Client-side or server-side sorting/filtering (`dataMode`)
+- **Context Menu** — `context-menu` event for custom right-click menus
+- **React Wrapper** — `@iyulab/flex-table/react` subpath for idiomatic React usage
+- **ARIA** — `role="grid"`, `aria-sort`, `aria-selected`, `aria-readonly`, `aria-invalid`, `aria-rowcount`, `aria-colcount`
 
 ## Properties
 
@@ -66,6 +74,10 @@ npm install @iyulab/flex-table
 | `showFilters` | `show-filters` | `boolean` | `false` | Show built-in header filter dropdowns |
 | `maxRows` | `max-rows` | `number` | `0` | Max row count (0 = unlimited); blocks `addRow()` and paste expansion |
 | `maxUndoSize` | `max-undo-size` | `number` | `100` | Max undo history stack size |
+| `selectable` | `selectable` | `boolean` | `false` | Enable row-level checkbox selection |
+| `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | Row selection mode |
+| `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Client-side or server-side data processing |
+| `footerData` | `footer-data` | `Record<string, string>` | `null` | Footer/summary row data (keys match column keys) |
 
 ### Read-only Properties
 
@@ -88,17 +100,20 @@ interface ColumnDefinition {
   header: string;          // Display header text
   type?: ColumnType;       // 'text' | 'number' | 'boolean' | 'date' | 'datetime'
   width?: number;          // Column width in pixels (default: 120)
-  minWidth?: number;       // Minimum width (default: 40)
+  minWidth?: number;       // Minimum width in pixels (default: 40, enforced in rendering)
   hidden?: boolean;        // Hide column from view
   sortable?: boolean;      // Enable sorting (default: true)
   editable?: boolean;      // Per-column edit control (follows global editable)
-  pinned?: 'left';         // Freeze column during horizontal scroll
+  pinned?: 'left' | 'right'; // Freeze column during horizontal scroll
   renderer?: CellRenderer; // Custom cell render: (value, row, col) => TemplateResult | string
   editor?: CellEditor;     // Custom cell editor: (value, row, col) => TemplateResult
+  validator?: CellValidator; // Validate before commit: (value, row, col) => string | null
 }
 ```
 
 The `editor` callback must return a Lit `TemplateResult` containing an input element with class `"ft-editor"`. The component reads `.value` from that element on commit. See [Custom Editor](#custom-editor) for details.
+
+The `validator` callback returns `null` if valid, or an error message string. On failure, the cell shows a red border for 3 seconds and a `validation-error` event is dispatched.
 
 ## Methods
 
@@ -109,6 +124,7 @@ The `editor` callback must return a Lit `TemplateResult` containing an input ele
 | `addRow(row?, index?)` | `DataRow \| null` | Add a row. Returns `null` if `maxRows` reached |
 | `deleteRows(indices?)` | `void` | Delete rows by data index (default: selected rows) |
 | `updateRows(changes)` | `void` | Batch update cells as single undo action. `changes: Array<{ row, key, value }>` |
+| `refreshData()` | `void` | Force re-render after in-place data mutation |
 
 ### Column Operations
 
@@ -118,6 +134,15 @@ The `editor` callback must return a Lit `TemplateResult` containing an input ele
 | `deleteColumn(key)` | `void` | Remove column + cleanup filters/sort/widths |
 | `moveColumn(key, newIndex)` | `void` | Reorder column to target index (clamped) |
 | `getColumnWidth(key)` | `number \| undefined` | Get internal resize width for column |
+| `selectColumn(colIndex)` | `void` | Select entire column (range selection) |
+
+### Row Selection
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `selectAll()` | `void` | Select all visible rows (multi mode only) |
+| `deselectAll()` | `void` | Deselect all rows |
+| `getSelectedRows()` | `{ selectedIndices, selectedRows }` | Get selected row data |
 
 ### Filtering
 
@@ -146,6 +171,7 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 | `cell-edit-start` | `{ row, col, key, value }` | Cell editing started |
 | `cell-edit-commit` | `{ row, col, key, oldValue, newValue }` | Cell value committed |
 | `cell-edit-cancel` | `{ row, col }` | Cell edit cancelled (Escape) |
+| `validation-error` | `{ row, col, key, value, error }` | Cell validator rejected value |
 
 ### Data Events
 
@@ -162,7 +188,8 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 | `column-add` | `{ column, index }` | Column added |
 | `column-delete` | `{ column, key, index }` | Column removed |
 | `column-reorder` | `{ key, oldIndex, newIndex }` | Column moved |
-| `column-resize` | `{ key, width, colIndex }` | Column resized (drag or auto-fit) |
+| `column-resize` | `{ key, width, colIndex }` | Column resized (drag, auto-fit, or keyboard) |
+| `column-select` | `{ colIndex, key, rowCount }` | Entire column selected |
 
 ### Sort & Filter Events
 
@@ -170,6 +197,13 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 |-------|--------|-------------|
 | `sort-change` | `{ criteria: [{ key, direction }] }` | Sort criteria changed |
 | `filter-change` | `{ keys, filteredCount }` | Filter added/removed |
+| `filter-error` | `{ error, row, filterKey }` | Filter predicate threw an error |
+
+### Selection Events
+
+| Event | Detail | Description |
+|-------|--------|-------------|
+| `selection-change` | `{ selectedIndices, selectedRows }` | Row checkbox selection changed |
 
 ### Clipboard Events
 
@@ -185,6 +219,7 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 | Event | Detail | Description |
 |-------|--------|-------------|
 | `undo-state-change` | `{ canUndo, canRedo }` | Undo/redo availability changed |
+| `context-menu` | `{ x, y, row, col, dataRow, column }` | Right-click on cell |
 
 ## CSS Custom Properties
 
@@ -228,8 +263,46 @@ flex-table {
 | Delete / Backspace | Clear selected cells |
 | Ctrl+Z | Undo |
 | Ctrl+Shift+Z / Ctrl+Y | Redo |
+| Alt+ArrowLeft / Alt+ArrowRight | Resize current column (±20px) |
+| Ctrl+Click header | Select entire column |
 
 ## Usage Guide
+
+### React
+
+Install peer dependencies and import the React wrapper:
+
+```bash
+npm install @iyulab/flex-table @lit/react react
+```
+
+```tsx
+import { FlexTableReact } from '@iyulab/flex-table/react';
+
+function App() {
+  const columns = [
+    { key: 'name', header: 'Name', type: 'text' },
+    { key: 'age', header: 'Age', type: 'number' },
+  ];
+
+  const data = [
+    { name: 'Alice', age: 30 },
+    { name: 'Bob', age: 25 },
+  ];
+
+  return (
+    <FlexTableReact
+      columns={columns}
+      data={data}
+      showRowNumbers
+      onCellEditCommit={(e) => console.log('Edited:', e.detail)}
+      onSortChange={(e) => console.log('Sort:', e.detail)}
+    />
+  );
+}
+```
+
+All `<flex-table>` properties are available as React props, and all custom events are mapped to `on*` callbacks (e.g., `cell-edit-commit` → `onCellEditCommit`).
 
 ### Custom Editor
 
@@ -260,6 +333,40 @@ table.columns = [
 - For Enter/Escape support, handle `@keydown` in your template
 - For blur-to-commit, handle `@blur` in your template
 
+### Validation
+
+Use the `validator` callback to validate input before committing. Returns `null` if valid, or an error message:
+
+```typescript
+table.columns = [
+  {
+    key: 'age',
+    header: 'Age',
+    type: 'number',
+    validator: (value) => {
+      const n = Number(value);
+      if (n < 0 || n > 150) return 'Age must be 0–150';
+      return null;
+    },
+  },
+];
+```
+
+When validation fails, the cell displays a red border for 3 seconds and the `validation-error` event fires.
+
+### Pinned Columns
+
+Freeze columns on either side during horizontal scroll:
+
+```typescript
+table.columns = [
+  { key: 'id', header: 'ID', pinned: 'left' },
+  { key: 'name', header: 'Name' },
+  // ... many columns ...
+  { key: 'actions', header: 'Actions', pinned: 'right' },
+];
+```
+
 ### Data Mutation
 
 The `data` property uses in-place mutation for performance. Direct changes to data objects are **not** automatically detected:
@@ -269,7 +376,7 @@ The `data` property uses in-place mutation for performance. Direct changes to da
 table.data[0].name = 'Alice';
 
 // Options to trigger re-render:
-table.requestUpdate();           // Manual re-render
+table.refreshData();             // Force re-render
 table.updateRows([               // Recommended — includes undo support
   { row: 0, key: 'name', value: 'Alice' }
 ]);
@@ -284,16 +391,32 @@ Enable with `show-filters` attribute. Filter dropdowns appear in column headers:
 - **text**: case-insensitive substring search
 - **number**: min/max range inputs
 - **boolean**: All / True / False select
+- **date**: from/to date range picker (`<input type="date">`)
+- **datetime**: from/to datetime range picker (`<input type="datetime-local">`)
 
-Filters set via the UI and the programmatic API (`setFilter()`) share the same filter state.
+Filters set via the UI and the programmatic API (`setFilter()`) share the same filter state. Filter dropdowns automatically flip upward when near the viewport bottom.
+
+### Server-Side Mode
+
+Set `data-mode="server"` to disable client-side sorting/filtering. The component dispatches `sort-change` and `filter-change` events but does not recompute data — your server provides pre-sorted/filtered data:
+
+```typescript
+table.dataMode = 'server';
+table.addEventListener('sort-change', (e) => {
+  fetchData({ sort: e.detail.criteria }).then(data => {
+    table.data = data;
+  });
+});
+```
 
 ## Development
 
 ```bash
 npm install
 npm run dev      # Dev server with demo
-npm test         # Run tests
+npm test         # Run tests (179 tests)
 npm run build    # Build library
+npm run lint     # ESLint check
 ```
 
 ## License
