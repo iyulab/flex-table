@@ -7,11 +7,12 @@ export default defineConfig({
       entry: {
         'flex-table': resolve(__dirname, 'src/index.ts'),
         'react': resolve(__dirname, 'src/react.ts'),
+        'odata/index': resolve(__dirname, 'src/odata/index.ts'),
       },
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['lit', /^lit\//, 'react', /^react\//, '@lit/react', /^@lit\/react/],
+      external: ['lit', /^lit\//, 'react', /^react\//, '@lit/react', /^@lit\/react/, 'odata-query'],
     },
   },
 });
