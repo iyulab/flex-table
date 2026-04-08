@@ -14,6 +14,13 @@ export function useODataSource<T = Record<string, unknown>>(
 ): UseODataSourceResult<T> {
   const { pageSize = 20, defaultOrderBy, fixedFilter } = options;
 
+  /*
+   * fixedFilter는 호출자가 매 render마다 새 객체 리터럴로 넘기는 경우가 흔하다
+   * (e.g. `fixedFilter={ IsActive: true }`). 참조 비교만 하면 useEffect가 매 render마다
+   * 재실행되어 무한 fetch loop가 발생. 직렬화 키로 변환해 값 비교를 수행한다.
+   */
+  const fixedFilterKey = fixedFilter ? JSON.stringify(fixedFilter) : '';
+
   const [data, setData] = useState<T[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -103,7 +110,9 @@ export function useODataSource<T = Record<string, unknown>>(
       });
 
     return () => controller.abort();
-  }, [url, page, pageSize, sortCriteria, search, fixedFilter, defaultOrderBy, refreshToken]);
+  // fixedFilterKey(문자열)로 값 비교, fixedFilter 객체 자체는 eslint-disable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, page, pageSize, sortCriteria, search, fixedFilterKey, defaultOrderBy, refreshToken]);
 
   return {
     data, totalCount, loading, error,

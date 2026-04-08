@@ -121,6 +121,7 @@ export class FlexTable extends LitElement {
   private _resizing: { colIndex: number; startX: number; startWidth: number } | null = null;
   private _resizeCleanup: (() => void) | null = null;
   private _columnWidths: Map<string, number> = new Map();
+  private _hostResizeObserver: ResizeObserver | null = null;
 
   get visibleColumns(): ColumnDefinition[] {
     return this.columns.filter(col => !col.hidden);
@@ -649,6 +650,16 @@ export class FlexTable extends LitElement {
       this.setAttribute('tabindex', '0');
     }
     this.setAttribute('role', 'grid');
+
+    // ResizeObserver — host의 client size 변화만 감시.
+    // 이전 구현은 `updated()`에서 매번 _measureViewport()를 호출하여 @state를 갱신했는데,
+    // scrollbar 출현으로 clientWidth가 진동하는 경우 무한 reflow loop 발생 (yesung 11차 run에서 발견:
+    // F12에서 <html> 요소가 빠르게 깜빡이는 현상).
+    // ResizeObserver는 ResizeObserverLoop 보호 메커니즘이 있어 안전.
+    if (typeof ResizeObserver !== 'undefined') {
+      this._hostResizeObserver = new ResizeObserver(() => this._measureViewport());
+      this._hostResizeObserver.observe(this);
+    }
   }
 
   disconnectedCallback(): void {
@@ -661,6 +672,10 @@ export class FlexTable extends LitElement {
     if (this._resizeCleanup) {
       this._resizeCleanup();
       this._resizeCleanup = null;
+    }
+    if (this._hostResizeObserver) {
+      this._hostResizeObserver.disconnect();
+      this._hostResizeObserver = null;
     }
   }
 
@@ -732,7 +747,9 @@ export class FlexTable extends LitElement {
   }
 
   protected updated(): void {
-    this._measureViewport();
+    // _measureViewport()는 더 이상 여기서 호출하지 않는다.
+    // 호출 시 @state 갱신 → 무한 update 루프 위험 (위 connectedCallback의 ResizeObserver 주석 참조).
+    // 크기 변화는 ResizeObserver가 비동기로 처리한다.
     this._focusEditor();
     this._adjustFilterDropdown();
     // Update ARIA live attributes
