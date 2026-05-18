@@ -1394,11 +1394,14 @@ export class FlexTable extends LitElement {
     const changes: Array<{ row: number; key: string; value: unknown }> = [];
     for (let r = range.startRow; r <= range.endRow; r++) {
       const dataRow = this._toDataIndex(r);
-      const sourceValue = this.data[dataRow][cols[range.startCol].key];
+      const srcCol = cols[range.startCol];
+      if (!srcCol) continue;
+      const rawValue = this.data[dataRow][srcCol.key];
       for (let c = range.startCol + 1; c <= range.endCol; c++) {
         const col = cols[c];
         if (!col || !this._isCellEditable(col)) continue;
-        changes.push({ row: dataRow, key: col.key, value: sourceValue });
+        const value = parseValueForColumn(rawValue == null ? '' : String(rawValue), col);
+        changes.push({ row: dataRow, key: col.key, value });
       }
     }
     if (changes.length > 0) this.updateRows(changes);

@@ -1853,6 +1853,20 @@ describe('FlexTable', () => {
       expect(el.data[0]['a']).toBe(10); // unchanged
     });
 
+    it('Ctrl+R on leftmost single cell does nothing', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+
+      (el as any)._selection.setActive(1, 0);
+      (el as any)._activeCell = { row: 1, col: 0 };
+
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+
+      // leftmost column — nothing should change
+      expect(el.data[1]['a']).toBe(0); // unchanged
+    });
+
     it('Fill Down is undoable', async () => {
       const el = makeEl();
       await el.updateComplete;
