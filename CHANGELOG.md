@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-05-19
+
+### Added
+- **XLSX Import**: `.xlsx` 및 `.csv` 파일을 테이블에 가져오기
+  - `importFromFile(file: File): Promise<void>` API
+  - `import-enabled` 속성으로 드래그&드롭 활성화 (파일 드롭 오버레이 포함)
+  - 첫 행 헤더 → 기존 컬럼 key 자동 매칭 (exact 우선, 대소문자 무관 fallback)
+  - 컬럼 타입에 따라 자동 형 변환 (number, boolean, text)
+  - `data-import` CustomEvent (`detail.count`: 가져온 행 수)
+  - 외부 의존성 없는 순수 TypeScript 구현 (ZIP 중앙 디렉터리 파싱, OOXML DOMParser, DEFLATE/STORE 지원)
+- **셀 코멘트**: 셀 단위 메모/코멘트 부착
+  - `setComment(dataIndex, colKey, text|null)` API — 빈 문자열/null 전달 시 제거
+  - `getComment(dataIndex, colKey)` API
+  - `getAllComments()` — 전체 코멘트 배열 반환
+  - `clearComments()` — 전체 코멘트 삭제
+  - `comment-change` CustomEvent (`detail: { dataIndex, colKey, text }`)
+  - 코멘트 있는 셀 우상단에 오렌지색 삼각형 인디케이터 표시, hover 시 title tooltip
+
+### Internal
+- `src/export/xlsx-reader.ts`: ZIP 리더 + OOXML 파서 (shared strings, 셀 타입 처리, 날짜 시리얼 변환)
+- `_comments: Map<number, Map<string, string>>` 내부 저장소 (dataIndex → colKey → text)
+- `_applyImportedSheet`, `_applyImportedRows`, `_buildHeaderColumnMap` 내부 메서드
+- `_onDragover`, `_onDragleave`, `_onDrop` 드래그&드롭 핸들러
+- `.ft-import-overlay`, `.ft-has-comment`, `.ft-comment-indicator` 스타일 추가
+
 ## [0.15.0] - 2026-05-19
 
 ### Added

@@ -11,6 +11,8 @@ import { UndoStack } from './core/undo.js';
 import { copyToClipboard, parseClipboardText, parseValueForColumn } from './clipboard/clipboard.js';
 import { exportData, downloadFile, getExportMimeType, getExportExtension } from './export/export.js';
 import type { ExportFormat } from './export/export.js';
+import { readXlsx } from './export/xlsx-reader.js';
+import type { ImportedSheet } from './export/xlsx-reader.js';
 import type { CellPosition, CellRange } from './core/selection.js';
 import type { SortCriteria } from './core/sorting.js';
 import type { ColumnFilter, FilterPredicate } from './core/filtering.js';
@@ -66,6 +68,10 @@ export class FlexTable extends LitElement {
   /** Number of rows to freeze at the top (always visible during vertical scroll). */
   @property({ type: Number, attribute: 'frozen-rows' })
   frozenRows: number = 0;
+
+  /** Enable file drag-and-drop import (.xlsx, .csv). */
+  @property({ type: Boolean, attribute: 'import-enabled' })
+  importEnabled: boolean = false;
 
   /** Enable row-level checkbox selection. */
   @property({ type: Boolean })
@@ -181,6 +187,12 @@ export class FlexTable extends LitElement {
   } | null = null;
   private _columnWidths: Map<string, number> = new Map();
   private _hostResizeObserver: ResizeObserver | null = null;
+  /** Keyed by dataIndex → colKey → comment text */
+  private _comments: Map<number, Map<string, string>> = new Map();
+
+  @state()
+  private _isDragOver = false;
+
 
   get visibleColumns(): ColumnDefinition[] {
     return this.columns.filter(col => !col.hidden);
@@ -678,6 +690,148 @@ export class FlexTable extends LitElement {
     downloadFile(content, name, getExportMimeType(format));
   }
 
+  // --- Public API: Comments ---
+
+  /**
+   * Set a comment on the cell at the given data index and column key.
+   * Pass an empty string or null to remove the comment.
+   */
+  setComment(dataIndex: number, colKey: string, text: string | null): void {
+    if (!text) {
+      const row = this._comments.get(dataIndex);
+      if (row) {
+        row.delete(colKey);
+        if (row.size === 0) this._comments.delete(dataIndex);
+      }
+    } else {
+      if (!this._comments.has(dataIndex)) this._comments.set(dataIndex, new Map());
+      this._comments.get(dataIndex)!.set(colKey, text);
+    }
+    this.dispatchEvent(new CustomEvent('comment-change', {
+      detail: { dataIndex, colKey, text: text ?? null },
+      bubbles: true, composed: true,
+    }));
+    this.requestUpdate();
+  }
+
+  /**
+   * Get the comment for a cell (by data index and column key). Returns null if none.
+   */
+  getComment(dataIndex: number, colKey: string): string | null {
+    return this._comments.get(dataIndex)?.get(colKey) ?? null;
+  }
+
+  /**
+   * Get all comments as a flat array.
+   */
+  getAllComments(): Array<{ dataIndex: number; colKey: string; text: string }> {
+    const result: Array<{ dataIndex: number; colKey: string; text: string }> = [];
+    for (const [dataIndex, colMap] of this._comments) {
+      for (const [colKey, text] of colMap) {
+        result.push({ dataIndex, colKey, text });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Clear all comments.
+   */
+  clearComments(): void {
+    this._comments.clear();
+    this.requestUpdate();
+  }
+
+  // --- Public API: Import ---
+
+  /**
+   * Import data from an xlsx or csv File.
+   * Dispatches 'data-import' event with { count } on success.
+   */
+  async importFromFile(file: File): Promise<void> {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.xlsx')) {
+      const buf = await file.arrayBuffer();
+      const sheet = await readXlsx(buf);
+      this._applyImportedSheet(sheet);
+    } else if (name.endsWith('.csv') || name.endsWith('.tsv')) {
+      const text = await file.text();
+      const rows = parseClipboardText(text);
+      this._applyImportedRows(rows);
+    } else {
+      console.warn(`flex-table importFromFile: unsupported file type "${file.name}"`);
+    }
+  }
+
+  private _applyImportedSheet(sheet: ImportedSheet): void {
+    const colMap = this._buildHeaderColumnMap(sheet.headers);
+    const imported: DataRow[] = sheet.rows.map(raw => {
+      const row: DataRow = {};
+      sheet.headers.forEach((hdr, i) => {
+        const key = colMap.get(hdr);
+        if (!key) return;
+        const col = this.columns.find(c => c.key === key);
+        row[key] = col ? parseValueForColumn(raw[i] ?? '', col) : (raw[i] ?? null);
+      });
+      return row;
+    });
+    this.data = imported;
+    this.dispatchEvent(new CustomEvent('data-import', { detail: { count: imported.length }, bubbles: true, composed: true }));
+  }
+
+  private _applyImportedRows(rows: string[][]): void {
+    if (rows.length === 0) return;
+    const headers = rows[0];
+    const colMap = this._buildHeaderColumnMap(headers);
+    const imported: DataRow[] = rows.slice(1).map(raw => {
+      const row: DataRow = {};
+      headers.forEach((hdr, i) => {
+        const key = colMap.get(hdr);
+        if (!key) return;
+        const col = this.columns.find(c => c.key === key);
+        row[key] = col ? parseValueForColumn(raw[i] ?? '', col) : (raw[i] ?? null);
+      });
+      return row;
+    });
+    this.data = imported;
+    this.dispatchEvent(new CustomEvent('data-import', { detail: { count: imported.length }, bubbles: true, composed: true }));
+  }
+
+  /** Map header text → column key using exact header match (case-insensitive fallback). */
+  private _buildHeaderColumnMap(headers: string[]): Map<string, string> {
+    const map = new Map<string, string>();
+    for (const hdr of headers) {
+      // Exact match first
+      const exact = this.columns.find(c => c.header === hdr);
+      if (exact) { map.set(hdr, exact.key); continue; }
+      // Case-insensitive fallback
+      const ci = this.columns.find(c => c.header.toLowerCase() === hdr.toLowerCase());
+      if (ci) map.set(hdr, ci.key);
+    }
+    return map;
+  }
+
+  private _onDragover(e: DragEvent): void {
+    if (!this.importEnabled) return;
+    const hasFiles = e.dataTransfer?.types.includes('Files') ?? false;
+    if (!hasFiles) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'copy';
+    this._isDragOver = true;
+  }
+
+  private _onDragleave(): void {
+    this._isDragOver = false;
+  }
+
+  private async _onDrop(e: DragEvent): Promise<void> {
+    this._isDragOver = false;
+    if (!this.importEnabled) return;
+    e.preventDefault();
+    const file = e.dataTransfer?.files[0];
+    if (file) await this.importFromFile(file);
+  }
+
   private _getSelectedDataRows(): number[] {
     const range = this._selection.getEffectiveRange();
     if (!range) return [];
@@ -737,9 +891,15 @@ export class FlexTable extends LitElement {
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onDocumentClick = this._onDocumentClick.bind(this);
     this._onContextMenu = this._onContextMenu.bind(this);
+    this._onDragover = this._onDragover.bind(this);
+    this._onDragleave = this._onDragleave.bind(this);
+    this._onDrop = this._onDrop.bind(this);
     this.addEventListener('scroll', this._onScroll, { passive: true });
     this.addEventListener('keydown', this._onKeyDown);
     this.addEventListener('contextmenu', this._onContextMenu);
+    this.addEventListener('dragover', this._onDragover as unknown as EventListener);
+    this.addEventListener('dragleave', this._onDragleave as unknown as EventListener);
+    this.addEventListener('drop', this._onDrop as unknown as EventListener);
 
     if (!this.hasAttribute('tabindex')) {
       this.setAttribute('tabindex', '0');
@@ -762,6 +922,9 @@ export class FlexTable extends LitElement {
     this.removeEventListener('scroll', this._onScroll);
     this.removeEventListener('keydown', this._onKeyDown);
     this.removeEventListener('contextmenu', this._onContextMenu);
+    this.removeEventListener('dragover', this._onDragover as unknown as EventListener);
+    this.removeEventListener('dragleave', this._onDragleave as unknown as EventListener);
+    this.removeEventListener('drop', this._onDrop as unknown as EventListener);
     document.removeEventListener('click', this._onDocumentClick);
     this._isDragging = false;
     this._wasDrag = false;
@@ -3072,9 +3235,12 @@ export class FlexTable extends LitElement {
 
   render() {
     const cols = this.visibleColumns;
+    const importOverlay = this.importEnabled && this._isDragOver
+      ? html`<div class="ft-import-overlay">Drop file to import (.xlsx / .csv)</div>`
+      : nothing;
 
     if (cols.length === 0) {
-      return html`<div class="ft-empty">No columns defined</div>`;
+      return html`${importOverlay}<div class="ft-empty">No columns defined</div>`;
     }
 
     const hdrH = this.headerHeight;
@@ -3151,6 +3317,7 @@ export class FlexTable extends LitElement {
       : '';
 
     return html`
+      ${importOverlay}
       ${this._renderFindPanel()}
       <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
         ${selectAllHeader}${rowNumHeader}
@@ -3382,8 +3549,15 @@ export class FlexTable extends LitElement {
       isFindCurrent ? 'ft-find-current' : (isFindMatch ? 'ft-find-match' : ''),
     ].filter(Boolean).join(' ');
 
+    const dataIdx = this._toDataIndex(rowIndex);
+    const commentText = this._comments.get(dataIdx)?.get(col.key) ?? null;
+    const hasComment = commentText !== null;
+    const commentTooltip = hasComment
+      ? html`<div class="ft-comment-indicator" title=${commentText}></div>`
+      : nothing;
+
     return html`
-      <div class=${classes}
+      <div class=${hasComment ? classes + ' ft-has-comment' : classes}
         role="gridcell"
         data-col-index=${colIndex}
         aria-selected=${selected ? 'true' : 'false'}
@@ -3395,6 +3569,7 @@ export class FlexTable extends LitElement {
         @mouseenter=${() => this._onCellMouseEnter(rowIndex, colIndex)}
         @click=${(e: MouseEvent) => this._onCellClickEvent(e, rowIndex, colIndex)}
         @dblclick=${() => this._onCellDblClick(rowIndex, colIndex)}>
+        ${commentTooltip}
         ${renderCell(row[col.key], row, col)}
       </div>
     `;

@@ -1,75 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>flex-table Demo</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      margin: 0;
-      padding: 24px;
-      background: #fafafa;
-      transition: background 0.2s;
-    }
-    body.dark { background: #121212; color: #e8eaed; }
-    h1 { margin: 0 0 4px; font-size: 24px; }
-    .toolbar { margin: 0 0 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .info { color: #666; font-size: 14px; margin: 0; }
-    body.dark .info { color: #9aa0a6; }
-    .btn {
-      padding: 4px 12px; border-radius: 4px; border: 1px solid #ccc;
-      background: #fff; cursor: pointer; font-size: 13px;
-    }
-    .btn.active { background: #1a73e8; color: #fff; border-color: #1a73e8; }
-    body.dark .btn { background: #333; color: #e8eaed; border-color: #555; }
-    body.dark .btn.active { background: #4da3ff; color: #1e1e1e; border-color: #4da3ff; }
-    .btn.danger { color: #d93025; border-color: #d93025; }
-    .filter-bar { margin: 0 0 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .filter-bar input, .filter-bar select {
-      padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
-    }
-    body.dark .filter-bar input, body.dark .filter-bar select {
-      background: #333; color: #e8eaed; border-color: #555;
-    }
-    .filter-bar label { font-size: 13px; color: #666; }
-    body.dark .filter-bar label { color: #9aa0a6; }
-    .status-bar { margin: 8px 0 0; font-size: 12px; color: #666; }
-    body.dark .status-bar { color: #9aa0a6; }
-    flex-table {
-      height: 600px;
-      border-radius: 4px;
-    }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; box-sizing: border-box; background: #f8f9fa; }
+    body.dark { background: #1a1a1a; color: #e0e0e0; }
+    h1 { font-size: 24px; margin-bottom: 4px; }
+    h2 { font-size: 16px; margin-bottom: 4px; }
+    p.info { font-size: 13px; color: #666; margin-bottom: 8px; }
+    body.dark p.info { color: #9aa0a6; }
+    flex-table { display: block; width: 100%; height: 400px; border: 1px solid #e0e0e0; border-radius: 4px; background: white; }
+    body.dark flex-table { border-color: #3a3a3a; background: #1e1e1e; }
+    .toolbar { display: flex; gap: 8px; margin-top: 8px; }
+    .btn { padding: 6px 14px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; }
+    .btn:hover { background: #f0f0f0; }
+    body.dark .btn { background: #2a2a2a; border-color: #444; color: #e0e0e0; }
+    body.dark .btn:hover { background: #333; }
   </style>
 </head>
 <body>
-  <h1>flex-table</h1>
-  <div class="toolbar">
-    <p class="info">
-      <span id="row-count"></span> rows &middot; Virtual scroll &middot; Click header to sort &middot; Ctrl+Z undo
-    </p>
+  <h1>flex-table v0.15.0 Demo</h1>
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
     <button class="btn" id="theme-toggle">Dark</button>
-    <button class="btn" id="add-row-btn">+ Add Row</button>
-    <button class="btn" id="add-col-btn">+ Add Column</button>
-    <button class="btn danger" id="del-col-btn">- Delete Column</button>
+    <span id="row-count"></span> rows
+  </div>
+  <p class="info">
+    10K rows &middot; Virtual scroll &middot; Editable &middot; Sort/Filter &middot; Pinned left column &middot;
+    Multi-select (Shift+Click) &middot; Fill Down/Right (Ctrl+D/R) &middot; Context menu &middot; Show Filters
+  </p>
+  <flex-table id="table" row-height="32" show-row-numbers editable show-filters show-context-menu selectable></flex-table>
+  <div class="toolbar">
     <button class="btn" id="export-csv-btn">Export CSV</button>
-  </div>
-  <div class="filter-bar">
-    <label>External Filter:</label>
-    <input type="text" id="name-filter" placeholder="Name contains..." size="16">
-    <select id="active-filter">
-      <option value="">All</option>
-      <option value="true">Active only</option>
-      <option value="false">Inactive only</option>
-    </select>
-    <input type="number" id="score-min" placeholder="Score min" size="8">
-    <input type="number" id="score-max" placeholder="Score max" size="8">
-    <button class="btn" id="clear-filters-btn">Clear Filters</button>
-  </div>
-  <flex-table id="table" row-height="32" show-row-numbers show-filters></flex-table>
-  <div class="status-bar">
-    <span id="filter-status"></span>
-    <span id="undo-status"></span>
+    <button class="btn" id="undo-btn">Undo</button>
+    <button class="btn" id="redo-btn">Redo</button>
   </div>
 
   <h2 style="margin-top: 32px;">v0.13 New Features</h2>
@@ -80,6 +45,17 @@
   <flex-table id="new-features-table" row-height="32" show-row-numbers editable show-context-menu></flex-table>
   <div class="toolbar" style="margin-top: 8px;">
     <button class="btn" id="export-xlsx-btn">Export XLSX</button>
+  </div>
+
+  <h2 style="margin-top: 32px;">v0.16 XLSX Import</h2>
+  <p class="info">
+    <code>import-enabled</code> &middot; Drag &amp; drop .xlsx or .csv file &middot;
+    Or click "Generate &amp; Import" to programmatically import generated data
+  </p>
+  <flex-table id="import-table" row-height="32" show-row-numbers import-enabled editable style="height: 240px;"></flex-table>
+  <div class="toolbar" style="margin-top: 8px;">
+    <button class="btn" id="import-generate-btn">Generate &amp; Import (XLSX)</button>
+    <span id="import-status" style="margin-left: 12px; font-size: 13px; color: #666;"></span>
   </div>
 
   <h2 style="margin-top: 32px;">v0.15 Freeze Rows Test</h2>
@@ -125,159 +101,81 @@
         name: `User ${i}`,
         email: `user${i}@example.com`,
         active: i % 3 !== 0,
-        created: new Date(2024, 0, (i % 365) + 1),
-        score: Math.round(Math.random() * 10000) / 100,
+        created: new Date(2024, 0, i % 365 + 1),
+        score: Math.round(Math.random() * 100),
         tag: tags[i % tags.length],
       });
     }
     table.data = data;
 
-    // --- External Filter UI ---
-    const nameFilter = document.getElementById('name-filter');
-    const activeFilter = document.getElementById('active-filter');
-    const scoreMin = document.getElementById('score-min');
-    const scoreMax = document.getElementById('score-max');
-    const filterStatus = document.getElementById('filter-status');
-    const undoStatus = document.getElementById('undo-status');
-
-    nameFilter.addEventListener('input', () => {
-      const val = nameFilter.value.trim().toLowerCase();
-      if (val) {
-        table.setFilter('name', (v) => String(v).toLowerCase().includes(val));
-      } else {
-        table.removeFilter('name');
-      }
-    });
-
-    activeFilter.addEventListener('change', () => {
-      const val = activeFilter.value;
-      if (val === 'true') {
-        table.setFilter('active', (v) => v === true);
-      } else if (val === 'false') {
-        table.setFilter('active', (v) => v === false);
-      } else {
-        table.removeFilter('active');
-      }
-    });
-
-    function applyScoreFilter() {
-      const min = scoreMin.value !== '' ? Number(scoreMin.value) : null;
-      const max = scoreMax.value !== '' ? Number(scoreMax.value) : null;
-      if (min !== null || max !== null) {
-        table.setFilter('score', (v) => {
-          const n = Number(v);
-          if (min !== null && n < min) return false;
-          if (max !== null && n > max) return false;
-          return true;
-        });
-      } else {
-        table.removeFilter('score');
-      }
-    }
-    scoreMin.addEventListener('input', applyScoreFilter);
-    scoreMax.addEventListener('input', applyScoreFilter);
-
-    document.getElementById('clear-filters-btn').addEventListener('click', () => {
-      nameFilter.value = '';
-      activeFilter.value = '';
-      scoreMin.value = '';
-      scoreMax.value = '';
-      table.clearFilters();
-    });
-
-    // --- Filter/Undo Status ---
-    table.addEventListener('filter-change', (e) => {
-      const { filteredCount, keys } = e.detail;
-      if (keys.length > 0) {
-        filterStatus.textContent = `Filtered: ${filteredCount.toLocaleString()} rows (${keys.join(', ')})`;
-      } else {
-        filterStatus.textContent = '';
-      }
-    });
-
-    table.addEventListener('undo-state-change', (e) => {
-      const { canUndo, canRedo } = e.detail;
-      const parts = [];
-      if (canUndo) parts.push('Ctrl+Z to undo');
-      if (canRedo) parts.push('Ctrl+Y to redo');
-      undoStatus.textContent = parts.length > 0 ? ` | ${parts.join(', ')}` : '';
-    });
-
-    // --- Add Row ---
-    document.getElementById('add-row-btn').addEventListener('click', () => {
-      const nextId = table.data.length + 1;
-      table.addRow({
-        id: nextId,
-        name: `User ${nextId}`,
-        email: `user${nextId}@example.com`,
-        active: true,
-        created: new Date(),
-        score: 0,
-        tag: 'New',
-      });
-    });
-
-    // --- Add/Delete Column ---
-    let customColCounter = 0;
-    document.getElementById('add-col-btn').addEventListener('click', () => {
-      customColCounter++;
-      const key = `custom_${customColCounter}`;
-      table.addColumn({
-        key,
-        header: `Custom ${customColCounter}`,
-        type: 'text',
-        width: 120,
-      });
-    });
-
-    document.getElementById('del-col-btn').addEventListener('click', () => {
-      const cols = table.columns;
-      if (cols.length > 1) {
-        // Delete last non-pinned column
-        for (let i = cols.length - 1; i >= 0; i--) {
-          if (!cols[i].pinned) {
-            table.deleteColumn(cols[i].key);
-            break;
-          }
-        }
-      }
-    });
-
-    // --- Export ---
     document.getElementById('export-csv-btn').addEventListener('click', () => {
       table.exportToFile('csv', 'flex-table-export.csv');
     });
+    document.getElementById('undo-btn').addEventListener('click', () => table.undo());
+    document.getElementById('redo-btn').addEventListener('click', () => table.redo());
 
-    // --- New Features Table (v0.13) ---
+    // --- v0.13 New Features Table ---
     const newFeaturesTable = document.getElementById('new-features-table');
     newFeaturesTable.columns = [
-      { key: 'name', header: 'Name', type: 'text', width: 150, autocomplete: true },
-      { key: 'dept', header: 'Dept', type: 'text', width: 120, autocomplete: 'strict' },
-      { key: 'score', header: 'Score', type: 'number', width: 100,
-        format: '#,##0.00',
+      { key: 'product', header: 'Product', type: 'text', width: 200, autocomplete: true },
+      {
+        key: 'price', header: 'Price', type: 'number', width: 120,
+        format: '$#,##0.00',
         conditionalRules: [
-          { when: (v) => v < 50, style: { background: '#fdd', color: '#c0392b', fontWeight: 'bold' } },
-          { when: (v) => v >= 80, style: { background: '#d4edda', color: '#155724' } },
-        ]
+          { when: (v) => v > 100, style: { color: '#ef4444', fontWeight: 'bold' } },
+        ],
       },
-      { key: 'revenue', header: 'Revenue', type: 'number', width: 130, format: '$#,##0.00' },
-      { key: 'rate', header: 'Rate', type: 'number', width: 80, format: '0.0%' },
-      { key: 'date', header: 'Date', type: 'date', width: 120, format: 'yyyy-MM-dd' },
-      { key: 'status', header: 'Status', type: 'select', options: ['Active', 'Inactive', 'Pending'], width: 120 },
+      {
+        key: 'date', header: 'Date', type: 'date', width: 140,
+        format: 'yyyy-MM-dd',
+      },
+      {
+        key: 'category', header: 'Category', type: 'select',
+        options: ['Electronics', 'Clothing', 'Food', 'Books'],
+        width: 140,
+      },
     ];
-    const depts = ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance'];
-    newFeaturesTable.data = Array.from({ length: 30 }, (_, i) => ({
-      name: `User ${i + 1}`,
-      dept: depts[i % depts.length],
-      score: Math.round(Math.random() * 100),
-      revenue: Math.random() * 10000,
-      rate: Math.random(),
-      date: new Date(2026, i % 12, (i % 28) + 1),
-      status: ['Active', 'Inactive', 'Pending'][i % 3],
-    }));
-
+    newFeaturesTable.data = [
+      { product: 'Laptop', price: 999.99, date: new Date('2024-03-15'), category: 'Electronics' },
+      { product: 'T-Shirt', price: 19.99, date: new Date('2024-03-16'), category: 'Clothing' },
+      { product: 'Notebook', price: 4.99, date: new Date('2024-03-17'), category: 'Books' },
+      { product: 'Phone', price: 599.99, date: new Date('2024-03-18'), category: 'Electronics' },
+      { product: 'Jeans', price: 49.99, date: new Date('2024-03-19'), category: 'Clothing' },
+    ];
     document.getElementById('export-xlsx-btn').addEventListener('click', () => {
       newFeaturesTable.exportToFile('xlsx', 'flex-table-export.xlsx');
+    });
+
+    // --- XLSX Import Table ---
+    const importTable = document.getElementById('import-table');
+    importTable.columns = [
+      { key: 'id', header: 'ID', type: 'number', width: 80 },
+      { key: 'name', header: 'Name', type: 'text', width: 200 },
+      { key: 'score', header: 'Score', type: 'number', width: 100 },
+      { key: 'active', header: 'Active', type: 'boolean', width: 80 },
+    ];
+    importTable.data = [];
+    importTable.addEventListener('data-import', (e) => {
+      document.getElementById('import-status').textContent = `✓ Imported ${e.detail.count} rows`;
+    });
+    document.getElementById('import-generate-btn').addEventListener('click', async () => {
+      const sampleData = Array.from({ length: 10 }, (_, i) => ({
+        id: i + 1,
+        name: `User ${i + 1}`,
+        score: Math.round(Math.random() * 100),
+        active: i % 2 === 0,
+      }));
+      // Set data first, then export to XLSX for round-trip test
+      importTable.data = sampleData;
+      await importTable.updateComplete;
+      const xlsxBuf = importTable.exportToString('xlsx');
+      const file = new File([xlsxBuf], 'sample.xlsx', {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      // Clear and reimport to demonstrate round-trip
+      importTable.data = [];
+      await importTable.updateComplete;
+      await importTable.importFromFile(file);
     });
 
     // --- Freeze Rows Table ---

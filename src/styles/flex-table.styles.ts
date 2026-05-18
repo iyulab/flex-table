@@ -287,6 +287,39 @@ export const flexTableStyles = css`
     color: var(--ft-empty-color);
   }
 
+  .ft-has-comment {
+    position: relative;
+  }
+
+  .ft-comment-indicator {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 7px 7px 0;
+    border-color: transparent #f59e0b transparent transparent;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .ft-import-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: rgba(59, 130, 246, 0.15);
+    border: 2px dashed rgba(59, 130, 246, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgb(37, 99, 235);
+    pointer-events: none;
+    border-radius: 4px;
+  }
+
   .ft-row-num-header,
   .ft-row-num {
     position: absolute;

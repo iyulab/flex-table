@@ -145,6 +145,17 @@ inline whitespace gap. 최종 해결: 모든 prefix/pinned 셀을 `position: abs
 
 > **완료**: 내장 컨텍스트 메뉴 + XLSX Export.
 
+## Phase 16: XLSX Import & 셀 코멘트 — v0.16.0 ✅ COMPLETE
+
+> **완료**: XLSX Import (zero-deps, drag&drop, header mapping, CSV), 셀 코멘트 (setComment/getComment API, 인디케이터)
+
+| ID | Task | Status | Description |
+|----|------|--------|-------------|
+| IM-01 | XLSX Import | ✅ | `importFromFile()` API, `import-enabled` 드래그&드롭, `data-import` 이벤트 |
+| IM-02 | 헤더 매핑 | ✅ | 첫 행 헤더 → 컬럼 key 자동 매칭 |
+| CM-01 | 셀 코멘트 API | ✅ | `setComment`/`getComment`/`getAllComments`/`clearComments`, `comment-change` 이벤트 |
+| CM-02 | 코멘트 인디케이터 | ✅ | 우상단 오렌지 삼각형, title tooltip |
+
 ## Phase 15: 고급 필터 & 행 고정 — v0.15.0 ✅ COMPLETE
 
 > **완료**: 고급 필터 (텍스트 모드, 빈 셀, 숫자 2조건 AND/OR) + 행 고정 (frozen-rows)
@@ -226,6 +237,7 @@ inline whitespace gap. 최종 해결: 모든 prefix/pinned 셀을 `position: abs
 | **v0.13.0** ✅ | 246 | TBD | TBD | 셀 포맷, 조건부 서식, 자동완성, 컬럼 숨기기/표시 UI |
 | **v0.14.0** ✅ | 253 | TBD | TBD | 내장 컨텍스트 메뉴, XLSX Export |
 | **v0.15.0** | 271 | TBD | TBD | 고급 필터 (텍스트 모드/빈 셀/숫자 2조건), 행 고정 |
+| **v0.16.0** | 295 | TBD | TBD | XLSX Import, 셀 코멘트 |
 
 ---
 

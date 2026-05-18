@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { html } from 'lit';
 import './flex-table.js';
 import type { FlexTable } from './flex-table.js';
+import { buildXlsx } from './export/xlsx-writer.js';
+import type { ColumnDefinition, DataRow } from './models/types.js';
 
 function createElement(): FlexTable {
   const el = document.createElement('flex-table') as FlexTable;
@@ -2189,6 +2191,93 @@ describe('FlexTable', () => {
     });
   });
 
+  describe('xlsx import', () => {
+    const importCols: ColumnDefinition[] = [
+      { key: 'name', header: 'Name', type: 'text' },
+      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'active', header: 'Active', type: 'boolean' },
+    ];
+    const importData: DataRow[] = [
+      { name: 'Alice', age: 30, active: true },
+      { name: 'Bob', age: 25, active: false },
+    ];
+
+    function makeXlsxFile(d: DataRow[], c: ColumnDefinition[], filename = 'test.xlsx'): File {
+      const buf = buildXlsx(d, c);
+      return new File([buf], filename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    }
+
+    it('importFromFile replaces data from xlsx', async () => {
+      const el = createElement();
+      el.columns = importCols;
+      el.data = [];
+      await el.updateComplete;
+
+      const file = makeXlsxFile(importData, importCols);
+      await el.importFromFile(file);
+      await el.updateComplete;
+
+      expect(el.data).toHaveLength(2);
+      expect(el.data[0]['name']).toBe('Alice');
+      expect(el.data[0]['age']).toBe(30);
+      expect(el.data[0]['active']).toBe(true);
+    });
+
+    it('importFromFile dispatches data-import event', async () => {
+      const el = createElement();
+      el.columns = importCols;
+      el.data = [];
+      await el.updateComplete;
+
+      let eventCount = 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let importedCount = -1;
+      el.addEventListener('data-import', (e: Event) => {
+        eventCount++;
+        importedCount = (e as CustomEvent).detail.count;
+      });
+
+      const file = makeXlsxFile(importData, importCols);
+      await el.importFromFile(file);
+
+      expect(eventCount).toBe(1);
+      expect(importedCount).toBe(2);
+    });
+
+    it('importFromFile maps headers to column keys by header text', async () => {
+      const el = createElement();
+      el.columns = importCols;
+      el.data = [];
+      await el.updateComplete;
+
+      // Single-column xlsx with only "Name" column — "Age" and "Active" unmapped → null
+      const singleColData: DataRow[] = [{ name: 'Charlie' }];
+      const singleCols: ColumnDefinition[] = [{ key: 'name', header: 'Name', type: 'text' }];
+      const file = makeXlsxFile(singleColData, singleCols);
+      await el.importFromFile(file);
+      await el.updateComplete;
+
+      expect(el.data[0]['name']).toBe('Charlie');
+    });
+
+    it('importFromFile with csv replaces data', async () => {
+      const el = createElement();
+      el.columns = importCols;
+      el.data = [];
+      await el.updateComplete;
+
+      const csvContent = 'Name\tAge\tActive\nAlice\t30\ttrue\nBob\t25\tfalse';
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const file = new File([blob], 'data.csv', { type: 'text/csv' });
+      await el.importFromFile(file);
+      await el.updateComplete;
+
+      expect(el.data).toHaveLength(2);
+      expect(el.data[0]['name']).toBe('Alice');
+      expect(el.data[0]['age']).toBe(30);
+    });
+  });
+
   describe('column format', () => {
     it('applies string format pattern to cell display', async () => {
       const el = createElement();
@@ -2903,6 +2992,124 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       expect(el.filteredRowCount).toBe(2); // 15, 25 (>= 10)
+    });
+  });
+
+  describe('cell comments', () => {
+    it('setComment and getComment round-trip', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }, { name: 'Bob' }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'First row comment');
+      expect(el.getComment(0, 'name')).toBe('First row comment');
+      expect(el.getComment(1, 'name')).toBeNull();
+    });
+
+    it('setComment with null removes comment', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'Comment');
+      el.setComment(0, 'name', null);
+      expect(el.getComment(0, 'name')).toBeNull();
+    });
+
+    it('setComment with empty string removes comment', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'Comment');
+      el.setComment(0, 'name', '');
+      expect(el.getComment(0, 'name')).toBeNull();
+    });
+
+    it('getAllComments returns all set comments', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }, { key: 'age', header: 'Age' }];
+      el.data = [{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'Comment A');
+      el.setComment(1, 'age', 'Comment B');
+      const all = el.getAllComments();
+      expect(all).toHaveLength(2);
+      expect(all.find(c => c.dataIndex === 0 && c.colKey === 'name')?.text).toBe('Comment A');
+      expect(all.find(c => c.dataIndex === 1 && c.colKey === 'age')?.text).toBe('Comment B');
+    });
+
+    it('clearComments removes all comments', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'Comment');
+      el.clearComments();
+      expect(el.getAllComments()).toHaveLength(0);
+      expect(el.getComment(0, 'name')).toBeNull();
+    });
+
+    it('setComment fires comment-change event', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      let eventFired = false;
+      let detail: unknown = null;
+      el.addEventListener('comment-change', (e: Event) => {
+        eventFired = true;
+        detail = (e as CustomEvent).detail;
+      });
+
+      el.setComment(0, 'name', 'Hello');
+      expect(eventFired).toBe(true);
+      expect((detail as { dataIndex: number; colKey: string; text: string }).dataIndex).toBe(0);
+      expect((detail as { dataIndex: number; colKey: string; text: string }).colKey).toBe('name');
+      expect((detail as { dataIndex: number; colKey: string; text: string }).text).toBe('Hello');
+    });
+
+    it('cell with comment renders ft-has-comment class', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'My comment');
+      await el.updateComplete;
+
+      const cell = el.shadowRoot!.querySelector('.ft-cell');
+      expect(cell?.classList.contains('ft-has-comment')).toBe(true);
+    });
+
+    it('cell without comment does not render ft-has-comment class', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      const cell = el.shadowRoot!.querySelector('.ft-cell');
+      expect(cell?.classList.contains('ft-has-comment')).toBe(false);
+    });
+
+    it('comment indicator rendered in cell with comment', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'Test comment');
+      await el.updateComplete;
+
+      const indicator = el.shadowRoot!.querySelector('.ft-comment-indicator');
+      expect(indicator).not.toBeNull();
+      expect(indicator?.getAttribute('title')).toBe('Test comment');
     });
   });
 });
