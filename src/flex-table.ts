@@ -867,7 +867,6 @@ export class FlexTable extends LitElement {
     // If this click is the end of a drag selection, skip — drag already handled it
     if (this._wasDrag) {
       this._wasDrag = false;
-      this._isDragging = false;
       return;
     }
     // Plain click: drag ended without moving to another cell, reset drag state
@@ -904,6 +903,7 @@ export class FlexTable extends LitElement {
       document.removeEventListener('mouseup', onMouseUp);
     };
     document.addEventListener('mouseup', onMouseUp);
+    this.requestUpdate();
   }
 
   private _onCellMouseEnter(rowIndex: number, colIndex: number): void {
