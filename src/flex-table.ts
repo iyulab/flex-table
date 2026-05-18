@@ -40,8 +40,35 @@ export class FlexTable extends LitElement {
   @property({ type: Array })
   columns: ColumnDefinition[] = [];
 
+  private _data: DataRow[] = [];
+  private _inUndoRedo: boolean = false;
+
+  /**
+   * The table data. When `clear-undo-on-data-change` is enabled, replacing this
+   * property externally (`table.data = newData`) will clear the undo/redo history.
+   * Internal undo/redo operations are exempt from this clearing.
+   * To manually clear history before data replacement, call `clearUndoHistory()`.
+   */
   @property({ type: Array, hasChanged: () => true })
-  data: DataRow[] = [];
+  get data(): DataRow[] {
+    return this._data;
+  }
+
+  set data(value: DataRow[]) {
+    const old = this._data;
+    this._data = value;
+    if (this.clearUndoOnDataChange && !this._inUndoRedo) {
+      this._undo.clear();
+    }
+    this.requestUpdate('data', old);
+  }
+
+  /**
+   * When true, replacing `data` externally automatically clears the undo/redo history.
+   * Default: false. Internal undo/redo operations are never affected.
+   */
+  @property({ type: Boolean, attribute: 'clear-undo-on-data-change' })
+  clearUndoOnDataChange: boolean = false;
 
   @property({ type: Number, attribute: 'row-height' })
   rowHeight: number = DEFAULT_ROW_HEIGHT;
@@ -322,6 +349,30 @@ export class FlexTable extends LitElement {
     this.requestUpdate('data');
   }
 
+  /** Undo the most recent action. */
+  undo(): void {
+    this._inUndoRedo = true;
+    this._undo.undo();
+    this._inUndoRedo = false;
+    this.requestUpdate();
+    this._dispatchUndoStateEvent();
+  }
+
+  /** Redo the most recently undone action. */
+  redo(): void {
+    this._inUndoRedo = true;
+    this._undo.redo();
+    this._inUndoRedo = false;
+    this.requestUpdate();
+    this._dispatchUndoStateEvent();
+  }
+
+  /** Clear all undo/redo history. */
+  clearUndoHistory(): void {
+    this._undo.clear();
+    this._dispatchUndoStateEvent();
+  }
+
   private _dispatchUndoStateEvent(): void {
     this.dispatchEvent(new CustomEvent('undo-state-change', {
       detail: { canUndo: this.canUndo, canRedo: this.canRedo },
@@ -486,12 +537,28 @@ export class FlexTable extends LitElement {
 
   /** Hide a column by its key. Fires `column-visibility-change` event. */
   hideColumn(key: string): void {
+    const idx = this.columns.findIndex(c => c.key === key);
+    if (idx === -1) return;
+    const prev = this.columns[idx].hidden ?? false;
     this._setColumnHidden(key, true);
+    this._undo.push({
+      label: 'column-visibility',
+      undo: () => { this._setColumnHidden(key, prev); },
+      redo: () => { this._setColumnHidden(key, true); },
+    });
   }
 
   /** Show a previously hidden column by its key. Fires `column-visibility-change` event. */
   showColumn(key: string): void {
+    const idx = this.columns.findIndex(c => c.key === key);
+    if (idx === -1) return;
+    const prev = this.columns[idx].hidden ?? false;
     this._setColumnHidden(key, false);
+    this._undo.push({
+      label: 'column-visibility',
+      undo: () => { this._setColumnHidden(key, prev); },
+      redo: () => { this._setColumnHidden(key, false); },
+    });
   }
 
   private _setColumnHidden(key: string, hidden: boolean): void {
@@ -697,6 +764,16 @@ export class FlexTable extends LitElement {
    * Pass an empty string or null to remove the comment.
    */
   setComment(dataIndex: number, colKey: string, text: string | null): void {
+    const prev = this.getComment(dataIndex, colKey);
+    this._applyComment(dataIndex, colKey, text);
+    this._undo.push({
+      label: 'comment',
+      undo: () => { this._applyComment(dataIndex, colKey, prev); },
+      redo: () => { this._applyComment(dataIndex, colKey, text); },
+    });
+  }
+
+  private _applyComment(dataIndex: number, colKey: string, text: string | null): void {
     if (!text) {
       const row = this._comments.get(dataIndex);
       if (row) {
@@ -738,8 +815,14 @@ export class FlexTable extends LitElement {
    * Clear all comments.
    */
   clearComments(): void {
+    const snapshot = new Map([...this._comments].map(([k, v]) => [k, new Map(v)]));
     this._comments.clear();
     this.requestUpdate();
+    this._undo.push({
+      label: 'clear-comments',
+      undo: () => { this._comments = snapshot; this.requestUpdate(); },
+      redo: () => { this._comments.clear(); this.requestUpdate(); },
+    });
   }
 
   // --- Public API: Import ---
@@ -775,7 +858,13 @@ export class FlexTable extends LitElement {
       });
       return row;
     });
+    const prev = [...this.data];
     this.data = imported;
+    this._undo.push({
+      label: 'import',
+      undo: () => { this.data = prev; this.requestUpdate(); },
+      redo: () => { this.data = imported; this.requestUpdate(); },
+    });
     this.dispatchEvent(new CustomEvent('data-import', { detail: { count: imported.length }, bubbles: true, composed: true }));
   }
 
@@ -793,7 +882,13 @@ export class FlexTable extends LitElement {
       });
       return row;
     });
+    const prev = [...this.data];
     this.data = imported;
+    this._undo.push({
+      label: 'import',
+      undo: () => { this.data = prev; this.requestUpdate(); },
+      redo: () => { this.data = imported; this.requestUpdate(); },
+    });
     this.dispatchEvent(new CustomEvent('data-import', { detail: { count: imported.length }, bubbles: true, composed: true }));
   }
 
@@ -1519,15 +1614,11 @@ export class FlexTable extends LitElement {
     switch (e.key.toLowerCase()) {
       case 'z':
         e.preventDefault();
-        if (e.shiftKey) { this._undo.redo(); } else { this._undo.undo(); }
-        this.requestUpdate();
-        this._dispatchUndoStateEvent();
+        if (e.shiftKey) { this.redo(); } else { this.undo(); }
         return true;
       case 'y':
         e.preventDefault();
-        this._undo.redo();
-        this.requestUpdate();
-        this._dispatchUndoStateEvent();
+        this.redo();
         return true;
       case 'c':
         e.preventDefault();

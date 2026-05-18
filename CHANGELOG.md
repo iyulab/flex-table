@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-05-19
+
+### Added
+- **Undo/Redo 갭 보완**: 주요 API에 undo/redo 지원 추가
+  - `importFromFile()` undo/redo 지원 — import 전 데이터 상태로 복원 가능
+  - `setComment()` undo/redo 지원 — 이전 코멘트 상태로 복원 가능
+  - `clearComments()` undo 지원 — 전체 코멘트 복원 가능
+  - `hideColumn()` / `showColumn()` undo/redo 지원 — 컬럼 가시성 복원 가능
+  - **Ctrl+Y** Redo 단축키 (Excel/브라우저 표준)
+- **공개 API**: `undo()`, `redo()`, `clearUndoHistory()` 메서드 추가
+  - 외부 툴바/버튼에서 직접 호출 가능
+- **`clear-undo-on-data-change`** 속성 (`clearUndoOnDataChange: boolean`, 기본값: `false`)
+  - `true`로 설정 시 외부에서 `table.data = ...`를 통해 데이터를 교체하면 undo/redo 히스토리 자동 clear
+  - 내부 undo/redo 동작은 영향받지 않음
+
+### Internal
+- `_applyComment()` 내부 메서드 분리 (undo/redo 재귀 호출 방지)
+- `_inUndoRedo: boolean` 플래그로 내부 undo/redo 경로 식별 (`clearUndoOnDataChange` 연동)
+- `data` 속성을 getter/setter 패턴으로 전환 (backing field `_data`, Lit reactive property 유지)
+- 키보드 핸들러(Ctrl+Z/Y)가 공개 `undo()`/`redo()` 메서드를 재사용 (DRY)
+
 ## [0.16.1] - 2026-05-19
 
 ### Fixed

@@ -2276,6 +2276,40 @@ describe('FlexTable', () => {
       expect(el.data[0]['name']).toBe('Alice');
       expect(el.data[0]['age']).toBe(30);
     });
+
+    it('importFromFile xlsx undo restores previous data', async () => {
+      const el = createElement();
+      el.columns = importCols;
+      el.data = [...importData];
+      await el.updateComplete;
+
+      const original = [...importData];
+      const newData: DataRow[] = [{ name: 'Charlie', age: 40, active: false }];
+      const file = makeXlsxFile(newData, importCols);
+      await el.importFromFile(file);
+      expect(el.data).toHaveLength(1);
+      expect(el.data[0]['name']).toBe('Charlie');
+
+      el.undo();
+      expect(el.data).toHaveLength(original.length);
+      expect(el.data[0]['name']).toBe(original[0]['name']);
+    });
+
+    it('importFromFile csv undo restores previous data', async () => {
+      const el = createElement();
+      el.columns = importCols;
+      el.data = [...importData];
+      await el.updateComplete;
+
+      const csvContent = 'Name\tAge\tActive\nCharlie\t40\tfalse';
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const file = new File([blob], 'data.csv', { type: 'text/csv' });
+      await el.importFromFile(file);
+      expect(el.data[0]['name']).toBe('Charlie');
+
+      el.undo();
+      expect(el.data[0]['name']).toBe(importData[0]['name']);
+    });
   });
 
   describe('column format', () => {
@@ -2579,6 +2613,30 @@ describe('FlexTable', () => {
       const hidden = el.getHiddenColumns();
       expect(hidden).toHaveLength(1);
       expect(hidden[0].key).toBe('b');
+    });
+
+    it('hideColumn undo restores column visibility', async () => {
+      const el = makeCols();
+      await el.updateComplete;
+
+      el.hideColumn('b');
+      expect(el.columns.find(c => c.key === 'b')!.hidden).toBe(true);
+
+      el.undo();
+      expect(el.columns.find(c => c.key === 'b')!.hidden).toBeFalsy();
+    });
+
+    it('showColumn undo re-hides column', async () => {
+      const el = makeCols();
+      await el.updateComplete;
+      el.hideColumn('b');
+
+      el.showColumn('b');
+      expect(el.columns.find(c => c.key === 'b')!.hidden).toBe(false);
+
+      el.undo(); // undo showColumn
+      el.undo(); // undo hideColumn
+      expect(el.columns.find(c => c.key === 'b')!.hidden).toBeFalsy();
     });
 
     it('header-context-menu event fires on header right-click', async () => {
@@ -3110,6 +3168,118 @@ describe('FlexTable', () => {
       const indicator = el.shadowRoot!.querySelector('.ft-comment-indicator');
       expect(indicator).not.toBeNull();
       expect(indicator?.getAttribute('title')).toBe('Test comment');
+    });
+
+    it('setComment undo restores previous comment', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'v1');
+      el.setComment(0, 'name', 'v2');
+      expect(el.getComment(0, 'name')).toBe('v2');
+
+      el.undo();
+      expect(el.getComment(0, 'name')).toBe('v1');
+
+      el.undo();
+      expect(el.getComment(0, 'name')).toBeNull();
+    });
+
+    it('setComment redo re-applies comment', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'hello');
+      el.undo();
+      expect(el.getComment(0, 'name')).toBeNull();
+
+      el.redo();
+      expect(el.getComment(0, 'name')).toBe('hello');
+    });
+
+    it('clearComments undo restores all comments', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }, { key: 'age', header: 'Age' }];
+      el.data = [{ name: 'Alice', age: 30 }];
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'name comment');
+      el.setComment(0, 'age', 'age comment');
+      el.clearComments();
+      expect(el.getAllComments()).toHaveLength(0);
+
+      el.undo();
+      expect(el.getComment(0, 'name')).toBe('name comment');
+      expect(el.getComment(0, 'age')).toBe('age comment');
+    });
+  });
+
+  describe('undo history management', () => {
+    function makeEl() {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      return el;
+    }
+
+    it('clearUndoHistory clears undo and redo stacks', async () => {
+      const el = makeEl();
+      el.setComment(0, 'name', 'v1');
+      expect(el.canUndo).toBe(true);
+
+      el.clearUndoHistory();
+      expect(el.canUndo).toBe(false);
+      expect(el.canRedo).toBe(false);
+    });
+
+    it('external data replacement does not clear undo by default', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'test');
+      expect(el.canUndo).toBe(true);
+
+      el.data = [{ name: 'Bob' }];
+      expect(el.canUndo).toBe(true);
+    });
+
+    it('clearUndoOnDataChange clears undo when data replaced externally', async () => {
+      const el = makeEl();
+      el.clearUndoOnDataChange = true;
+      await el.updateComplete;
+
+      el.setComment(0, 'name', 'test');
+      expect(el.canUndo).toBe(true);
+
+      el.data = [{ name: 'Bob' }];
+      expect(el.canUndo).toBe(false);
+    });
+
+    it('clearUndoOnDataChange does not clear undo during undo/redo', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.clearUndoOnDataChange = true;
+      el.data = [];
+      await el.updateComplete;
+
+      const importCols = [{ key: 'name', header: 'Name', type: 'string' as const }];
+      el.columns = importCols;
+      el.data = [{ name: 'Alice' }];
+
+      const csvContent = 'Name\nCharlie';
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const file = new File([blob], 'data.csv', { type: 'text/csv' });
+      await el.importFromFile(file);
+      expect(el.data[0]['name']).toBe('Charlie');
+      expect(el.canUndo).toBe(true);
+
+      el.undo();
+      expect(el.data[0]['name']).toBe('Alice');
+      expect(el.canRedo).toBe(true);
     });
   });
 });
