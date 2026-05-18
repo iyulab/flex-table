@@ -1,5 +1,5 @@
 export { FlexTable } from './flex-table.js';
-export type { ColumnDefinition, ColumnType, DataRow, CellRenderer, CellEditor, CellValidator, SelectionMode, DataMode } from './models/types.js';
+export type { ColumnDefinition, ColumnType, DataRow, CellRenderer, CellEditor, CellValidator, SelectionMode, DataMode, CellStyle, ConditionalRule } from './models/types.js';
 export type { CellPosition, CellRange } from './core/selection.js';
 export type { SortCriteria, SortDirection } from './core/sorting.js';
 export type { ColumnFilter, FilterPredicate, FilterErrorCallback } from './core/filtering.js';

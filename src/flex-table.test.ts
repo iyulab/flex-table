@@ -2156,4 +2156,274 @@ describe('FlexTable', () => {
       expect(el.data[2]['name']).toBe('foo');
     });
   });
+
+  describe('column format', () => {
+    it('applies string format pattern to cell display', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'price', header: 'Price', type: 'number', format: '$#,##0.00' }];
+      el.data = [{ price: 1234.56 }];
+      await el.updateComplete;
+
+      const cell = el.shadowRoot!.querySelector('.ft-cell');
+      expect(cell!.textContent?.trim()).toMatch(/^\$[\d,]+\.\d{2}$/);
+    });
+
+    it('applies function format to cell display', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'val', header: 'Val', format: (v) => `[${v}]` }];
+      el.data = [{ val: 42 }];
+      await el.updateComplete;
+
+      const cell = el.shadowRoot!.querySelector('.ft-cell');
+      expect(cell!.textContent?.trim()).toBe('[42]');
+    });
+
+    it('editor shows raw value, not formatted value', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'price', header: 'Price', type: 'number', format: '$#,##0.00' }];
+      el.data = [{ price: 42 }];
+      await el.updateComplete;
+
+      (el as any)._editingCell = { row: 0, col: 0 };
+      await el.updateComplete;
+
+      const input = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-editor');
+      expect(input).toBeTruthy();
+      expect(input!.value).toBe('42');
+    });
+
+    it('clipboard copy uses raw value, not formatted', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'val', header: 'Val', format: (v) => `formatted:${v}` }];
+      el.data = [{ val: 'hello' }];
+      await el.updateComplete;
+
+      const { copyToClipboard } = await import('./clipboard/clipboard.js');
+      const text = copyToClipboard(el.data, el.columns, { startRow: 0, endRow: 0, startCol: 0, endCol: 0 });
+      expect(text).toBe('hello');
+    });
+  });
+
+  describe('autocomplete editor', () => {
+    function makeAcEl(autocomplete: boolean | 'strict' = true) {
+      const el = createElement();
+      el.columns = [{ key: 'tag', header: 'Tag', autocomplete }];
+      el.data = [{ tag: 'apple' }, { tag: 'apricot' }, { tag: 'banana' }];
+      return el;
+    }
+
+    it('shows dropdown with matching candidates when typing', async () => {
+      const el = makeAcEl();
+      await el.updateComplete;
+
+      (el as any)._editingCell = { row: 0, col: 0 };
+      (el as any)._autocompleteState = { candidates: ['apple', 'apricot'], activeIndex: -1 };
+      await el.updateComplete;
+
+      const dropdown = el.shadowRoot!.querySelector('.ft-autocomplete-dropdown');
+      expect(dropdown).toBeTruthy();
+      const items = el.shadowRoot!.querySelectorAll('.ft-autocomplete-item');
+      expect(items.length).toBe(2);
+    });
+
+    it('no dropdown when no candidates', async () => {
+      const el = makeAcEl();
+      await el.updateComplete;
+
+      (el as any)._editingCell = { row: 0, col: 0 };
+      (el as any)._autocompleteState = null;
+      await el.updateComplete;
+
+      const dropdown = el.shadowRoot!.querySelector('.ft-autocomplete-dropdown');
+      expect(dropdown).toBeNull();
+    });
+
+    it('_getAutocompleteCandidates returns unique matching values', async () => {
+      const el = makeAcEl();
+      await el.updateComplete;
+
+      const candidates = (el as any)._getAutocompleteCandidates(el.columns[0], 'ap');
+      expect(candidates).toContain('apple');
+      expect(candidates).toContain('apricot');
+      expect(candidates).not.toContain('banana');
+    });
+
+    it('_getAutocompleteCandidates with empty text returns all unique values', async () => {
+      const el = makeAcEl();
+      await el.updateComplete;
+
+      const candidates = (el as any)._getAutocompleteCandidates(el.columns[0], '');
+      expect(candidates).toHaveLength(3);
+    });
+
+    it('ArrowDown increases activeIndex', async () => {
+      const el = makeAcEl();
+      await el.updateComplete;
+
+      (el as any)._editingCell = { row: 0, col: 0 };
+      (el as any)._autocompleteState = { candidates: ['apple', 'apricot'], activeIndex: -1 };
+      await el.updateComplete;
+
+      const input = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-editor');
+      input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect((el as any)._autocompleteState.activeIndex).toBe(0);
+    });
+
+    it('strict mode rejects value not in list', async () => {
+      const el = makeAcEl('strict');
+      await el.updateComplete;
+
+      (el as any)._editingCell = { row: 0, col: 0 };
+      (el as any)._editing.start({ row: 0, col: 0 }, 'apple');
+      (el as any)._applyEdit('mango');
+      await el.updateComplete;
+
+      // Should not update the value
+      expect(el.data[0]['tag']).toBe('apple');
+    });
+
+    it('strict mode accepts value in list', async () => {
+      const el = makeAcEl('strict');
+      await el.updateComplete;
+
+      (el as any)._editingCell = { row: 0, col: 0 };
+      (el as any)._editing.start({ row: 0, col: 0 }, 'apple');
+      (el as any)._applyEdit('banana');
+      await el.updateComplete;
+
+      expect(el.data[0]['tag']).toBe('banana');
+    });
+  });
+
+  describe('column hide/show UI', () => {
+    function makeCols() {
+      const el = createElement();
+      el.columns = [
+        { key: 'a', header: 'A' },
+        { key: 'b', header: 'B' },
+        { key: 'c', header: 'C' },
+      ];
+      el.data = [{ a: 1, b: 2, c: 3 }];
+      return el;
+    }
+
+    it('hideColumn hides a column and fires column-visibility-change', async () => {
+      const el = makeCols();
+      await el.updateComplete;
+
+      const events: CustomEvent[] = [];
+      el.addEventListener('column-visibility-change', e => events.push(e as CustomEvent));
+
+      el.hideColumn('b');
+      await el.updateComplete;
+
+      expect(el.columns.find(c => c.key === 'b')!.hidden).toBe(true);
+      expect(events).toHaveLength(1);
+      expect(events[0].detail.key).toBe('b');
+      expect(events[0].detail.hidden).toBe(true);
+    });
+
+    it('showColumn shows a hidden column and fires column-visibility-change', async () => {
+      const el = makeCols();
+      await el.updateComplete;
+      el.hideColumn('b');
+      await el.updateComplete;
+
+      const events: CustomEvent[] = [];
+      el.addEventListener('column-visibility-change', e => events.push(e as CustomEvent));
+
+      el.showColumn('b');
+      await el.updateComplete;
+
+      expect(el.columns.find(c => c.key === 'b')!.hidden).toBe(false);
+      expect(events[0].detail.hidden).toBe(false);
+    });
+
+    it('getHiddenColumns returns only hidden columns', async () => {
+      const el = makeCols();
+      await el.updateComplete;
+      el.hideColumn('b');
+      await el.updateComplete;
+
+      const hidden = el.getHiddenColumns();
+      expect(hidden).toHaveLength(1);
+      expect(hidden[0].key).toBe('b');
+    });
+
+    it('header-context-menu event fires on header right-click', async () => {
+      const el = makeCols();
+      await el.updateComplete;
+
+      const events: CustomEvent[] = [];
+      el.addEventListener('header-context-menu', e => events.push(e as CustomEvent));
+
+      (el as any)._onHeaderContextMenu(
+        { preventDefault: () => {}, clientX: 100, clientY: 50 } as MouseEvent,
+        el.columns[0]
+      );
+
+      expect(events).toHaveLength(1);
+      expect(events[0].detail.key).toBe('a');
+    });
+
+    it('_renderHeaderContextMenu shows hide-column item', async () => {
+      const el = makeCols();
+      await el.updateComplete;
+
+      (el as any)._headerMenu = { key: 'a', x: 100, y: 50, hiddenNeighbors: [] };
+      await el.updateComplete;
+
+      const menu = el.shadowRoot!.querySelector('.ft-header-menu');
+      expect(menu).toBeTruthy();
+      expect(menu!.textContent).toContain('Hide');
+    });
+
+    it('clicking hide in menu hides the column', async () => {
+      const el = makeCols();
+      await el.updateComplete;
+
+      (el as any)._headerMenu = { key: 'b', x: 100, y: 50, hiddenNeighbors: [] };
+      await el.updateComplete;
+
+      const items = el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-header-menu-item');
+      items[0].click();
+      await el.updateComplete;
+
+      expect(el.columns.find(c => c.key === 'b')!.hidden).toBe(true);
+      expect((el as any)._headerMenu).toBeNull();
+    });
+  });
+
+  describe('conditional formatting', () => {
+    it('applies background style when condition is true', async () => {
+      const el = createElement();
+      el.columns = [{
+        key: 'score', header: 'Score', type: 'number',
+        conditionalRules: [{ when: (v) => (v as number) < 60, style: { background: '#fdd', color: 'red' } }]
+      }];
+      el.data = [{ score: 40 }, { score: 80 }];
+      await el.updateComplete;
+
+      const cells = el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-cell');
+      expect(cells[0].style.background).toBe('rgb(255, 221, 221)');
+      expect(cells[1].style.background).toBe('');
+    });
+
+    it('merges multiple matching rules', async () => {
+      const el = createElement();
+      el.columns = [{
+        key: 'v', header: 'V',
+        conditionalRules: [
+          { when: (v) => (v as number) > 0, style: { background: 'blue' } },
+          { when: (v) => (v as number) > 0, style: { color: 'white' } },
+        ]
+      }];
+      el.data = [{ v: 1 }];
+      await el.updateComplete;
+
+      const cell = el.shadowRoot!.querySelector<HTMLElement>('.ft-cell');
+      expect(cell!.style.background).toBe('blue');
+      expect(cell!.style.color).toBe('white');
+    });
+  });
 });

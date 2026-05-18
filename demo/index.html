@@ -72,10 +72,10 @@
     <span id="undo-status"></span>
   </div>
 
-  <h2 style="margin-top: 32px;">v0.12 New Features</h2>
+  <h2 style="margin-top: 32px;">v0.13 New Features</h2>
   <p class="info">
-    Ctrl+Click (multi-select) &middot; Column drag reorder &middot; Select editor &middot;
-    Find/Replace (Ctrl+F/H) &middot; Row drag reorder &middot; Fill Handle
+    Format (number/date) &middot; Conditional Rules &middot; Autocomplete editor &middot;
+    Column Hide/Show (right-click header)
   </p>
   <flex-table id="new-features-table" row-height="32" show-row-numbers editable></flex-table>
 
@@ -239,23 +239,32 @@
       table.exportToFile('csv', 'flex-table-export.csv');
     });
 
-    // --- New Features Table ---
+    // --- New Features Table (v0.13) ---
     const newFeaturesTable = document.getElementById('new-features-table');
     newFeaturesTable.columns = [
-      { key: 'name', header: 'Name', type: 'text', width: 150 },
+      { key: 'name', header: 'Name', type: 'text', width: 150, autocomplete: true },
+      { key: 'dept', header: 'Dept', type: 'text', width: 120, autocomplete: 'strict' },
+      { key: 'score', header: 'Score', type: 'number', width: 100,
+        format: '#,##0.00',
+        conditionalRules: [
+          { when: (v) => v < 50, style: { background: '#fdd', color: '#c0392b', fontWeight: 'bold' } },
+          { when: (v) => v >= 80, style: { background: '#d4edda', color: '#155724' } },
+        ]
+      },
+      { key: 'revenue', header: 'Revenue', type: 'number', width: 130, format: '$#,##0.00' },
+      { key: 'rate', header: 'Rate', type: 'number', width: 80, format: '0.0%' },
+      { key: 'date', header: 'Date', type: 'date', width: 120, format: 'yyyy-MM-dd' },
       { key: 'status', header: 'Status', type: 'select', options: ['Active', 'Inactive', 'Pending'], width: 120 },
-      { key: 'score', header: 'Score', type: 'number', width: 100 },
-      { key: 'region', header: 'Region', type: 'select', options: [
-        { label: 'North America', value: 'NA' },
-        { label: 'Europe', value: 'EU' },
-        { label: 'Asia Pacific', value: 'APAC' },
-      ], width: 140 },
     ];
-    newFeaturesTable.data = Array.from({ length: 20 }, (_, i) => ({
-      name: `Item ${i + 1}`,
+    const depts = ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance'];
+    newFeaturesTable.data = Array.from({ length: 30 }, (_, i) => ({
+      name: `User ${i + 1}`,
+      dept: depts[i % depts.length],
+      score: Math.round(Math.random() * 100),
+      revenue: Math.random() * 10000,
+      rate: Math.random(),
+      date: new Date(2026, i % 12, (i % 28) + 1),
       status: ['Active', 'Inactive', 'Pending'][i % 3],
-      score: (i + 1) * 10,
-      region: ['NA', 'EU', 'APAC'][i % 3],
     }));
 
     // --- 100-Column Wide Table ---

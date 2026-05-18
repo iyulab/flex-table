@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-05-19
+
+### Added
+- **셀 표시 형식 (`format`)**: `ColumnDefinition.format`에 형식 문자열(`'#,##0.00'`, `'0.00%'`, `'$#,##0'`, `'yyyy-MM-dd'` 등) 또는 커스텀 함수 지정. 편집/클립보드에는 raw value 유지
+- **조건부 서식 (`conditionalRules`)**: `ColumnDefinition.conditionalRules`에 `{ when, style }` 규칙 배열 지정. 조건 true 시 background/color/fontWeight/fontStyle 인라인 스타일 적용. 다중 규칙 병합
+- **자동완성 편집기 (`autocomplete`)**: `ColumnDefinition.autocomplete: true | 'strict'`. 텍스트 편집 시 기존 컬럼 값 기반 드롭다운 제안. Arrow Down/Up으로 탐색, Enter로 선택. `'strict'` 모드는 목록 외 값 거부
+- **컬럼 숨기기/표시 UI**: 헤더 우클릭 → 내장 컨텍스트 메뉴 (Hide column / Show 숨긴 열). 숨겨진 열 인접 인디케이터 버튼. `hideColumn(key)` / `showColumn(key)` / `getHiddenColumns()` API
+
+### Changed
+- `ColumnDefinition`에 `format`, `conditionalRules`, `autocomplete` 필드 추가
+- 새 공개 타입: `CellStyle`, `ConditionalRule`
+- 새 이벤트: `header-context-menu`, `column-visibility-change`
+
+---
+
 ## [0.12.0] - 2026-05-19
 
 ### Added

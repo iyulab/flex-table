@@ -1,5 +1,6 @@
 import { html } from 'lit';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
+import { applyFormat } from './format.js';
 
 /**
  * Render a cell value using the column's custom renderer or built-in type rendering.
@@ -7,6 +8,12 @@ import type { ColumnDefinition, DataRow } from '../models/types.js';
 export function renderCell(value: unknown, row: DataRow, col: ColumnDefinition) {
   if (col.renderer) {
     return col.renderer(value, row, col);
+  }
+  if (col.format) {
+    const formatted = typeof col.format === 'function'
+      ? col.format(value, row, col)
+      : applyFormat(value, col.format);
+    return formatted;
   }
   return formatValue(value, col);
 }

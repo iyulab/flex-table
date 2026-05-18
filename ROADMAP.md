@@ -1,7 +1,7 @@
 # Roadmap
 
 > Last updated: 2026-05-19
-> Current version: **v0.12.0** (213 tests, 93.6 KB / 20.0 KB gzip + react wrapper)
+> Current version: **v0.13.0** (246 tests)
 
 flex-table 개발 로드맵. 완료된 기능과 향후 계획을 추적한다.
 
@@ -141,6 +141,19 @@ inline whitespace gap. 최종 해결: 모든 prefix/pinned 셀을 `position: abs
 
 ---
 
+## Phase 13: 서식 & 표시 — v0.13.0 ✅ COMPLETE
+
+> **완료**: 셀 포맷, 조건부 서식, 자동완성 편집기, 컬럼 숨기기/표시 UI.
+
+| ID | Task | Status | Description |
+|----|------|--------|-------------|
+| FM-01 | 숫자/날짜 표시 형식 | ✅ | `format` 속성: 문자열 패턴 또는 함수 |
+| FM-02 | 조건부 서식 | ✅ | `conditionalRules` 배열 |
+| FM-03 | 자동완성 편집기 | ✅ | `autocomplete: true | 'strict'` |
+| FM-04 | 컬럼 숨기기/표시 UI | ✅ | 헤더 우클릭 메뉴 + 인디케이터 |
+
+---
+
 ## Phase 10: Ecosystem & Production — v0.10.0 ✅ COMPLETE
 
 > **완료**: React wrapper, MorphDB Studio 전환 준비 완료.
@@ -192,6 +205,8 @@ inline whitespace gap. 최종 해결: 모든 prefix/pinned 셀을 `position: abs
 | **v0.9.0** ✅ | 179 | 74.67 KB | 16.62 KB | 100K+ 스크롤 최적화, pinned right 컬럼 |
 | **v0.10.0** ✅ | 179 | 74.62 KB | 16.60 KB | React wrapper (`@iyulab/flex-table/react`) |
 | **v0.11.0** ✅ | 189 | TBD | TBD | 마우스 드래그 선택, Fill Down/Right |
+| **v0.12.0** ✅ | 213 | TBD | TBD | 비연속 선택, 컬럼 드래그, select 편집기, 찾기/바꾸기, 행 드래그, Fill Handle |
+| **v0.13.0** | 246 | TBD | TBD | 셀 포맷, 조건부 서식, 자동완성, 컬럼 숨기기/표시 UI |
 
 ---
 

@@ -85,6 +85,35 @@ export interface ColumnDefinition {
   validator?: CellValidator;
   /** Allowed values for select columns (strings or label/value pairs) */
   options?: string[] | SelectOption[];
+  /**
+   * Autocomplete for text editing.
+   * - true: show suggestions from existing column values
+   * - 'strict': same as true, but rejects values not in the list
+   */
+  autocomplete?: boolean | 'strict';
+  /**
+   * Display format for cell values. Applied during rendering; raw value is preserved.
+   * - String: number format pattern (e.g. '#,##0.00', '0.00%', '$#,##0') or date pattern (e.g. 'yyyy-MM-dd')
+   * - Function: custom formatter receiving (value, row, col)
+   */
+  format?: string | ((value: unknown, row: DataRow, col: ColumnDefinition) => string);
+  /** Per-column conditional formatting rules applied during cell rendering */
+  conditionalRules?: ConditionalRule[];
+}
+
+/** Style applied to a cell by a conditional formatting rule */
+export interface CellStyle {
+  background?: string;
+  color?: string;
+  fontWeight?: 'bold' | 'normal';
+  fontStyle?: 'italic' | 'normal';
+}
+
+/** A single conditional formatting rule */
+export interface ConditionalRule {
+  /** Returns true when this rule's style should be applied */
+  when: (value: unknown, row: DataRow, col: ColumnDefinition) => boolean;
+  style: CellStyle;
 }
 
 /**

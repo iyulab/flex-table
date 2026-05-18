@@ -235,6 +235,36 @@ export const flexTableStyles = css`
     appearance: auto;
   }
 
+  .ft-autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+    min-width: 100%;
+    max-height: 180px;
+    overflow-y: auto;
+    background: var(--ft-editor-bg, #fff);
+    border: 1px solid var(--ft-active-color);
+    border-top: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+  }
+
+  .ft-autocomplete-item {
+    padding: 4px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--ft-font-size, 14px);
+    color: var(--ft-text-color);
+  }
+
+  .ft-autocomplete-item:hover,
+  .ft-autocomplete-item.ft-autocomplete-active {
+    background: var(--ft-selection-bg);
+    color: var(--ft-active-color);
+  }
+
   .ft-cell.ft-type-number {
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -436,6 +466,56 @@ export const flexTableStyles = css`
     text-overflow: ellipsis;
     white-space: nowrap;
     box-sizing: border-box;
+  }
+
+  /* Header context menu */
+  .ft-header-menu {
+    background: var(--ft-editor-bg, #fff);
+    border: 1px solid var(--ft-border-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.16);
+    min-width: 160px;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .ft-header-menu-item {
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: var(--ft-font-size, 14px);
+    color: var(--ft-text-color);
+    white-space: nowrap;
+  }
+
+  .ft-header-menu-item:hover {
+    background: var(--ft-selection-bg);
+    color: var(--ft-active-color);
+  }
+
+  /* Hidden column indicator in header */
+  .ft-hidden-col-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 16px;
+    background: var(--ft-selection-bg);
+    border-right: 2px solid var(--ft-active-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--ft-active-color);
+    padding: 0;
+    border-top: none;
+    border-bottom: none;
+    border-left: none;
+    flex-shrink: 0;
+  }
+
+  .ft-hidden-col-indicator:hover {
+    background: var(--ft-active-color);
+    color: white;
   }
 
   /* Find / Replace panel */

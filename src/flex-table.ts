@@ -117,6 +117,12 @@ export class FlexTable extends LitElement {
   @state()
   private _rowSelectionVersion = 0;
 
+  @state()
+  private _autocompleteState: { candidates: string[]; activeIndex: number } | null = null;
+
+  @state()
+  private _headerMenu: { key: string; x: number; y: number; hiddenNeighbors: ColumnDefinition[] } | null = null;
+
   private _viewDirty = true;
   private _isDragging = false;
   private _wasDrag = false;
@@ -444,6 +450,32 @@ export class FlexTable extends LitElement {
       composed: true,
     }));
     this._dispatchUndoStateEvent();
+  }
+
+  /** Hide a column by its key. Fires `column-visibility-change` event. */
+  hideColumn(key: string): void {
+    this._setColumnHidden(key, true);
+  }
+
+  /** Show a previously hidden column by its key. Fires `column-visibility-change` event. */
+  showColumn(key: string): void {
+    this._setColumnHidden(key, false);
+  }
+
+  private _setColumnHidden(key: string, hidden: boolean): void {
+    const idx = this.columns.findIndex(c => c.key === key);
+    if (idx === -1) return;
+    this.columns = this.columns.map((c, i) => i === idx ? { ...c, hidden } : c);
+    this.dispatchEvent(new CustomEvent('column-visibility-change', {
+      detail: { key, hidden },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  /** Returns all columns marked as hidden. */
+  getHiddenColumns(): ColumnDefinition[] {
+    return this.columns.filter(c => c.hidden);
   }
 
   // --- Public API: Row Operations ---
@@ -854,6 +886,9 @@ export class FlexTable extends LitElement {
     if (this._openFilterKey) {
       this._openFilterKey = null;
     }
+    if (this._headerMenu) {
+      this._headerMenu = null;
+    }
   }
 
   private _onContextMenu(e: MouseEvent): void {
@@ -1041,6 +1076,7 @@ export class FlexTable extends LitElement {
   }
 
   private _applyEdit(newValue: unknown): void {
+    this._autocompleteState = null;
     const editState = this._editing.commit();
     this._editingCell = null;
     if (!editState) return;
@@ -1049,6 +1085,21 @@ export class FlexTable extends LitElement {
     const dataRow = this._toDataIndex(row);
     const colDef = this.visibleColumns[col];
     const oldValue = editState.originalValue;
+
+    // Strict autocomplete: value must be in existing column values
+    if (colDef.autocomplete === 'strict' && newValue != null && newValue !== '') {
+      const allCandidates = this._getAutocompleteCandidates(colDef, '');
+      if (!allCandidates.includes(String(newValue))) {
+        const error = 'Value must be from the existing list';
+        this._markCellInvalid(row, col, error);
+        this.dispatchEvent(new CustomEvent('validation-error', {
+          detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
+          bubbles: true,
+          composed: true,
+        }));
+        return;
+      }
+    }
 
     // Run validator if present
     if (colDef.validator) {
@@ -1091,6 +1142,7 @@ export class FlexTable extends LitElement {
   }
 
   private _cancelEdit(): void {
+    this._autocompleteState = null;
     const editState = this._editing.cancel();
     this._editingCell = null;
     if (editState) {
@@ -1103,6 +1155,36 @@ export class FlexTable extends LitElement {
   }
 
   private _onEditorKeyDown(e: KeyboardEvent): void {
+    // Autocomplete dropdown navigation
+    if (this._autocompleteState && this._autocompleteState.candidates.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        const len = this._autocompleteState.candidates.length;
+        this._autocompleteState = { ...this._autocompleteState, activeIndex: Math.min(this._autocompleteState.activeIndex + 1, len - 1) };
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        this._autocompleteState = { ...this._autocompleteState, activeIndex: Math.max(this._autocompleteState.activeIndex - 1, -1) };
+        return;
+      }
+      if (e.key === 'Enter' && this._autocompleteState.activeIndex >= 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        const selected = this._autocompleteState.candidates[this._autocompleteState.activeIndex];
+        this._selectAutocompleteCandidate(selected);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        this._autocompleteState = null;
+        return;
+      }
+    }
+
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
@@ -1124,6 +1206,37 @@ export class FlexTable extends LitElement {
       e.stopPropagation();
       this._cancelEdit();
     }
+  }
+
+  private _getAutocompleteCandidates(col: ColumnDefinition, text: string): string[] {
+    const lower = text.toLowerCase();
+    const seen = new Set<string>();
+    const results: string[] = [];
+    for (const row of this.data) {
+      const v = row[col.key];
+      if (v == null) continue;
+      const s = String(v);
+      if (!seen.has(s) && (text === '' || s.toLowerCase().includes(lower))) {
+        seen.add(s);
+        results.push(s);
+        if (results.length >= 20) break;
+      }
+    }
+    return results;
+  }
+
+  private _onAutocompleteInput(e: Event, col: ColumnDefinition): void {
+    const input = e.target as HTMLInputElement;
+    const text = input.value;
+    const candidates = this._getAutocompleteCandidates(col, text).filter(c => c !== text);
+    this._autocompleteState = candidates.length > 0 ? { candidates, activeIndex: -1 } : null;
+  }
+
+  private _selectAutocompleteCandidate(value: string): void {
+    this._autocompleteState = null;
+    this._applyEdit(value);
+    this._selection.moveDown();
+    this._syncActiveCell();
   }
 
   private _syncActiveCell(): void {
@@ -1725,14 +1838,32 @@ export class FlexTable extends LitElement {
       isDraggingThis ? 'ft-col-dragging' : '',
     ].filter(Boolean).join(' ');
 
+    // Find hidden columns in this.columns that are between the previous visible column and this one
+    const allCols = this.columns;
+    const thisAllIdx = allCols.findIndex(c => c.key === col.key);
+    const hiddenBefore: ColumnDefinition[] = [];
+    if (thisAllIdx > 0) {
+      for (let i = thisAllIdx - 1; i >= 0; i--) {
+        if (allCols[i].hidden) hiddenBefore.push(allCols[i]);
+        else break;
+      }
+    }
+    const showHiddenIndicator = hiddenBefore.length > 0;
+
     return html`
       <div class=${dragClasses}
         role="columnheader"
         data-col-index=${colIndex}
         style=${cellStyle}
         aria-sort=${ariaSortValue ?? nothing}
+        @contextmenu=${(e: MouseEvent) => this._onHeaderContextMenu(e, col)}
         @mousedown=${(e: MouseEvent) => this._onHeaderMouseDown(e, col, colIndex)}
         @click=${sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined}>
+        ${showHiddenIndicator ? html`
+          <button class="ft-hidden-col-indicator"
+            title="Show hidden column(s)"
+            @click=${(e: MouseEvent) => { e.stopPropagation(); this._showHiddenBefore(col); }}>&#x276F;</button>
+        ` : ''}
         <span>${col.header}</span>
         ${criterion ? html`<span class="ft-sort-indicator">${criterion.direction === 'asc' ? '\u25B2' : '\u25BC'}</span>` : ''}
         ${sortIndex >= 0 ? html`<span class="ft-sort-order">${sortIndex + 1}</span>` : ''}
@@ -1750,6 +1881,64 @@ export class FlexTable extends LitElement {
           @dblclick=${(e: MouseEvent) => this._onResizeAutoFit(e, colIndex)}></div>
       </div>
       ${this._openFilterKey === col.key ? this._renderFilterDropdown(col) : ''}
+    `;
+  }
+
+  private _onHeaderContextMenu(e: MouseEvent, col: ColumnDefinition): void {
+    e.preventDefault();
+    const allCols = this.columns;
+    const thisIdx = allCols.findIndex(c => c.key === col.key);
+    const hiddenNeighbors: ColumnDefinition[] = [];
+    // Collect adjacent hidden columns (before and after)
+    for (let i = thisIdx - 1; i >= 0; i--) {
+      if (allCols[i].hidden) hiddenNeighbors.push(allCols[i]);
+      else break;
+    }
+    for (let i = thisIdx + 1; i < allCols.length; i++) {
+      if (allCols[i].hidden) hiddenNeighbors.push(allCols[i]);
+      else break;
+    }
+
+    this._headerMenu = { key: col.key, x: e.clientX, y: e.clientY, hiddenNeighbors };
+    this.dispatchEvent(new CustomEvent('header-context-menu', {
+      detail: { key: col.key, header: col.header, x: e.clientX, y: e.clientY },
+      bubbles: true,
+      composed: true,
+    }));
+    requestAnimationFrame(() => {
+      document.addEventListener('click', this._onDocumentClick, { once: true });
+    });
+  }
+
+  private _showHiddenBefore(col: ColumnDefinition): void {
+    const allCols = this.columns;
+    const thisIdx = allCols.findIndex(c => c.key === col.key);
+    for (let i = thisIdx - 1; i >= 0; i--) {
+      if (allCols[i].hidden) this._setColumnHidden(allCols[i].key, false);
+      else break;
+    }
+  }
+
+  private _renderHeaderContextMenu() {
+    if (!this._headerMenu) return nothing;
+    const { key, x, y, hiddenNeighbors } = this._headerMenu;
+    const col = this.columns.find(c => c.key === key);
+    if (!col) return nothing;
+
+    return html`
+      <div class="ft-header-menu" style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
+        @mousedown=${(e: MouseEvent) => e.stopPropagation()}>
+        <div class="ft-header-menu-item"
+          @click=${() => { this._setColumnHidden(key, true); this._headerMenu = null; }}>
+          Hide column
+        </div>
+        ${hiddenNeighbors.map(h => html`
+          <div class="ft-header-menu-item"
+            @click=${() => { this._setColumnHidden(h.key, false); this._headerMenu = null; }}>
+            Show: ${h.header}
+          </div>
+        `)}
+      </div>
     `;
   }
 
@@ -2688,6 +2877,7 @@ export class FlexTable extends LitElement {
       ${this.footerData ? this._renderFooter(colStart, colEnd, pinnedIndices) : ''}
       ${rowDropIndicator}
       ${fillHandle}
+      ${this._renderHeaderContextMenu()}
     `;
   }
 
@@ -2844,6 +3034,22 @@ export class FlexTable extends LitElement {
 
     const readonly = !this._isCellEditable(col);
 
+    // Apply conditional formatting rules
+    if (col.conditionalRules && col.conditionalRules.length > 0) {
+      const value = row[col.key];
+      const mergedStyle: Record<string, string> = {};
+      for (const rule of col.conditionalRules) {
+        if (rule.when(value, row, col)) {
+          if (rule.style.background) mergedStyle['background'] = rule.style.background;
+          if (rule.style.color) mergedStyle['color'] = rule.style.color;
+          if (rule.style.fontWeight) mergedStyle['font-weight'] = rule.style.fontWeight;
+          if (rule.style.fontStyle) mergedStyle['font-style'] = rule.style.fontStyle;
+        }
+      }
+      const extraStyle = Object.entries(mergedStyle).map(([k, v]) => `${k}: ${v}`).join('; ');
+      if (extraStyle) cellStyle += ' ' + extraStyle + ';';
+    }
+
     if (isEditing) {
       return html`
         <div class="ft-cell ft-editing ft-active ${isPinned ? 'ft-pinned' : ''}" role="gridcell"
@@ -2943,6 +3149,28 @@ export class FlexTable extends LitElement {
               )
           }
         </select>
+      `;
+    }
+
+    if (col.autocomplete) {
+      const candidates = this._autocompleteState?.candidates ?? [];
+      const activeIdx = this._autocompleteState?.activeIndex ?? -1;
+      return html`
+        <input class="ft-editor" type="text"
+          .value=${strValue}
+          @input=${(e: Event) => this._onAutocompleteInput(e, col)}
+          @keydown=${this._onEditorKeyDown}
+          @blur=${() => this._commitEdit()}>
+        ${candidates.length > 0 ? html`
+          <div class="ft-autocomplete-dropdown">
+            ${candidates.map((c, i) => html`
+              <div class="ft-autocomplete-item ${i === activeIdx ? 'ft-autocomplete-active' : ''}"
+                @mousedown=${(e: MouseEvent) => { e.preventDefault(); this._selectAutocompleteCandidate(c); }}>
+                ${c}
+              </div>
+            `)}
+          </div>
+        ` : nothing}
       `;
     }
 
