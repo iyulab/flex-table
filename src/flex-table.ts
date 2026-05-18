@@ -895,6 +895,7 @@ export class FlexTable extends LitElement {
     this._selection.setActive(rowIndex, colIndex);
     this._activeCell = { row: rowIndex, col: colIndex };
 
+    this.focus({ preventScroll: true });
     // Prevent browser text selection during drag
     e.preventDefault();
 
