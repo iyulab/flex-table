@@ -1767,4 +1767,128 @@ describe('FlexTable', () => {
       expect(el.shadowRoot!.querySelectorAll('.ft-selected').length).toBeLessThanOrEqual(1);
     });
   });
+
+  describe('Fill Down / Fill Right (Ctrl+D / Ctrl+R)', () => {
+    function makeEl() {
+      const el = createElement();
+      el.columns = [
+        { key: 'a', header: 'A', type: 'number' },
+        { key: 'b', header: 'B', type: 'number' },
+        { key: 'c', header: 'C', type: 'number' },
+      ];
+      el.data = [
+        { a: 10, b: 20, c: 30 },
+        { a: 0, b: 0, c: 0 },
+        { a: 0, b: 0, c: 0 },
+      ];
+      return el;
+    }
+
+    it('Ctrl+D fills first row values down in selected range', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+
+      // Select range row0col0 → row2col1 (2 columns, 3 rows)
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._selection.setActiveWithRange(2, 1);
+      (el as any)._activeCell = { row: 0, col: 0 };
+
+      // Fire Ctrl+D
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+
+      // Row 1 and 2 should have row 0's values for columns a, b
+      expect(el.data[1]['a']).toBe(10);
+      expect(el.data[1]['b']).toBe(20);
+      expect(el.data[2]['a']).toBe(10);
+      expect(el.data[2]['b']).toBe(20);
+      // Column c was not in the range — unchanged
+      expect(el.data[1]['c']).toBe(0);
+    });
+
+    it('Ctrl+R fills first column values right in selected range', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+
+      // Select range row0col0 → row1col2
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._selection.setActiveWithRange(1, 2);
+      (el as any)._activeCell = { row: 0, col: 0 };
+
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+
+      // row0 col b and c should now have row0 col a value (10)
+      expect(el.data[0]['b']).toBe(10);
+      expect(el.data[0]['c']).toBe(10);
+      // row1 col b and c should have row1 col a value (0)
+      expect(el.data[1]['b']).toBe(0);
+      expect(el.data[1]['c']).toBe(0);
+    });
+
+    it('Ctrl+D on single cell fills from the cell above', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+
+      // Active cell = (row=1, col=0)
+      (el as any)._selection.setActive(1, 0);
+      (el as any)._activeCell = { row: 1, col: 0 };
+
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+
+      expect(el.data[1]['a']).toBe(10); // filled from row 0
+    });
+
+    it('Ctrl+D on first row single cell does nothing', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._activeCell = { row: 0, col: 0 };
+
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+
+      expect(el.data[0]['a']).toBe(10); // unchanged
+    });
+
+    it('Fill Down is undoable', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._selection.setActiveWithRange(1, 0);
+      (el as any)._activeCell = { row: 0, col: 0 };
+
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+      expect(el.data[1]['a']).toBe(10);
+
+      // Undo
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+      expect(el.data[1]['a']).toBe(0);
+    });
+
+    it('Ctrl+D skips read-only columns', async () => {
+      const el = createElement();
+      el.columns = [
+        { key: 'a', header: 'A', type: 'number' },
+        { key: 'b', header: 'B', type: 'number', editable: false },
+      ];
+      el.data = [{ a: 10, b: 99 }, { a: 0, b: 99 }];
+      await el.updateComplete;
+
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._selection.setActiveWithRange(1, 1);
+      (el as any)._activeCell = { row: 0, col: 0 };
+
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+
+      expect(el.data[1]['a']).toBe(10); // filled
+      expect(el.data[1]['b']).toBe(99); // skipped (read-only)
+    });
+  });
 });

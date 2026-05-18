@@ -1151,6 +1151,14 @@ export class FlexTable extends LitElement {
         e.preventDefault();
         if (this.editable) this._handlePaste();
         return true;
+      case 'd':
+        e.preventDefault();
+        if (this.editable) this._handleFillDown();
+        return true;
+      case 'r':
+        e.preventDefault();
+        if (this.editable) this._handleFillRight();
+        return true;
       default:
         return false;
     }
@@ -1337,6 +1345,63 @@ export class FlexTable extends LitElement {
       }
     }
     return changes;
+  }
+
+  private _handleFillDown(): void {
+    const range = this._selection.getEffectiveRange();
+    if (!range) return;
+    const cols = this.visibleColumns;
+
+    // Single cell: fill from the cell above
+    if (range.startRow === range.endRow && range.startCol === range.endCol) {
+      if (range.startRow === 0) return;
+      const col = cols[range.startCol];
+      if (!col || !this._isCellEditable(col)) return;
+      const sourceRow = this._toDataIndex(range.startRow - 1);
+      const destRow = this._toDataIndex(range.startRow);
+      this.updateRows([{ row: destRow, key: col.key, value: this.data[sourceRow][col.key] }]);
+      return;
+    }
+
+    const changes: Array<{ row: number; key: string; value: unknown }> = [];
+    for (let c = range.startCol; c <= range.endCol; c++) {
+      const col = cols[c];
+      if (!col || !this._isCellEditable(col)) continue;
+      const sourceValue = this.data[this._toDataIndex(range.startRow)][col.key];
+      for (let r = range.startRow + 1; r <= range.endRow; r++) {
+        changes.push({ row: this._toDataIndex(r), key: col.key, value: sourceValue });
+      }
+    }
+    if (changes.length > 0) this.updateRows(changes);
+  }
+
+  private _handleFillRight(): void {
+    const range = this._selection.getEffectiveRange();
+    if (!range) return;
+    const cols = this.visibleColumns;
+
+    // Single cell: fill from the cell to the left
+    if (range.startRow === range.endRow && range.startCol === range.endCol) {
+      if (range.startCol === 0) return;
+      const col = cols[range.startCol];
+      const srcCol = cols[range.startCol - 1];
+      if (!col || !this._isCellEditable(col) || !srcCol) return;
+      const dataRow = this._toDataIndex(range.startRow);
+      this.updateRows([{ row: dataRow, key: col.key, value: this.data[dataRow][srcCol.key] }]);
+      return;
+    }
+
+    const changes: Array<{ row: number; key: string; value: unknown }> = [];
+    for (let r = range.startRow; r <= range.endRow; r++) {
+      const dataRow = this._toDataIndex(r);
+      const sourceValue = this.data[dataRow][cols[range.startCol].key];
+      for (let c = range.startCol + 1; c <= range.endCol; c++) {
+        const col = cols[c];
+        if (!col || !this._isCellEditable(col)) continue;
+        changes.push({ row: dataRow, key: col.key, value: sourceValue });
+      }
+    }
+    if (changes.length > 0) this.updateRows(changes);
   }
 
   private _handleDelete(): void {
