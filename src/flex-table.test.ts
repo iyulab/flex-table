@@ -1219,7 +1219,7 @@ describe('FlexTable', () => {
     expect(input.placeholder).toBe('Search...');
   });
 
-  it('should render number filter with min/max inputs', async () => {
+  it('should render number filter with condition inputs', async () => {
     const el = createElement();
     el.showFilters = true;
     el.columns = [{ key: 'age', header: 'Age', type: 'number' }];
@@ -1230,11 +1230,12 @@ describe('FlexTable', () => {
     filterBtn.click();
     await el.updateComplete;
 
-    const inputs = el.shadowRoot!.querySelectorAll('.ft-filter-input');
-    expect(inputs.length).toBe(2); // min + max
-    expect((inputs[0] as HTMLInputElement).type).toBe('number');
-    expect((inputs[0] as HTMLInputElement).placeholder).toBe('Min');
-    expect((inputs[1] as HTMLInputElement).placeholder).toBe('Max');
+    // Two numeric condition inputs (cond1, cond2) and two op selects
+    const numInputs = el.shadowRoot!.querySelectorAll('.ft-num-cond-input');
+    expect(numInputs.length).toBe(2);
+    expect((numInputs[0] as HTMLInputElement).type).toBe('number');
+    const opSelects = el.shadowRoot!.querySelectorAll('.ft-num-op-select');
+    expect(opSelects.length).toBe(2);
   });
 
   it('should render boolean filter with select', async () => {
@@ -2565,6 +2566,343 @@ describe('FlexTable', () => {
       const cell = el.shadowRoot!.querySelector<HTMLElement>('.ft-cell');
       expect(cell!.style.background).toBe('blue');
       expect(cell!.style.color).toBe('white');
+    });
+  });
+
+  // --- Freeze Rows ---
+
+  describe('Freeze Rows', () => {
+    it('should expose frozenRows property (default 0)', async () => {
+      const el = createElement();
+      expect(el.frozenRows).toBe(0);
+    });
+
+    it('should render ft-frozen-rows band when frozenRows > 0', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = Array.from({ length: 10 }, (_, i) => ({ name: `Row ${i + 1}` }));
+      el.frozenRows = 2;
+      await el.updateComplete;
+
+      const frozenBand = el.shadowRoot!.querySelector('.ft-frozen-rows');
+      expect(frozenBand).toBeTruthy();
+    });
+
+    it('should NOT render ft-frozen-rows when frozenRows is 0', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'A' }, { name: 'B' }];
+      await el.updateComplete;
+
+      expect(el.shadowRoot!.querySelector('.ft-frozen-rows')).toBeNull();
+    });
+
+    it('should contain the correct number of frozen rows', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = Array.from({ length: 10 }, (_, i) => ({ name: `Row ${i + 1}` }));
+      el.frozenRows = 3;
+      await el.updateComplete;
+
+      const frozenBand = el.shadowRoot!.querySelector('.ft-frozen-rows')!;
+      const frozenRowEls = frozenBand.querySelectorAll('.ft-row');
+      expect(frozenRowEls.length).toBe(3);
+    });
+
+    it('should not include frozen rows in virtual scroll body', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = Array.from({ length: 5 }, (_, i) => ({ name: `Row ${i + 1}` }));
+      el.frozenRows = 2;
+      await el.updateComplete;
+
+      // Body rows should start from row index 2 (i.e., body has 3 rows, not 5)
+      const bodyRows = el.shadowRoot!.querySelectorAll('.ft-body .ft-row');
+      // With OVERSCAN the exact count may vary, but should not include frozen rows
+      expect(bodyRows.length).toBeLessThanOrEqual(3);
+    });
+
+    it('should clamp frozenRows to visibleRowCount', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'A' }, { name: 'B' }];
+      el.frozenRows = 10; // more than data rows
+      await el.updateComplete;
+
+      const frozenBand = el.shadowRoot!.querySelector('.ft-frozen-rows')!;
+      const frozenRowEls = frozenBand.querySelectorAll('.ft-row');
+      expect(frozenRowEls.length).toBe(2); // clamped to 2
+    });
+
+    it('should update frozen rows when data changes', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = Array.from({ length: 10 }, (_, i) => ({ name: `Row ${i + 1}` }));
+      el.frozenRows = 2;
+      await el.updateComplete;
+
+      // Update data for first frozen row
+      el.updateRows([{ row: 0, key: 'name', value: 'Updated' }]);
+      await el.updateComplete;
+
+      const frozenBand = el.shadowRoot!.querySelector('.ft-frozen-rows')!;
+      const firstFrozenCell = frozenBand.querySelector('.ft-cell');
+      expect(firstFrozenCell?.textContent).toContain('Updated');
+    });
+  });
+
+  // --- Advanced Filter ---
+
+  describe('Advanced filter — text modes', () => {
+    it('should render mode selector in text filter dropdown', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      const modeSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-mode-select');
+      expect(modeSelect).toBeTruthy();
+      const options = Array.from(modeSelect!.options).map(o => o.value);
+      expect(options).toContain('contains');
+      expect(options).toContain('starts');
+      expect(options).toContain('ends');
+      expect(options).toContain('wildcard');
+    });
+
+    it('should filter by starts-with mode', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Alicia' }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      // Change mode to 'starts'
+      const modeSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-mode-select')!;
+      modeSelect.value = 'starts';
+      modeSelect.dispatchEvent(new Event('change'));
+      await el.updateComplete;
+
+      // Type 'al' in the text input
+      const textInput = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-filter-input[type="text"]')!;
+      textInput.value = 'al';
+      textInput.dispatchEvent(new Event('input'));
+      await el.updateComplete;
+
+      expect(el.filteredRowCount).toBe(2); // Alice + Alicia start with 'al'
+    });
+
+    it('should filter by ends-with mode', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Malice' }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      const modeSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-mode-select')!;
+      modeSelect.value = 'ends';
+      modeSelect.dispatchEvent(new Event('change'));
+      await el.updateComplete;
+
+      const textInput = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-filter-input[type="text"]')!;
+      textInput.value = 'lice';
+      textInput.dispatchEvent(new Event('input'));
+      await el.updateComplete;
+
+      expect(el.filteredRowCount).toBe(2); // Alice + Malice end with 'lice'
+    });
+
+    it('should filter by wildcard mode', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'code', header: 'Code' }];
+      el.data = [{ code: 'A001' }, { code: 'B002' }, { code: 'A099' }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      const modeSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-mode-select')!;
+      modeSelect.value = 'wildcard';
+      modeSelect.dispatchEvent(new Event('change'));
+      await el.updateComplete;
+
+      const textInput = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-filter-input[type="text"]')!;
+      textInput.value = 'A*';
+      textInput.dispatchEvent(new Event('input'));
+      await el.updateComplete;
+
+      expect(el.filteredRowCount).toBe(2); // A001, A099 match 'A*'
+    });
+  });
+
+  describe('Advanced filter — empty cell', () => {
+    it('should render empty filter section in all filter types', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      const emptySection = el.shadowRoot!.querySelector('.ft-filter-empty-row');
+      expect(emptySection).toBeTruthy();
+    });
+
+    it('should filter empty cells only (text column)', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }, { name: '' }, { name: null }, { name: 'Bob' }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      const emptySelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-empty-row select')!;
+      emptySelect.value = 'empty';
+      emptySelect.dispatchEvent(new Event('change'));
+      await el.updateComplete;
+
+      expect(el.filteredRowCount).toBe(2); // '' and null
+    });
+
+    it('should filter non-empty cells only (text column)', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }, { name: '' }, { name: null }, { name: 'Bob' }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      const emptySelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-empty-row select')!;
+      emptySelect.value = 'non-empty';
+      emptySelect.dispatchEvent(new Event('change'));
+      await el.updateComplete;
+
+      expect(el.filteredRowCount).toBe(2); // Alice, Bob
+    });
+
+    it('should clear empty filter when text is typed', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'Alice' }, { name: '' }, { name: 'Bob' }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      // Set empty filter first
+      const emptySelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-empty-row select')!;
+      emptySelect.value = 'empty';
+      emptySelect.dispatchEvent(new Event('change'));
+      await el.updateComplete;
+      expect(el.filteredRowCount).toBe(1);
+
+      // Type text — should switch to text filter and clear empty filter
+      const textInput = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-filter-input[type="text"]')!;
+      textInput.value = 'alice';
+      textInput.dispatchEvent(new Event('input'));
+      await el.updateComplete;
+
+      expect(el.filteredRowCount).toBe(1); // only Alice (text filter now active)
+    });
+  });
+
+  describe('Advanced filter — number 2-condition AND/OR', () => {
+    it('should filter with AND condition (>= 20 AND <= 40)', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'age', header: 'Age', type: 'number' }];
+      el.data = [{ age: 10 }, { age: 25 }, { age: 35 }, { age: 50 }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      // cond1: >= 20, cond2: <= 40 (defaults), join: AND (default)
+      const inputs = el.shadowRoot!.querySelectorAll<HTMLInputElement>('.ft-num-cond-input');
+      inputs[0].value = '20'; // cond1 value
+      inputs[0].dispatchEvent(new Event('input'));
+      await el.updateComplete;
+
+      inputs[1].value = '40'; // cond2 value
+      inputs[1].dispatchEvent(new Event('input'));
+      await el.updateComplete;
+
+      expect(el.filteredRowCount).toBe(2); // 25, 35
+    });
+
+    it('should filter with OR condition (< 15 OR > 45)', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'age', header: 'Age', type: 'number' }];
+      el.data = [{ age: 10 }, { age: 25 }, { age: 35 }, { age: 50 }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      // Set cond1 op to '<', value 15
+      const opSelects = el.shadowRoot!.querySelectorAll<HTMLSelectElement>('.ft-num-op-select');
+      opSelects[0].value = 'lt';
+      opSelects[0].dispatchEvent(new Event('change'));
+      await el.updateComplete;
+
+      const inputs = el.shadowRoot!.querySelectorAll<HTMLInputElement>('.ft-num-cond-input');
+      inputs[0].value = '15';
+      inputs[0].dispatchEvent(new Event('input'));
+      await el.updateComplete;
+
+      // Set cond2 op to '>', value 45
+      opSelects[1].value = 'gt';
+      opSelects[1].dispatchEvent(new Event('change'));
+      await el.updateComplete;
+
+      inputs[1].value = '45';
+      inputs[1].dispatchEvent(new Event('input'));
+      await el.updateComplete;
+
+      // Switch join to OR
+      const joinSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-num-cond-row ~ .ft-filter-mode-row select')!;
+      joinSelect.value = 'or';
+      joinSelect.dispatchEvent(new Event('change'));
+      await el.updateComplete;
+
+      expect(el.filteredRowCount).toBe(2); // 10 (<15) + 50 (>45)
+    });
+
+    it('should filter with single condition only', async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'score', header: 'Score', type: 'number' }];
+      el.data = [{ score: 5 }, { score: 15 }, { score: 25 }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
+      await el.updateComplete;
+
+      // Only set cond1 (>= 10)
+      const inputs = el.shadowRoot!.querySelectorAll<HTMLInputElement>('.ft-num-cond-input');
+      inputs[0].value = '10';
+      inputs[0].dispatchEvent(new Event('input'));
+      await el.updateComplete;
+
+      expect(el.filteredRowCount).toBe(2); // 15, 25 (>= 10)
     });
   });
 });

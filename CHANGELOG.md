@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-19
+
+### Added
+- **고급 필터 — 텍스트 모드**: 필터 드롭다운에 모드 셀렉터 추가 (`contains` / `starts with` / `ends with` / `wildcard`). 와일드카드는 `*`(임의 문자열), `?`(단일 문자) 지원
+- **고급 필터 — 빈 셀 필터**: 모든 컬럼 타입 (text/number/date/boolean)에 "Empty only" / "Non-empty only" 옵션 추가. 텍스트 입력 시 자동 해제
+- **고급 필터 — 숫자 2조건 AND/OR**: 숫자 필터가 `=`, `≠`, `>`, `<`, `≥`, `≤` 연산자 선택 + 2개 조건 AND/OR 결합으로 대체. 단일 조건만 설정해도 동작
+- **행 고정 (`frozen-rows`)**: `frozenRows: number` 속성으로 상단 N행 고정. 세로 스크롤 중 항상 표시. 편집 가능, 핀 컬럼과 올바르게 교차 렌더링, `position: sticky` 기반
+
+### Changed
+- 숫자 필터 UI: 기존 Min/Max 범위 입력 → 연산자 선택 + 2조건 AND/OR UI로 교체
+- 필터 드롭다운 최소 너비 160px → 200px
+
+### Internal
+- `TextFilterMode` 타입 추가 (`contains` | `starts` | `ends` | `wildcard`)
+- `NumericOp`, `NumCondition`, `NumberAdvState` 타입 추가
+- `_buildTextPredicate`, `_buildNumberPredicate`, `_buildDatePredicate`, `_buildEmptyPredicate` predicate 빌더 메서드 추가
+- `_applyFilterForKey`: 필터 재적용 단일 진입점으로 리팩터링
+- `_frozenRowCount`, `frozenRowsHeight` getter 추가
+- `_renderFrozenRows`: sticky 컨테이너에 frozen rows 렌더링
+
 ## [0.14.0] - 2026-05-19
 
 ### Added

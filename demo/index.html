@@ -82,6 +82,12 @@
     <button class="btn" id="export-xlsx-btn">Export XLSX</button>
   </div>
 
+  <h2 style="margin-top: 32px;">v0.15 Freeze Rows Test</h2>
+  <p class="info">
+    <code>frozen-rows="3"</code> &middot; First 3 rows are sticky during vertical scroll &middot; Editable &middot; Pinned left column
+  </p>
+  <flex-table id="freeze-table" row-height="32" show-row-numbers frozen-rows="3" style="height: 240px;"></flex-table>
+
   <h2 style="margin-top: 32px;">Horizontal Virtual Scroll Test</h2>
   <p class="info"><span id="wide-col-count"></span> columns &middot; <span id="wide-row-count"></span> rows &middot; Column 0 pinned left</p>
   <flex-table id="wide-table" row-height="32" show-row-numbers></flex-table>
@@ -273,6 +279,23 @@
     document.getElementById('export-xlsx-btn').addEventListener('click', () => {
       newFeaturesTable.exportToFile('xlsx', 'flex-table-export.xlsx');
     });
+
+    // --- Freeze Rows Table ---
+    const freezeTable = document.getElementById('freeze-table');
+    freezeTable.columns = [
+      { key: 'id', header: 'ID', type: 'number', width: 60, editable: false, pinned: 'left' },
+      { key: 'name', header: 'Name', type: 'text', width: 160 },
+      { key: 'dept', header: 'Dept', type: 'text', width: 120 },
+      { key: 'score', header: 'Score', type: 'number', width: 100 },
+      { key: 'status', header: 'Status', type: 'select', options: ['Active', 'Inactive', 'Pending'], width: 120 },
+    ];
+    freezeTable.data = Array.from({ length: 50 }, (_, i) => ({
+      id: i + 1,
+      name: `User ${i + 1}`,
+      dept: ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance'][i % 5],
+      score: Math.round(Math.random() * 100),
+      status: ['Active', 'Inactive', 'Pending'][i % 3],
+    }));
 
     // --- 100-Column Wide Table ---
     const wideTable = document.getElementById('wide-table');

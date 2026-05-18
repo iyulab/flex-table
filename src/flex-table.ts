@@ -17,6 +17,15 @@ import type { ColumnFilter, FilterPredicate } from './core/filtering.js';
 import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './models/types.js';
 import type { TemplateResult } from 'lit';
 
+type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
+type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
+interface NumCondition { op: NumericOp; value: number | null }
+interface NumberAdvState { cond1: NumCondition; join: 'and' | 'or'; cond2: NumCondition }
+
+const NUM_OP_LABELS: Record<NumericOp, string> = {
+  eq: '=', neq: '≠', gt: '>', lt: '<', gte: '≥', lte: '≤',
+};
+
 const DEFAULT_COL_WIDTH = 120;
 const MIN_COL_WIDTH = 40;
 const DEFAULT_ROW_HEIGHT = 32;
@@ -53,6 +62,10 @@ export class FlexTable extends LitElement {
   /** Enable built-in context menu on cell right-click. */
   @property({ type: Boolean, attribute: 'show-context-menu' })
   showContextMenu: boolean = false;
+
+  /** Number of rows to freeze at the top (always visible during vertical scroll). */
+  @property({ type: Number, attribute: 'frozen-rows' })
+  frozenRows: number = 0;
 
   /** Enable row-level checkbox selection. */
   @property({ type: Boolean })
@@ -696,15 +709,25 @@ export class FlexTable extends LitElement {
     return this._sortedIndices.length;
   }
 
+  private get _frozenRowCount(): number {
+    return Math.min(this.frozenRows, this._visibleRowCount);
+  }
+
+  private get frozenRowsHeight(): number {
+    return this._frozenRowCount * this.rowHeight;
+  }
+
   private get totalBodyHeight(): number {
-    return this._visibleRowCount * this.rowHeight;
+    return Math.max(0, this._visibleRowCount - this._frozenRowCount) * this.rowHeight;
   }
 
   private get visibleRange(): { start: number; end: number } {
-    const scrollTop = Math.max(0, this._scrollTop - this.headerHeight);
-    const start = Math.max(0, Math.floor(scrollTop / this.rowHeight) - OVERSCAN);
+    const fr = this._frozenRowCount;
+    const bodyScrollTop = Math.max(0, this._scrollTop - this.headerHeight - this.frozenRowsHeight);
+    const firstBodyRow = fr + Math.floor(bodyScrollTop / this.rowHeight);
+    const start = Math.max(fr, firstBodyRow - OVERSCAN);
     const visibleCount = Math.ceil(this._viewportHeight / this.rowHeight);
-    const end = Math.min(this._visibleRowCount, Math.floor(scrollTop / this.rowHeight) + visibleCount + OVERSCAN);
+    const end = Math.min(this._visibleRowCount, firstBodyRow + visibleCount + OVERSCAN);
     return { start, end };
   }
 
@@ -1710,8 +1733,11 @@ export class FlexTable extends LitElement {
     const rowTop = this._activeCell.row * this.rowHeight + this.headerHeight;
     const rowBottom = rowTop + this.rowHeight;
 
-    if (rowTop < this.scrollTop + this.headerHeight) {
-      this.scrollTop = rowTop - this.headerHeight;
+    // Frozen rows are always visible — no scroll needed
+    if (this._activeCell.row < this._frozenRowCount) {
+      // Only handle horizontal scroll below
+    } else if (rowTop < this.scrollTop + this.headerHeight + this.frozenRowsHeight) {
+      this.scrollTop = rowTop - this.headerHeight - this.frozenRowsHeight;
     } else if (rowBottom > this.scrollTop + this.clientHeight) {
       this.scrollTop = rowBottom - this.clientHeight;
     }
@@ -2091,39 +2117,237 @@ export class FlexTable extends LitElement {
     `;
   }
 
-  private _renderTextFilter(col: ColumnDefinition) {
+  private _buildTextPredicate(value: string, mode: TextFilterMode): FilterPredicate {
+    const lower = value.toLowerCase();
+    switch (mode) {
+      case 'starts': return (v) => String(v ?? '').toLowerCase().startsWith(lower);
+      case 'ends': return (v) => String(v ?? '').toLowerCase().endsWith(lower);
+      case 'wildcard': {
+        const pattern = lower
+          .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+          .replace(/\*/g, '.*')
+          .replace(/\?/g, '.');
+        const regex = new RegExp('^' + pattern + '$', 'i');
+        return (v) => regex.test(String(v ?? ''));
+      }
+      default: // 'contains'
+        return (v) => String(v ?? '').toLowerCase().includes(lower);
+    }
+  }
+
+  private _applyTextFilter(key: string): void {
+    const emptyVal = this._emptyFilterState.get(key);
+    if (emptyVal) {
+      this.setFilter(key, this._buildEmptyPredicate(emptyVal));
+      return;
+    }
+    const state = this._textFilterState.get(key);
+    if (state?.value) {
+      this.setFilter(key, this._buildTextPredicate(state.value, state.mode));
+    } else {
+      this.removeFilter(key);
+    }
+  }
+
+  private _buildEmptyPredicate(empty: 'empty' | 'non-empty'): FilterPredicate {
+    if (empty === 'empty') return (v) => v == null || v === '';
+    return (v) => v != null && v !== '';
+  }
+
+  private _renderEmptyFilterRow(key: string, onChangeExtra?: () => void) {
+    const current = this._emptyFilterState.get(key) ?? '';
     return html`
+      <div class="ft-filter-empty-row">
+        <label>Blank cells</label>
+        <select class="ft-filter-mode-select"
+          .value=${current}
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLSelectElement).value as 'empty' | 'non-empty' | '';
+            if (val === '' || val === 'empty' || val === 'non-empty') {
+              if (val) {
+                this._emptyFilterState.set(key, val);
+              } else {
+                this._emptyFilterState.delete(key);
+              }
+              onChangeExtra?.();
+              this._applyFilterForKey(key);
+            }
+          }}
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+          <option value="">— All —</option>
+          <option value="empty">Empty only</option>
+          <option value="non-empty">Non-empty only</option>
+        </select>
+      </div>
+    `;
+  }
+
+  private _evalNumCond(n: number, cond: NumCondition): boolean {
+    const v = cond.value!;
+    switch (cond.op) {
+      case 'eq': return n === v;
+      case 'neq': return n !== v;
+      case 'gt': return n > v;
+      case 'lt': return n < v;
+      case 'gte': return n >= v;
+      case 'lte': return n <= v;
+    }
+  }
+
+  private _buildNumberPredicate(state: NumberAdvState): FilterPredicate | null {
+    const has1 = state.cond1.value != null;
+    const has2 = state.cond2.value != null;
+    if (!has1 && !has2) return null;
+    return (v) => {
+      const n = Number(v);
+      if (isNaN(n)) return false;
+      if (has1 && !has2) return this._evalNumCond(n, state.cond1);
+      if (!has1 && has2) return this._evalNumCond(n, state.cond2);
+      const r1 = this._evalNumCond(n, state.cond1);
+      const r2 = this._evalNumCond(n, state.cond2);
+      return state.join === 'or' ? r1 || r2 : r1 && r2;
+    };
+  }
+
+  private _buildDatePredicate(state: { from?: string; to?: string }): FilterPredicate | null {
+    if (state.from == null && state.to == null) return null;
+    return (v) => {
+      if (v == null || v === '') return false;
+      const d = v instanceof Date ? v : new Date(String(v));
+      if (isNaN(d.getTime())) return false;
+      if (state.from) {
+        if (d < new Date(state.from)) return false;
+      }
+      if (state.to) {
+        const to = new Date(state.to);
+        if (state.to.length === 10) to.setHours(23, 59, 59, 999);
+        if (d > to) return false;
+      }
+      return true;
+    };
+  }
+
+  private _applyFilterForKey(key: string): void {
+    const emptyVal = this._emptyFilterState.get(key);
+    if (emptyVal) {
+      this.setFilter(key, this._buildEmptyPredicate(emptyVal));
+      return;
+    }
+    if (this._textFilterState.has(key)) {
+      this._applyTextFilter(key);
+    } else if (this._numberFilterState.has(key)) {
+      const pred = this._buildNumberPredicate(this._numberFilterState.get(key)!);
+      pred ? this.setFilter(key, pred) : this.removeFilter(key);
+    } else if (this._dateFilterState.has(key)) {
+      const pred = this._buildDatePredicate(this._dateFilterState.get(key)!);
+      pred ? this.setFilter(key, pred) : this.removeFilter(key);
+    } else {
+      this.removeFilter(key);
+    }
+  }
+
+  private _renderTextFilter(col: ColumnDefinition) {
+    const state = this._textFilterState.get(col.key) ?? { value: '', mode: 'contains' as TextFilterMode };
+    return html`
+      <div class="ft-filter-mode-row">
+        <select class="ft-filter-mode-select"
+          .value=${state.mode}
+          @change=${(e: Event) => {
+            const mode = (e.target as HTMLSelectElement).value as TextFilterMode;
+            const cur = this._textFilterState.get(col.key) ?? { value: '', mode: 'contains' as TextFilterMode };
+            this._textFilterState.set(col.key, { ...cur, mode });
+            this._applyTextFilter(col.key);
+          }}
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+          <option value="contains">Contains</option>
+          <option value="starts">Starts with</option>
+          <option value="ends">Ends with</option>
+          <option value="wildcard">Wildcard</option>
+        </select>
+      </div>
       <input class="ft-filter-input" type="text" placeholder="Search..."
-        .value=${this._textFilterState.get(col.key) ?? ''}
+        .value=${state.value}
         @input=${(e: InputEvent) => {
           const value = (e.target as HTMLInputElement).value;
-          this._textFilterState.set(col.key, value);
-          if (value) {
-            this.setFilter(col.key, (v) => String(v ?? '').toLowerCase().includes(value.toLowerCase()));
-          } else {
-            this.removeFilter(col.key);
-          }
+          const cur = this._textFilterState.get(col.key) ?? { value: '', mode: 'contains' as TextFilterMode };
+          this._textFilterState.set(col.key, { ...cur, value });
+          // Text input clears empty filter (mutually exclusive)
+          this._emptyFilterState.delete(col.key);
+          this._applyTextFilter(col.key);
         }}
         @keydown=${(e: KeyboardEvent) => {
           if (e.key === 'Escape') this._openFilterKey = null;
           e.stopPropagation();
         }}>
+      ${this._renderEmptyFilterRow(col.key, () => {
+        // When empty filter is set, clear the text state
+        this._textFilterState.delete(col.key);
+      })}
+    `;
+  }
+
+  private _defaultNumState(): NumberAdvState {
+    return { cond1: { op: 'gte', value: null }, join: 'and', cond2: { op: 'lte', value: null } };
+  }
+
+  private _renderNumCondRow(key: string, which: 'cond1' | 'cond2') {
+    const state = this._numberFilterState.get(key) ?? this._defaultNumState();
+    const cond = state[which];
+    return html`
+      <div class="ft-num-cond-row">
+        <select class="ft-filter-mode-select ft-num-op-select"
+          .value=${cond.op}
+          @change=${(e: Event) => {
+            const op = (e.target as HTMLSelectElement).value as NumericOp;
+            const cur = this._numberFilterState.get(key) ?? this._defaultNumState();
+            cur[which] = { ...cur[which], op };
+            this._numberFilterState.set(key, cur);
+            this._emptyFilterState.delete(key);
+            this._applyFilterForKey(key);
+          }}
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+          ${(Object.keys(NUM_OP_LABELS) as NumericOp[]).map(op =>
+            html`<option value=${op}>${NUM_OP_LABELS[op]}</option>`)}
+        </select>
+        <input class="ft-filter-input ft-num-cond-input" type="number" placeholder="Value"
+          .value=${cond.value != null ? String(cond.value) : ''}
+          @input=${(e: InputEvent) => {
+            const raw = (e.target as HTMLInputElement).value;
+            const cur = this._numberFilterState.get(key) ?? this._defaultNumState();
+            cur[which] = { ...cur[which], value: raw === '' ? null : Number(raw) };
+            this._numberFilterState.set(key, cur);
+            this._emptyFilterState.delete(key);
+            this._applyFilterForKey(key);
+          }}
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+      </div>
     `;
   }
 
   private _renderNumberFilter(col: ColumnDefinition) {
-    const state = this._numberFilterState.get(col.key) ?? {};
+    const state = this._numberFilterState.get(col.key) ?? this._defaultNumState();
     return html`
-      <div class="ft-filter-range">
-        <input class="ft-filter-input" type="number" placeholder="Min"
-          .value=${state.min != null ? String(state.min) : ''}
-          @input=${(e: InputEvent) => this._applyNumberFilter(col.key, e, 'min')}
+      ${this._renderNumCondRow(col.key, 'cond1')}
+      <div class="ft-filter-mode-row">
+        <select class="ft-filter-mode-select"
+          .value=${state.join}
+          @change=${(e: Event) => {
+            const join = (e.target as HTMLSelectElement).value as 'and' | 'or';
+            const cur = this._numberFilterState.get(col.key) ?? this._defaultNumState();
+            cur.join = join;
+            this._numberFilterState.set(col.key, cur);
+            this._emptyFilterState.delete(col.key);
+            this._applyFilterForKey(col.key);
+          }}
           @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
-        <input class="ft-filter-input" type="number" placeholder="Max"
-          .value=${state.max != null ? String(state.max) : ''}
-          @input=${(e: InputEvent) => this._applyNumberFilter(col.key, e, 'max')}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+          <option value="and">AND</option>
+          <option value="or">OR</option>
+        </select>
       </div>
+      ${this._renderNumCondRow(col.key, 'cond2')}
+      ${this._renderEmptyFilterRow(col.key, () => {
+        this._numberFilterState.delete(col.key);
+      })}
     `;
   }
 
@@ -2150,32 +2374,10 @@ export class FlexTable extends LitElement {
     const entry = this._invalidCells.get(this._cellKey(row, col));
     return entry ? entry.error : null;
   }
-  private _textFilterState: Map<string, string> = new Map();
-  private _numberFilterState: Map<string, { min?: number; max?: number }> = new Map();
+  private _textFilterState: Map<string, { value: string; mode: TextFilterMode }> = new Map();
+  private _numberFilterState: Map<string, NumberAdvState> = new Map();
   private _dateFilterState: Map<string, { from?: string; to?: string }> = new Map();
-
-  private _applyNumberFilter(key: string, e: InputEvent, bound: 'min' | 'max'): void {
-    const value = (e.target as HTMLInputElement).value;
-    const state = this._numberFilterState.get(key) ?? {};
-    if (value === '') {
-      delete state[bound];
-    } else {
-      state[bound] = Number(value);
-    }
-    this._numberFilterState.set(key, state);
-
-    if (state.min == null && state.max == null) {
-      this.removeFilter(key);
-    } else {
-      this.setFilter(key, (v) => {
-        const n = Number(v);
-        if (isNaN(n)) return false;
-        if (state.min != null && n < state.min) return false;
-        if (state.max != null && n > state.max) return false;
-        return true;
-      });
-    }
-  }
+  private _emptyFilterState: Map<string, 'empty' | 'non-empty'> = new Map();
 
   private _renderDateFilter(col: ColumnDefinition) {
     const inputType = col.type === 'datetime' ? 'datetime-local' : 'date';
@@ -2191,6 +2393,9 @@ export class FlexTable extends LitElement {
           @input=${(e: InputEvent) => this._applyDateFilter(col.key, e, 'to')}
           @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
       </div>
+      ${this._renderEmptyFilterRow(col.key, () => {
+        this._dateFilterState.delete(col.key);
+      })}
     `;
   }
 
@@ -2203,29 +2408,9 @@ export class FlexTable extends LitElement {
       state[bound] = value;
     }
     this._dateFilterState.set(key, state);
-
-    if (state.from == null && state.to == null) {
-      this.removeFilter(key);
-    } else {
-      this.setFilter(key, (v) => {
-        if (v == null || v === '') return false;
-        const d = v instanceof Date ? v : new Date(String(v));
-        if (isNaN(d.getTime())) return false;
-        if (state.from) {
-          const from = new Date(state.from);
-          if (d < from) return false;
-        }
-        if (state.to) {
-          const to = new Date(state.to);
-          // For date type, include the entire end day
-          if (state.to.length === 10) {
-            to.setHours(23, 59, 59, 999);
-          }
-          if (d > to) return false;
-        }
-        return true;
-      });
-    }
+    // Clear empty filter when type-specific filter is applied
+    this._emptyFilterState.delete(key);
+    this._applyFilterForKey(key);
   }
 
   private _renderBooleanFilter(col: ColumnDefinition) {
@@ -2244,6 +2429,7 @@ export class FlexTable extends LitElement {
         <option value="true">\u2714 True</option>
         <option value="false">\u2718 False</option>
       </select>
+      ${this._renderEmptyFilterRow(col.key)}
     `;
   }
 
@@ -2252,6 +2438,7 @@ export class FlexTable extends LitElement {
     this._textFilterState.delete(key);
     this._numberFilterState.delete(key);
     this._dateFilterState.delete(key);
+    this._emptyFilterState.delete(key);
     this._openFilterKey = null;
   }
 
@@ -2952,9 +3139,10 @@ export class FlexTable extends LitElement {
     }
 
     const { start, end } = this.visibleRange;
+    const fr = this._frozenRowCount;
     const rows = [];
     for (let i = start; i < end; i++) {
-      rows.push(this._renderRow(i, colStart, colEnd, pinnedIndices));
+      rows.push(this._renderRow(i, colStart, colEnd, pinnedIndices, (i - fr) * this.rowHeight));
     }
 
     const fillHandle = this._renderFillHandle();
@@ -2969,6 +3157,7 @@ export class FlexTable extends LitElement {
         ${headerCells}
         ${dropIndicator}
       </div>
+      ${this._renderFrozenRows(colStart, colEnd, pinnedIndices)}
       <div class="ft-body" style="height: ${this.totalBodyHeight}px; width: ${tw}px;">
         ${rows}
       </div>
@@ -2996,6 +3185,22 @@ export class FlexTable extends LitElement {
     this._rowSelection.toggle(rowIndex);
     this._rowSelectionVersion++;
     this._dispatchRowSelectionEvent();
+  }
+
+  private _renderFrozenRows(colStart: number, colEnd: number, pinnedIndices: number[]) {
+    const fr = this._frozenRowCount;
+    if (fr === 0) return nothing;
+
+    const tw = this._totalRowWidth;
+    const frozenRows = [];
+    for (let i = 0; i < fr; i++) {
+      frozenRows.push(this._renderRow(i, colStart, colEnd, pinnedIndices, i * this.rowHeight));
+    }
+    return html`
+      <div class="ft-frozen-rows" style="top: ${this.headerHeight}px; height: ${this.frozenRowsHeight}px; width: ${tw}px;">
+        ${frozenRows}
+      </div>
+    `;
   }
 
   private _renderFooter(colStart: number, colEnd: number, pinnedIndices: number[]) {
@@ -3060,11 +3265,11 @@ export class FlexTable extends LitElement {
     `;
   }
 
-  private _renderRow(index: number, colStart: number, colEnd: number, pinnedIndices: number[]) {
+  private _renderRow(index: number, colStart: number, colEnd: number, pinnedIndices: number[], topOverride?: number) {
     const cols = this.visibleColumns;
     const dataIndex = this._toDataIndex(index);
     const row = this.data[dataIndex];
-    const top = index * this.rowHeight;
+    const top = topOverride ?? index * this.rowHeight;
     const rowH = this.rowHeight;
     const tw = this._totalRowWidth;
     const parity = index % 2 === 0 ? 'ft-row-even' : 'ft-row-odd';

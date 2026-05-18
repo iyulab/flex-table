@@ -173,6 +173,14 @@ export const flexTableStyles = css`
 
   .ft-body { position: relative; }
 
+  .ft-frozen-rows {
+    display: block;
+    position: sticky;
+    z-index: 3;
+    border-bottom: 2px solid var(--ft-active-color);
+    background: var(--ft-bg);
+  }
+
   .ft-row {
     display: block;
     position: absolute;
@@ -352,7 +360,7 @@ export const flexTableStyles = css`
     position: absolute;
     top: 100%;
     left: 0;
-    min-width: 160px;
+    min-width: 200px;
     background: var(--ft-bg);
     border: 1px solid var(--ft-border-color);
     border-radius: 4px;
@@ -404,6 +412,51 @@ export const flexTableStyles = css`
   .ft-filter-clear:hover {
     background: var(--ft-header-hover-bg);
     color: var(--ft-text-color);
+  }
+
+  .ft-filter-mode-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .ft-filter-mode-select {
+    flex: 1;
+    padding: 3px 6px;
+    font: inherit;
+    font-size: 12px;
+    border: 1px solid var(--ft-border-color);
+    border-radius: 3px;
+    color: var(--ft-text-color);
+    background: var(--ft-editor-bg);
+    cursor: pointer;
+  }
+
+  .ft-num-cond-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .ft-num-op-select {
+    flex: 0 0 44px;
+  }
+
+  .ft-num-cond-input {
+    flex: 1;
+  }
+
+  .ft-filter-empty-row {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--ft-border-color);
+  }
+
+  .ft-filter-empty-row label {
+    display: block;
+    font-size: 11px;
+    color: var(--ft-sort-indicator-color);
+    margin-bottom: 3px;
   }
 
   /* --- Row Selection (Checkbox) --- */
