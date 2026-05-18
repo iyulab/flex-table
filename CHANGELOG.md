@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-05-19
+
+### Fixed
+- Fill handle position offset: `_colLeftOffsets` already includes `_prefixWidth`, but `_renderFillHandle` and `_renderFillPreview` were adding it again, causing the handle to appear displaced to the right (especially noticeable with row numbers or checkbox columns enabled)
+
 ## [0.16.0] - 2026-05-19
 
 ### Added
