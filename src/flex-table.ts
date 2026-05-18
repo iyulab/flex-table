@@ -50,6 +50,10 @@ export class FlexTable extends LitElement {
   @property({ type: Boolean, attribute: 'show-filters' })
   showFilters: boolean = false;
 
+  /** Enable built-in context menu on cell right-click. */
+  @property({ type: Boolean, attribute: 'show-context-menu' })
+  showContextMenu: boolean = false;
+
   /** Enable row-level checkbox selection. */
   @property({ type: Boolean })
   selectable: boolean = false;
@@ -122,6 +126,9 @@ export class FlexTable extends LitElement {
 
   @state()
   private _headerMenu: { key: string; x: number; y: number; hiddenNeighbors: ColumnDefinition[] } | null = null;
+
+  @state()
+  private _bodyContextMenu: { rowIndex: number; colIndex: number; dataIndex: number; x: number; y: number } | null = null;
 
   private _viewDirty = true;
   private _isDragging = false;
@@ -634,7 +641,7 @@ export class FlexTable extends LitElement {
    * Export table data to string in the specified format.
    * @param options.selectionOnly - Export only the currently selected range
    */
-  exportToString(format: ExportFormat, options?: { selectionOnly?: boolean }): string {
+  exportToString(format: ExportFormat, options?: { selectionOnly?: boolean }): string | Uint8Array {
     if (options?.selectionOnly) {
       const range = this._selection.getEffectiveRange();
       if (!range) return '';
@@ -889,6 +896,9 @@ export class FlexTable extends LitElement {
     if (this._headerMenu) {
       this._headerMenu = null;
     }
+    if (this._bodyContextMenu) {
+      this._bodyContextMenu = null;
+    }
   }
 
   private _onContextMenu(e: MouseEvent): void {
@@ -898,6 +908,8 @@ export class FlexTable extends LitElement {
       (el) => el instanceof HTMLElement && el.classList.contains('ft-cell')
     ) as HTMLElement | undefined;
     if (!cellEl) return;
+
+    e.preventDefault();
 
     // Find row and col from data attributes
     const rowEl = cellEl.parentElement;
@@ -914,7 +926,7 @@ export class FlexTable extends LitElement {
     const col = this.visibleColumns[colIndex];
     if (!col) return;
 
-    this.dispatchEvent(new CustomEvent('context-menu', {
+    const ctxEvent = new CustomEvent('context-menu', {
       detail: {
         x: e.clientX,
         y: e.clientY,
@@ -926,7 +938,16 @@ export class FlexTable extends LitElement {
       },
       bubbles: true,
       composed: true,
-    }));
+      cancelable: true,
+    });
+    this.dispatchEvent(ctxEvent);
+
+    if (this.showContextMenu && !ctxEvent.defaultPrevented) {
+      this._bodyContextMenu = { rowIndex, colIndex, dataIndex, x: e.clientX, y: e.clientY };
+      requestAnimationFrame(() => {
+        document.addEventListener('click', this._onDocumentClick, { once: true });
+      });
+    }
   }
 
   private _onCellClickEvent(e: MouseEvent, rowIndex: number, colIndex: number): void {
@@ -1942,6 +1963,83 @@ export class FlexTable extends LitElement {
     `;
   }
 
+  private _renderBodyContextMenu() {
+    if (!this._bodyContextMenu) return nothing;
+    const { colIndex, dataIndex, x, y } = this._bodyContextMenu;
+    const col = this.visibleColumns[colIndex];
+    if (!col) return nothing;
+    const value = this.data[dataIndex]?.[col.key];
+    const hasFilter = this._filters.some(f => f.key === col.key);
+    const close = () => { this._bodyContextMenu = null; };
+
+    // Viewport boundary correction: if menu would go off-screen, flip
+    const menuW = 200;
+    const menuH = 280;
+    const adjustedX = x + menuW > window.innerWidth ? x - menuW : x;
+    const adjustedY = y + menuH > window.innerHeight ? y - menuH : y;
+
+    return html`
+      <div class="ft-body-context-menu" style="position: fixed; left: ${adjustedX}px; top: ${adjustedY}px; z-index: 200;"
+        @mousedown=${(e: MouseEvent) => e.stopPropagation()}>
+        <div class="ft-context-menu-item"
+          @click=${() => { this._handleCopy(false); close(); }}>
+          Copy
+        </div>
+        <div class="ft-context-menu-separator"></div>
+        <div class="ft-context-menu-item"
+          @click=${() => { this.addRow(undefined, dataIndex); close(); }}>
+          Insert row above
+        </div>
+        <div class="ft-context-menu-item"
+          @click=${() => { this.addRow(undefined, dataIndex + 1); close(); }}>
+          Insert row below
+        </div>
+        <div class="ft-context-menu-item ft-context-menu-danger"
+          @click=${() => { this.deleteRows([dataIndex]); close(); }}>
+          Delete row
+        </div>
+        <div class="ft-context-menu-separator"></div>
+        <div class="ft-context-menu-item"
+          @click=${() => { this._setColumnHidden(col.key, true); close(); }}>
+          Hide column
+        </div>
+        <div class="ft-context-menu-separator"></div>
+        <div class="ft-context-menu-item"
+          @click=${() => { this._applySortFromMenu(col.key, 'asc'); close(); }}>
+          Sort ascending ↑
+        </div>
+        <div class="ft-context-menu-item"
+          @click=${() => { this._applySortFromMenu(col.key, 'desc'); close(); }}>
+          Sort descending ↓
+        </div>
+        <div class="ft-context-menu-separator"></div>
+        <div class="ft-context-menu-item"
+          @click=${() => { this.setFilter(col.key, (v) => v === value); close(); }}>
+          Filter by this value
+        </div>
+        ${hasFilter ? html`
+          <div class="ft-context-menu-item"
+            @click=${() => { this.removeFilter(col.key); close(); }}>
+            Clear filter
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  private _applySortFromMenu(key: string, dir: 'asc' | 'desc'): void {
+    const col = this.columns.find(c => c.key === key);
+    if (!col) return;
+    this._sortCriteria = [{ key, direction: dir }];
+    this._sortedIndices = computeSortedIndices(this.data, this._sortCriteria, this.columns);
+    this.dispatchEvent(new CustomEvent('sort-change', {
+      detail: { sortCriteria: [...this._sortCriteria] },
+      bubbles: true,
+      composed: true,
+    }));
+    this.requestUpdate();
+  }
+
   // --- Filter UI ---
 
   private _adjustFilterDropdown(): void {
@@ -2878,6 +2976,7 @@ export class FlexTable extends LitElement {
       ${rowDropIndicator}
       ${fillHandle}
       ${this._renderHeaderContextMenu()}
+      ${this._renderBodyContextMenu()}
     `;
   }
 

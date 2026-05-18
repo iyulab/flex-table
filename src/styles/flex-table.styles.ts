@@ -518,6 +518,42 @@ export const flexTableStyles = css`
     color: white;
   }
 
+  /* Body context menu */
+  .ft-body-context-menu {
+    background: var(--ft-editor-bg, #fff);
+    border: 1px solid var(--ft-border-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.16);
+    min-width: 180px;
+    border-radius: 4px;
+    overflow: hidden;
+    padding: 4px 0;
+  }
+
+  .ft-context-menu-item {
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: var(--ft-font-size, 14px);
+    color: var(--ft-text-color);
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .ft-context-menu-item:hover {
+    background: var(--ft-selection-bg);
+    color: var(--ft-active-color);
+  }
+
+  .ft-context-menu-item.ft-context-menu-danger:hover {
+    background: #fdd;
+    color: #c0392b;
+  }
+
+  .ft-context-menu-separator {
+    height: 1px;
+    background: var(--ft-border-color);
+    margin: 4px 0;
+  }
+
   /* Find / Replace panel */
   .ft-find-panel {
     position: sticky;

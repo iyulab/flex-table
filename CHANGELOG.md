@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-19
+
+### Added
+- **내장 컨텍스트 메뉴 (`show-context-menu`)**: 셀 우클릭 시 기본 메뉴 표시 (복사, 행 삽입·삭제, 컬럼 숨기기, 정렬, 필터)
+  - `context-menu` 이벤트에서 `preventDefault()` 호출 시 내장 메뉴 억제
+  - 화면 경계 자동 위치 보정
+- **XLSX Export**: `exportToFile('xlsx', ...)` / `exportToString('xlsx')` 지원
+  - 외부 의존성 없는 순수 TypeScript 구현 (ZIP STORE + OOXML)
+  - 헤더 행 포함, 숫자/날짜/불리언 셀 타입 지원, 헤더 bold 스타일
+
+### Changed
+- `ExportFormat`에 `'xlsx'` 추가
+- `exportToString` 반환 타입: `string | Uint8Array` (xlsx는 Uint8Array)
+- `context-menu` CustomEvent가 이제 `cancelable: true`
+
+---
+
 ## [0.13.0] - 2026-05-19
 
 ### Added

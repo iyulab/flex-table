@@ -77,7 +77,10 @@
     Format (number/date) &middot; Conditional Rules &middot; Autocomplete editor &middot;
     Column Hide/Show (right-click header)
   </p>
-  <flex-table id="new-features-table" row-height="32" show-row-numbers editable></flex-table>
+  <flex-table id="new-features-table" row-height="32" show-row-numbers editable show-context-menu></flex-table>
+  <div class="toolbar" style="margin-top: 8px;">
+    <button class="btn" id="export-xlsx-btn">Export XLSX</button>
+  </div>
 
   <h2 style="margin-top: 32px;">Horizontal Virtual Scroll Test</h2>
   <p class="info"><span id="wide-col-count"></span> columns &middot; <span id="wide-row-count"></span> rows &middot; Column 0 pinned left</p>
@@ -266,6 +269,10 @@
       date: new Date(2026, i % 12, (i % 28) + 1),
       status: ['Active', 'Inactive', 'Pending'][i % 3],
     }));
+
+    document.getElementById('export-xlsx-btn').addEventListener('click', () => {
+      newFeaturesTable.exportToFile('xlsx', 'flex-table-export.xlsx');
+    });
 
     // --- 100-Column Wide Table ---
     const wideTable = document.getElementById('wide-table');

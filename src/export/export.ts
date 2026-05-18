@@ -1,15 +1,17 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
+import { buildXlsx } from './xlsx-writer.js';
 
-export type ExportFormat = 'csv' | 'tsv' | 'json';
+export type ExportFormat = 'csv' | 'tsv' | 'json' | 'xlsx';
 
 /**
  * Export data to the specified format.
+ * Returns string for text formats (csv/tsv/json) or Uint8Array for xlsx.
  */
 export function exportData(
   data: DataRow[],
   columns: ColumnDefinition[],
   format: ExportFormat
-): string {
+): string | Uint8Array {
   switch (format) {
     case 'csv':
       return exportDelimited(data, columns, ',');
@@ -17,6 +19,8 @@ export function exportData(
       return exportDelimited(data, columns, '\t');
     case 'json':
       return exportJson(data, columns);
+    case 'xlsx':
+      return buildXlsx(data, columns);
   }
 }
 
@@ -70,7 +74,7 @@ function exportJson(data: DataRow[], columns: ColumnDefinition[]): string {
 /**
  * Trigger a file download in the browser.
  */
-export function downloadFile(content: string, filename: string, mimeType: string): void {
+export function downloadFile(content: string | Uint8Array, filename: string, mimeType: string): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -87,12 +91,14 @@ const MIME_TYPES: Record<ExportFormat, string> = {
   csv: 'text/csv;charset=utf-8',
   tsv: 'text/tab-separated-values;charset=utf-8',
   json: 'application/json;charset=utf-8',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 };
 
 const EXTENSIONS: Record<ExportFormat, string> = {
   csv: '.csv',
   tsv: '.tsv',
   json: '.json',
+  xlsx: '.xlsx',
 };
 
 export function getExportMimeType(format: ExportFormat): string {

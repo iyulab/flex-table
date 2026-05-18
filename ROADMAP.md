@@ -1,7 +1,7 @@
 # Roadmap
 
 > Last updated: 2026-05-19
-> Current version: **v0.13.0** (246 tests)
+> Current version: **v0.14.0** (253 tests)
 
 flex-table 개발 로드맵. 완료된 기능과 향후 계획을 추적한다.
 
@@ -141,6 +141,19 @@ inline whitespace gap. 최종 해결: 모든 prefix/pinned 셀을 `position: abs
 
 ---
 
+## Phase 14: Export/Import & 고급 — v0.14.0 (부분 완료)
+
+> **완료**: 내장 컨텍스트 메뉴 + XLSX Export.
+
+| ID | Task | Status | Description |
+|----|------|--------|-------------|
+| EX-01 | 내장 컨텍스트 메뉴 | ✅ | `show-context-menu` 속성, 우클릭 메뉴 |
+| EX-02 | XLSX Export | ✅ | 순수 TS 구현, zero deps |
+| EX-03 | 행 고정 (Freeze Rows) | ⬜ | 복잡도 상 |
+| EX-04 | 고급 필터 | ⬜ | 복잡도 중 |
+
+---
+
 ## Phase 13: 서식 & 표시 — v0.13.0 ✅ COMPLETE
 
 > **완료**: 셀 포맷, 조건부 서식, 자동완성 편집기, 컬럼 숨기기/표시 UI.
@@ -206,7 +219,8 @@ inline whitespace gap. 최종 해결: 모든 prefix/pinned 셀을 `position: abs
 | **v0.10.0** ✅ | 179 | 74.62 KB | 16.60 KB | React wrapper (`@iyulab/flex-table/react`) |
 | **v0.11.0** ✅ | 189 | TBD | TBD | 마우스 드래그 선택, Fill Down/Right |
 | **v0.12.0** ✅ | 213 | TBD | TBD | 비연속 선택, 컬럼 드래그, select 편집기, 찾기/바꾸기, 행 드래그, Fill Handle |
-| **v0.13.0** | 246 | TBD | TBD | 셀 포맷, 조건부 서식, 자동완성, 컬럼 숨기기/표시 UI |
+| **v0.13.0** ✅ | 246 | TBD | TBD | 셀 포맷, 조건부 서식, 자동완성, 컬럼 숨기기/표시 UI |
+| **v0.14.0** | 253 | TBD | TBD | 내장 컨텍스트 메뉴, XLSX Export |
 
 ---
 

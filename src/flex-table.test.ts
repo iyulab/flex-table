@@ -323,7 +323,7 @@ describe('FlexTable', () => {
     el.data = [{ name: 'Alice', extra: 'hidden' }];
     await el.updateComplete;
 
-    const json = el.exportToString('json');
+    const json = el.exportToString('json') as string;
     const parsed = JSON.parse(json);
     expect(parsed[0].name).toBe('Alice');
     expect(parsed[0]).not.toHaveProperty('extra');
@@ -2157,6 +2157,37 @@ describe('FlexTable', () => {
     });
   });
 
+  describe('xlsx export', () => {
+    it('exportToString xlsx returns Uint8Array', async () => {
+      const el = createElement();
+      el.columns = [
+        { key: 'name', header: 'Name' },
+        { key: 'score', header: 'Score', type: 'number' },
+      ];
+      el.data = [{ name: 'Alice', score: 42 }, { name: 'Bob', score: 99 }];
+      await el.updateComplete;
+
+      const result = el.exportToString('xlsx');
+      expect(result).toBeInstanceOf(Uint8Array);
+      // ZIP signature: PK (0x50, 0x4B)
+      expect((result as Uint8Array)[0]).toBe(0x50);
+      expect((result as Uint8Array)[1]).toBe(0x4B);
+    });
+
+    it('xlsx contains header and data', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'x', header: 'X' }];
+      el.data = [{ x: 'hello' }];
+      await el.updateComplete;
+
+      const result = el.exportToString('xlsx') as Uint8Array;
+      // Decode the ZIP to check content (search for header text in raw bytes)
+      const text = new TextDecoder().decode(result);
+      expect(text).toContain('X');    // header
+      expect(text).toContain('hello'); // data
+    });
+  });
+
   describe('column format', () => {
     it('applies string format pattern to cell display', async () => {
       const el = createElement();
@@ -2292,6 +2323,116 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       expect(el.data[0]['tag']).toBe('banana');
+    });
+  });
+
+  describe('built-in context menu', () => {
+    function makeCM() {
+      const el = createElement();
+      el.setAttribute('show-context-menu', '');
+      el.columns = [
+        { key: 'name', header: 'Name' },
+        { key: 'val', header: 'Val', type: 'number' },
+      ];
+      el.data = [{ name: 'Alice', val: 1 }, { name: 'Bob', val: 2 }];
+      return el;
+    }
+
+    it('context-menu event fires on right-click', async () => {
+      const el = makeCM();
+      await el.updateComplete;
+
+      const events: CustomEvent[] = [];
+      el.addEventListener('context-menu', e => events.push(e as CustomEvent));
+
+      (el as any)._onContextMenu({
+        clientX: 100, clientY: 100,
+        composedPath: () => {
+          const cellEl = document.createElement('div');
+          cellEl.classList.add('ft-cell');
+          cellEl.dataset.colIndex = '0';
+          const rowEl = document.createElement('div');
+          rowEl.classList.add('ft-row');
+          rowEl.style.top = '0px';
+          rowEl.appendChild(cellEl);
+          return [cellEl, rowEl];
+        },
+        preventDefault: () => {},
+      } as unknown as MouseEvent);
+
+      expect(events).toHaveLength(1);
+      expect(events[0].detail.key).toBe('name');
+    });
+
+    it('preventDefault on context-menu suppresses built-in menu', async () => {
+      const el = makeCM();
+      await el.updateComplete;
+
+      el.addEventListener('context-menu', e => e.preventDefault());
+
+      (el as any)._onContextMenu({
+        clientX: 100, clientY: 100,
+        composedPath: () => {
+          const cellEl = document.createElement('div');
+          cellEl.classList.add('ft-cell');
+          cellEl.dataset.colIndex = '0';
+          const rowEl = document.createElement('div');
+          rowEl.classList.add('ft-row');
+          rowEl.style.top = '0px';
+          rowEl.appendChild(cellEl);
+          return [cellEl, rowEl];
+        },
+        preventDefault: () => {},
+      } as unknown as MouseEvent);
+
+      await el.updateComplete;
+      expect((el as any)._bodyContextMenu).toBeNull();
+    });
+
+    it('_bodyContextMenu state shows menu when set', async () => {
+      const el = makeCM();
+      await el.updateComplete;
+
+      (el as any)._bodyContextMenu = { rowIndex: 0, colIndex: 0, dataIndex: 0, x: 100, y: 100 };
+      await el.updateComplete;
+
+      const menu = el.shadowRoot!.querySelector('.ft-body-context-menu');
+      expect(menu).toBeTruthy();
+      const items = menu!.querySelectorAll('.ft-context-menu-item');
+      expect(items.length).toBeGreaterThan(3);
+    });
+
+    it('clicking Delete row removes the row', async () => {
+      const el = makeCM();
+      await el.updateComplete;
+
+      (el as any)._bodyContextMenu = { rowIndex: 0, colIndex: 0, dataIndex: 0, x: 100, y: 100 };
+      await el.updateComplete;
+
+      const items = el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-context-menu-item');
+      const deleteBtn = Array.from(items).find(i => i.textContent?.includes('Delete'));
+      deleteBtn!.click();
+      await el.updateComplete;
+
+      expect(el.data).toHaveLength(1);
+      expect(el.data[0]['name']).toBe('Bob');
+    });
+
+    it('clicking Sort ascending sorts the data', async () => {
+      const el = makeCM();
+      el.data = [{ name: 'Bob', val: 2 }, { name: 'Alice', val: 1 }];
+      await el.updateComplete;
+
+      (el as any)._bodyContextMenu = { rowIndex: 0, colIndex: 0, dataIndex: 0, x: 100, y: 100 };
+      await el.updateComplete;
+
+      const items = el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-context-menu-item');
+      const sortAsc = Array.from(items).find(i => i.textContent?.includes('ascending'));
+      sortAsc!.click();
+      await el.updateComplete;
+
+      expect((el as any)._sortCriteria[0].key).toBe('name');
+      expect((el as any)._sortCriteria[0].direction).toBe('asc');
     });
   });
 
