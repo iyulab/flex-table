@@ -2916,7 +2916,7 @@ export class FlexTable extends LitElement {
     const cols = this.visibleColumns;
     if (range.endCol >= cols.length || range.endRow >= this._visibleRowCount) return '';
 
-    const left = this._prefixWidth + (this._colLeftOffsets[range.endCol] ?? 0) + this._getColWidth(cols[range.endCol]) - this._scrollLeft - 4;
+    const left = (this._colLeftOffsets[range.endCol] ?? 0) + this._getColWidth(cols[range.endCol]) - this._scrollLeft - 4;
     const top = this.headerHeight + (range.endRow + 1) * this.rowHeight - this._scrollTop - 4;
 
     if (left < 0 || top < this.headerHeight) return '';
@@ -2938,7 +2938,7 @@ export class FlexTable extends LitElement {
   private _renderFillPreview(range: CellRange) {
     const cols = this.visibleColumns;
     if (range.endCol >= cols.length || range.endRow >= this._visibleRowCount) return '';
-    const left = this._prefixWidth + (this._colLeftOffsets[range.startCol] ?? 0) - this._scrollLeft;
+    const left = (this._colLeftOffsets[range.startCol] ?? 0) - this._scrollLeft;
     const top = this.headerHeight + range.startRow * this.rowHeight - this._scrollTop;
     const width = (this._colLeftOffsets[range.endCol] ?? 0) + this._getColWidth(cols[range.endCol]) - (this._colLeftOffsets[range.startCol] ?? 0);
     const height = (range.endRow - range.startRow + 1) * this.rowHeight;
