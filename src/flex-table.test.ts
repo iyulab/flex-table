@@ -3282,4 +3282,102 @@ describe('FlexTable', () => {
       expect(el.canRedo).toBe(true);
     });
   });
+
+  describe('comment popup', () => {
+    function makeEl() {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }, { key: 'age', header: 'Age' }];
+      el.data = [{ name: 'Alice', age: 30 }];
+      el.showContextMenu = true;
+      return el;
+    }
+
+    it('popup is not rendered when closed', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('.ft-comment-popup')).toBeNull();
+    });
+
+    it('popup renders when _openCommentPopup is called', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('.ft-comment-popup')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('.ft-comment-popup textarea')).toBeTruthy();
+    });
+
+    it('popup closes when _cancelCommentPopup is called', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      await el.updateComplete;
+      (el as any)._cancelCommentPopup();
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('.ft-comment-popup')).toBeNull();
+    });
+
+    it('commit saves typed text as comment', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      await el.updateComplete;
+      const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
+      ta.value = 'My note';
+      (el as any)._commitCommentPopup();
+      expect(el.getComment(0, 'name')).toBe('My note');
+      expect((el as any)._commentPopup).toBeNull();
+    });
+
+    it('cancel does not change existing comment', async () => {
+      const el = makeEl();
+      el.setComment(0, 'name', 'original');
+      await el.updateComplete;
+      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      await el.updateComplete;
+      const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
+      ta.value = 'discarded';
+      (el as any)._cancelCommentPopup();
+      expect(el.getComment(0, 'name')).toBe('original');
+    });
+
+    it('commit with empty text removes comment', async () => {
+      const el = makeEl();
+      el.setComment(0, 'name', 'to be deleted');
+      await el.updateComplete;
+      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      await el.updateComplete;
+      const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
+      ta.value = '';
+      (el as any)._commitCommentPopup();
+      expect(el.getComment(0, 'name')).toBeNull();
+    });
+
+    it('commit with unchanged text does not create undo entry', async () => {
+      const el = makeEl();
+      el.setComment(0, 'name', 'same');
+      el.clearUndoHistory();
+      expect(el.canUndo).toBe(false);
+      await el.updateComplete;
+      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      await el.updateComplete;
+      const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
+      ta.value = 'same';
+      (el as any)._commitCommentPopup();
+      expect(el.canUndo).toBe(false);
+    });
+
+    it('commit is undoable via undo()', async () => {
+      const el = makeEl();
+      await el.updateComplete;
+      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      await el.updateComplete;
+      const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
+      ta.value = 'new comment';
+      (el as any)._commitCommentPopup();
+      expect(el.getComment(0, 'name')).toBe('new comment');
+      el.undo();
+      expect(el.getComment(0, 'name')).toBeNull();
+    });
+  });
 });

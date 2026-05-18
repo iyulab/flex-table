@@ -640,6 +640,70 @@ export const flexTableStyles = css`
     margin: 4px 0;
   }
 
+  /* Comment edit popup */
+  .ft-comment-popup {
+    background: var(--ft-editor-bg, #fff);
+    border: 1px solid var(--ft-border-color);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+    border-radius: 4px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 220px;
+  }
+
+  .ft-comment-popup-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    font-size: var(--ft-font-size, 14px);
+    font-family: inherit;
+    color: var(--ft-text-color);
+    background: var(--ft-editor-bg, #fff);
+    border: 1px solid var(--ft-border-color);
+    border-radius: 3px;
+    padding: 4px 6px;
+    outline: none;
+    min-height: 72px;
+  }
+
+  .ft-comment-popup-textarea:focus {
+    border-color: var(--ft-active-color, #3b82f6);
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+  }
+
+  .ft-comment-popup-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .ft-comment-popup-cancel,
+  .ft-comment-popup-save {
+    padding: 4px 12px;
+    font-size: var(--ft-font-size, 13px);
+    border-radius: 3px;
+    border: 1px solid var(--ft-border-color);
+    cursor: pointer;
+    background: var(--ft-editor-bg, #fff);
+    color: var(--ft-text-color);
+  }
+
+  .ft-comment-popup-save {
+    background: var(--ft-active-color, #3b82f6);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  .ft-comment-popup-cancel:hover {
+    background: var(--ft-selection-bg);
+  }
+
+  .ft-comment-popup-save:hover {
+    opacity: 0.9;
+  }
+
   /* Find / Replace panel */
   .ft-find-panel {
     position: sticky;

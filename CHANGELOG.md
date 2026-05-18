@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-05-19
+
+### Added
+- **셀 코멘트 편집 팝업**: 우클릭 컨텍스트 메뉴에서 코멘트를 직접 편집
+  - 코멘트 없는 셀: "Add Comment" 메뉴 항목 표시
+  - 코멘트 있는 셀: "Edit Comment" + "Delete Comment" 메뉴 항목 표시
+  - 편집 팝업: textarea + Cancel/Save 버튼
+  - 단축키: Ctrl+Enter 저장, Escape 취소
+  - 팝업 외부 클릭 시 자동 저장
+  - 편집 결과는 `setComment()` API와 동일하게 undo/redo 연동
+
 ## [0.17.0] - 2026-05-19
 
 ### Added
