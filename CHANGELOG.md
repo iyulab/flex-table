@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-05-18
+
+### Added
+- Mouse drag range selection: mousedown + mouseenter로 셀 범위 드래그 확장
+- Fill Down (Ctrl+D): 선택 범위 첫 행 값을 아래 행에 채우기. 단일 셀 시 위 셀 값 복사
+- Fill Right (Ctrl+R): 선택 범위 첫 열 값을 오른쪽 열에 채우기. 단일 셀 시 왼쪽 셀 값 복사
+- 모든 Fill 동작은 undo/redo 지원
+
+---
+
 ## [0.10.0] - 2026-03-31
 
 ### Added

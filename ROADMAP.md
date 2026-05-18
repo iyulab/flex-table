@@ -129,6 +129,18 @@ inline whitespace gap. 최종 해결: 모든 prefix/pinned 셀을 `position: abs
 
 ---
 
+## Phase 11: Selection & Fill — v0.11.0 ✅ COMPLETE
+
+> **완료**: 마우스 드래그 범위 선택, Fill Down/Right.
+
+| ID | Task | Status | Description |
+|----|------|--------|-------------|
+| S-01 | 마우스 드래그 셀 선택 | ✅ | mousedown/mouseenter로 범위 드래그 확장 |
+| S-02 | Fill Down (Ctrl+D) | ✅ | 첫 행 값 아래로 채우기, 단일 셀 시 위 셀 복사 |
+| S-03 | Fill Right (Ctrl+R) | ✅ | 첫 열 값 오른쪽으로 채우기, 단일 셀 시 왼쪽 셀 복사 |
+
+---
+
 ## Phase 10: Ecosystem & Production — v0.10.0 ✅ COMPLETE
 
 > **완료**: React wrapper, MorphDB Studio 전환 준비 완료.
@@ -179,6 +191,7 @@ inline whitespace gap. 최종 해결: 모든 prefix/pinned 셀을 `position: abs
 | **v0.8.0** ✅ | 177 | 73.38 KB | 16.37 KB | ESLint, _onKeyDown/_handlePaste 분리, minWidth, API 테스트 |
 | **v0.9.0** ✅ | 179 | 74.67 KB | 16.62 KB | 100K+ 스크롤 최적화, pinned right 컬럼 |
 | **v0.10.0** ✅ | 179 | 74.62 KB | 16.60 KB | React wrapper (`@iyulab/flex-table/react`) |
+| **v0.11.0** ✅ | 189 | TBD | TBD | 마우스 드래그 선택, Fill Down/Right |
 
 ---
 
