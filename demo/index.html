@@ -72,6 +72,13 @@
     <span id="undo-status"></span>
   </div>
 
+  <h2 style="margin-top: 32px;">v0.12 New Features</h2>
+  <p class="info">
+    Ctrl+Click (multi-select) &middot; Column drag reorder &middot; Select editor &middot;
+    Find/Replace (Ctrl+F/H) &middot; Row drag reorder &middot; Fill Handle
+  </p>
+  <flex-table id="new-features-table" row-height="32" show-row-numbers editable></flex-table>
+
   <h2 style="margin-top: 32px;">Horizontal Virtual Scroll Test</h2>
   <p class="info"><span id="wide-col-count"></span> columns &middot; <span id="wide-row-count"></span> rows &middot; Column 0 pinned left</p>
   <flex-table id="wide-table" row-height="32" show-row-numbers></flex-table>
@@ -231,6 +238,25 @@
     document.getElementById('export-csv-btn').addEventListener('click', () => {
       table.exportToFile('csv', 'flex-table-export.csv');
     });
+
+    // --- New Features Table ---
+    const newFeaturesTable = document.getElementById('new-features-table');
+    newFeaturesTable.columns = [
+      { key: 'name', header: 'Name', type: 'text', width: 150 },
+      { key: 'status', header: 'Status', type: 'select', options: ['Active', 'Inactive', 'Pending'], width: 120 },
+      { key: 'score', header: 'Score', type: 'number', width: 100 },
+      { key: 'region', header: 'Region', type: 'select', options: [
+        { label: 'North America', value: 'NA' },
+        { label: 'Europe', value: 'EU' },
+        { label: 'Asia Pacific', value: 'APAC' },
+      ], width: 140 },
+    ];
+    newFeaturesTable.data = Array.from({ length: 20 }, (_, i) => ({
+      name: `Item ${i + 1}`,
+      status: ['Active', 'Inactive', 'Pending'][i % 3],
+      score: (i + 1) * 10,
+      region: ['NA', 'EU', 'APAC'][i % 3],
+    }));
 
     // --- 100-Column Wide Table ---
     const wideTable = document.getElementById('wide-table');

@@ -1,7 +1,7 @@
 # Roadmap
 
-> Last updated: 2026-03-31
-> Current version: **v0.10.0** (179 tests, 74.6 KB / 16.6 KB gzip + 1.1 KB react wrapper)
+> Last updated: 2026-05-19
+> Current version: **v0.12.0** (213 tests, 93.6 KB / 20.0 KB gzip + react wrapper)
 
 flex-table 개발 로드맵. 완료된 기능과 향후 계획을 추적한다.
 

@@ -26,9 +26,19 @@ function formatValue(value: unknown, col: ColumnDefinition): unknown {
       return formatDate(value);
     case 'datetime':
       return formatDateTime(value);
+    case 'select':
+      return formatSelectLabel(value, col);
     default:
       return String(value);
   }
+}
+
+function formatSelectLabel(value: unknown, col: ColumnDefinition): string {
+  if (!col.options || col.options.length === 0) return value == null ? '' : String(value);
+  if (typeof col.options[0] === 'string') return value == null ? '' : String(value);
+  const opts = col.options as { label: string; value: unknown }[];
+  const match = opts.find(o => o.value === value);
+  return match ? match.label : (value == null ? '' : String(value));
 }
 
 function formatNumber(value: unknown): string {

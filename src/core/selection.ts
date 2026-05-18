@@ -37,6 +37,8 @@ export class SelectionState {
   rangeAnchor: CellPosition | null = null;
   /** Current range end (the active cell is the range end during Shift selection) */
   range: CellRange | null = null;
+  /** Additional non-contiguous single-cell ranges from Ctrl+Click */
+  extraRanges: CellRange[] = [];
 
   private _rowCount = 0;
   private _colCount = 0;
@@ -53,7 +55,21 @@ export class SelectionState {
     this.activeCell = { row, col };
     this.rangeAnchor = null;
     this.range = null;
+    this.extraRanges = [];
     return this.activeCell;
+  }
+
+  /** Toggle a single cell in/out of non-contiguous extra selection (Ctrl+Click) */
+  toggleCell(row: number, col: number): void {
+    if (row < 0 || row >= this._rowCount || col < 0 || col >= this._colCount) return;
+    const idx = this.extraRanges.findIndex(
+      r => r.startRow === row && r.endRow === row && r.startCol === col && r.endCol === col
+    );
+    if (idx >= 0) {
+      this.extraRanges.splice(idx, 1);
+    } else {
+      this.extraRanges.push({ startRow: row, startCol: col, endRow: row, endCol: col });
+    }
   }
 
   /** Set active cell and extend range from anchor */
@@ -76,11 +92,15 @@ export class SelectionState {
     return this.activeCell;
   }
 
-  /** Check if a cell is within the current selection range */
+  /** Check if a cell is within the current selection range or any extra range */
   isInRange(row: number, col: number): boolean {
-    if (!this.range) return false;
-    const r = this.range;
-    return row >= r.startRow && row <= r.endRow && col >= r.startCol && col <= r.endCol;
+    if (this.range) {
+      const r = this.range;
+      if (row >= r.startRow && row <= r.endRow && col >= r.startCol && col <= r.endCol) return true;
+    }
+    return this.extraRanges.some(
+      r => row >= r.startRow && row <= r.endRow && col >= r.startCol && col <= r.endCol
+    );
   }
 
   /** Get the effective range: either the explicit range or just the active cell */
@@ -101,6 +121,7 @@ export class SelectionState {
     this.activeCell = null;
     this.rangeAnchor = null;
     this.range = null;
+    this.extraRanges = [];
   }
 
   moveUp(): CellPosition | null {

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-19
+
+### Added
+- **비연속 다중 선택 (Ctrl+Click)**: Ctrl+Click으로 떨어진 셀들 추가/제거 토글. 선택된 비연속 셀 Delete 시 일괄 클리어 (단일 undo)
+- **컬럼 드래그 이동 UI**: 헤더 셀 드래그로 열 순서 변경. ghost + 드롭 인디케이터 표시. 리사이즈 핸들과 드래그 영역 분리
+- **드롭다운 편집기 (`type: 'select'`)**: `options: string[] | { label, value }[]` 로 셀 편집 시 `<select>` 편집기 표시. 미편집 시 label 표시
+- **찾기/바꾸기 (Ctrl+F / Ctrl+H)**: 찾기 패널 + 바꾸기 패널 오버레이. 다음/이전 이동, 단건/모두 바꾸기 (모두 바꾸기는 단일 undo). `find-replace` 이벤트
+- **행 드래그 정렬**: 행 번호 셀 드래그로 행 순서 변경. ghost + 수평 인디케이터. undo/redo + `row-reorder` 이벤트
+- **Fill Handle**: 선택 범위 우하단 8px 핸들 드래그로 값 복제/시리즈 채우기. 숫자 등차수열 자동 감지. undo/redo + `fill-handle-apply` 이벤트
+- Ctrl+Z/Y 키가 active cell 없이도 동작하도록 개선 (전역 처리)
+
+### Changed
+- `ColumnDefinition`에 `options?: string[] | SelectOption[]` 필드 추가
+- `ColumnType`에 `'select'` 추가
+
+---
+
 ## [0.11.0] - 2026-05-18
 
 ### Added

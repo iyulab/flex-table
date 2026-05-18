@@ -117,6 +117,49 @@ export const flexTableStyles = css`
     opacity: 0.3;
   }
 
+  .ft-header-cell.ft-col-dragging {
+    opacity: 0.5;
+  }
+
+  .ft-drop-indicator {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--ft-active-color);
+    pointer-events: none;
+    z-index: 5;
+    transform: translateX(-1px);
+  }
+
+  .ft-row-drop-indicator {
+    position: absolute;
+    left: 0;
+    height: 2px;
+    background: var(--ft-active-color);
+    pointer-events: none;
+    z-index: 5;
+    transform: translateY(-1px);
+  }
+
+  .ft-fill-handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: var(--ft-active-color);
+    cursor: crosshair;
+    z-index: 6;
+    border: 1px solid white;
+  }
+
+  .ft-fill-preview {
+    position: absolute;
+    border: 2px dashed var(--ft-active-color);
+    pointer-events: none;
+    z-index: 4;
+    box-sizing: border-box;
+  }
+
   .ft-sort-indicator {
     flex-shrink: 0;
     font-size: 12px;
@@ -185,6 +228,12 @@ export const flexTableStyles = css`
   }
 
   .ft-editor-number { text-align: right; }
+
+  select.ft-editor {
+    cursor: pointer;
+    padding: 4px 6px;
+    appearance: auto;
+  }
 
   .ft-cell.ft-type-number {
     text-align: right;
@@ -387,5 +436,89 @@ export const flexTableStyles = css`
     text-overflow: ellipsis;
     white-space: nowrap;
     box-sizing: border-box;
+  }
+
+  /* Find / Replace panel */
+  .ft-find-panel {
+    position: sticky;
+    top: 0;
+    right: 0;
+    z-index: 20;
+    background: var(--ft-header-bg);
+    border-bottom: 1px solid var(--ft-border-color);
+    padding: 4px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  .ft-find-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ft-find-input, .ft-find-replace-input {
+    flex: 1;
+    min-width: 120px;
+    padding: 3px 6px;
+    border: 1px solid var(--ft-border-color);
+    border-radius: 3px;
+    font: inherit;
+    font-size: 13px;
+    background: var(--ft-editor-bg);
+    color: var(--ft-text-color);
+  }
+
+  .ft-find-input:focus, .ft-find-replace-input:focus {
+    outline: 2px solid var(--ft-active-color);
+    outline-offset: -1px;
+  }
+
+  .ft-find-count {
+    font-size: 12px;
+    color: var(--ft-sort-indicator-color);
+    min-width: 60px;
+    text-align: center;
+  }
+
+  .ft-find-panel button {
+    padding: 2px 8px;
+    border: 1px solid var(--ft-border-color);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    background: var(--ft-header-bg);
+    color: var(--ft-text-color);
+  }
+
+  .ft-find-panel button:hover:not(:disabled) {
+    background: var(--ft-header-hover-bg);
+  }
+
+  .ft-find-panel button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .ft-find-panel label {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  /* Find highlight */
+  .ft-cell.ft-find-match {
+    background: rgba(255, 200, 0, 0.25) !important;
+  }
+
+  .ft-cell.ft-find-current {
+    background: rgba(255, 160, 0, 0.5) !important;
+    outline: 2px solid orange;
+    outline-offset: -2px;
   }
 `;

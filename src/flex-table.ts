@@ -11,7 +11,7 @@ import { UndoStack } from './core/undo.js';
 import { copyToClipboard, parseClipboardText, parseValueForColumn } from './clipboard/clipboard.js';
 import { exportData, downloadFile, getExportMimeType, getExportExtension } from './export/export.js';
 import type { ExportFormat } from './export/export.js';
-import type { CellPosition } from './core/selection.js';
+import type { CellPosition, CellRange } from './core/selection.js';
 import type { SortCriteria } from './core/sorting.js';
 import type { ColumnFilter, FilterPredicate } from './core/filtering.js';
 import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './models/types.js';
@@ -122,6 +122,37 @@ export class FlexTable extends LitElement {
   private _wasDrag = false;
   private _resizing: { colIndex: number; startX: number; startWidth: number } | null = null;
   private _resizeCleanup: (() => void) | null = null;
+  private _colDrag: {
+    col: ColumnDefinition;
+    colIndex: number;
+    startX: number;
+    ghost: HTMLElement | null;
+    active: boolean;
+    targetIndex: number;
+  } | null = null;
+  private _colDragIndicatorLeft: number | null = null;
+  private _fillDrag: {
+    sourceRange: CellRange;
+    targetRange: CellRange | null;
+    active: boolean;
+  } | null = null;
+  private _rowDrag: {
+    rowIndex: number;
+    startY: number;
+    ghost: HTMLElement | null;
+    active: boolean;
+    targetIndex: number;
+  } | null = null;
+  private _rowDragIndicatorY: number | null = null;
+  private _findState: {
+    mode: 'find' | 'replace';
+    query: string;
+    replaceWith: string;
+    matchCase: boolean;
+    wholeCell: boolean;
+    results: Array<{ row: number; col: number }>;
+    currentIndex: number;
+  } | null = null;
   private _columnWidths: Map<string, number> = new Map();
   private _hostResizeObserver: ResizeObserver | null = null;
 
@@ -876,6 +907,8 @@ export class FlexTable extends LitElement {
     }
     if (e.shiftKey) {
       this._selection.setActiveWithRange(rowIndex, colIndex);
+    } else if (e.ctrlKey || e.metaKey) {
+      this._selection.toggleCell(rowIndex, colIndex);
     } else {
       this._selection.setActive(rowIndex, colIndex);
     }
@@ -886,7 +919,13 @@ export class FlexTable extends LitElement {
 
   private _onCellMouseDown(e: MouseEvent, rowIndex: number, colIndex: number): void {
     if (e.button !== 0) return;
-    if (e.shiftKey || e.ctrlKey || e.metaKey) return;
+    if (e.shiftKey) return;
+    // Ctrl+Click: focus without starting drag or clearing selection
+    if (e.ctrlKey || e.metaKey) {
+      this.focus({ preventScroll: true });
+      e.preventDefault();
+      return;
+    }
 
     this._isDragging = true;
     this._wasDrag = false;
@@ -976,9 +1015,24 @@ export class FlexTable extends LitElement {
 
   private _commitEdit(): void {
     if (!this._editing.current) return;
+    const col = this.visibleColumns[this._editing.current.position.col];
+
+    // select editor uses <select> element
+    if (col.type === 'select') {
+      const sel = this.shadowRoot?.querySelector('select.ft-editor') as HTMLSelectElement | null;
+      if (sel) {
+        const opt = col.options?.find((o): o is { label: string; value: unknown } =>
+          typeof o !== 'string' && String(o.value) === sel.value
+        );
+        this._applyEdit(opt ? opt.value : sel.value);
+      } else {
+        this._cancelEdit();
+      }
+      return;
+    }
+
     const input = this.shadowRoot?.querySelector('.ft-editor') as HTMLInputElement | null;
     if (input) {
-      const col = this.visibleColumns[this._editing.current.position.col];
       const newValue = parseValueForColumn(input.value, col);
       this._applyEdit(newValue);
     } else {
@@ -1084,6 +1138,15 @@ export class FlexTable extends LitElement {
     if (this._editing.current) return;
 
     const cols = this.visibleColumns;
+
+    // Ctrl shortcuts that work globally (no active cell required)
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (['f', 'h', 'z', 'y'].includes(k)) {
+        if (this._handleCtrlKey(e)) return;
+      }
+    }
+
     if (cols.length === 0 || this._visibleRowCount === 0) return;
 
     // Enter/F2 to start editing
@@ -1098,6 +1161,12 @@ export class FlexTable extends LitElement {
       if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'].includes(e.key)) {
         this._selection.setActive(0, 0);
         this._syncActiveCell();
+        e.preventDefault();
+        return;
+      }
+      // Allow Escape to close find panel even without active cell
+      if (e.key === 'Escape' && this._findState) {
+        this._closeFindPanel();
         e.preventDefault();
         return;
       }
@@ -1160,6 +1229,14 @@ export class FlexTable extends LitElement {
         e.preventDefault();
         if (this.editable) this._handleFillRight();
         return true;
+      case 'f':
+        e.preventDefault();
+        this._toggleFindPanel('find');
+        return true;
+      case 'h':
+        e.preventDefault();
+        this._toggleFindPanel('replace');
+        return true;
       default:
         return false;
     }
@@ -1211,6 +1288,10 @@ export class FlexTable extends LitElement {
         e.ctrlKey ? this._selection.moveToEnd() : this._selection.moveToRowEnd();
         return true;
       case 'Escape':
+        if (this._findState) {
+          this._closeFindPanel();
+          return true;
+        }
         this._selection.clear();
         return true;
       case 'Delete':
@@ -1410,8 +1491,49 @@ export class FlexTable extends LitElement {
 
   private _handleDelete(): void {
     const range = this._selection.getEffectiveRange();
-    if (!range) return;
-    this._clearRange(range);
+    const extras = this._selection.extraRanges;
+    if (!range && extras.length === 0) return;
+    const rangesToClear = range ? [range, ...extras] : [...extras];
+    this._clearRanges(rangesToClear);
+  }
+
+  private _clearRanges(ranges: Array<{ startRow: number; startCol: number; endRow: number; endCol: number }>): void {
+    const cols = this.visibleColumns;
+    const saved: Array<{ dataRow: number; key: string; oldValue: unknown; clearValue: unknown }> = [];
+    const visited = new Set<string>();
+
+    for (const range of ranges) {
+      for (let r = range.startRow; r <= range.endRow; r++) {
+        const dataRow = this._toDataIndex(r);
+        for (let c = range.startCol; c <= range.endCol; c++) {
+          const key = `${dataRow}:${c}`;
+          if (visited.has(key)) continue;
+          visited.add(key);
+          const col = cols[c];
+          const oldValue = this.data[dataRow][col.key];
+          const clearValue = col.type === 'boolean' ? false : col.type === 'number' ? 0 : '';
+          this.data[dataRow][col.key] = clearValue;
+          saved.push({ dataRow, key: col.key, oldValue, clearValue });
+        }
+      }
+    }
+
+    if (saved.length > 0) {
+      this._undo.push({
+        label: 'clear',
+        undo: () => {
+          for (const s of saved) { this.data[s.dataRow][s.key] = s.oldValue; }
+          this.requestUpdate();
+        },
+        redo: () => {
+          for (const s of saved) { this.data[s.dataRow][s.key] = s.clearValue; }
+          this.requestUpdate();
+        },
+      });
+      this._dispatchUndoStateEvent();
+    }
+
+    this.requestUpdate();
   }
 
   private _clearRange(range: { startRow: number; startCol: number; endRow: number; endCol: number }): void {
@@ -1597,12 +1719,19 @@ export class FlexTable extends LitElement {
       cellStyle = `left: ${left}px; width: ${width}px; height: ${hdrH}px;`;
     }
 
+    const isDraggingThis = this._colDrag?.active && this._colDrag.colIndex === colIndex;
+    const dragClasses = [
+      ...classes.split(' '),
+      isDraggingThis ? 'ft-col-dragging' : '',
+    ].filter(Boolean).join(' ');
+
     return html`
-      <div class=${classes}
+      <div class=${dragClasses}
         role="columnheader"
         data-col-index=${colIndex}
         style=${cellStyle}
         aria-sort=${ariaSortValue ?? nothing}
+        @mousedown=${(e: MouseEvent) => this._onHeaderMouseDown(e, col, colIndex)}
         @click=${sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined}>
         <span>${col.header}</span>
         ${criterion ? html`<span class="ft-sort-indicator">${criterion.direction === 'asc' ? '\u25B2' : '\u25BC'}</span>` : ''}
@@ -1617,7 +1746,7 @@ export class FlexTable extends LitElement {
           </button>
         ` : ''}
         <div class="ft-resize-handle"
-          @mousedown=${(e: MouseEvent) => this._onResizeStart(e, colIndex)}
+          @mousedown=${(e: MouseEvent) => { e.stopPropagation(); this._onResizeStart(e, colIndex); }}
           @dblclick=${(e: MouseEvent) => this._onResizeAutoFit(e, colIndex)}></div>
       </div>
       ${this._openFilterKey === col.key ? this._renderFilterDropdown(col) : ''}
@@ -1921,6 +2050,550 @@ export class FlexTable extends LitElement {
     this._resizeCleanup = cleanup;
   }
 
+  // --- Column drag reorder ---
+
+  private _onHeaderMouseDown(e: MouseEvent, col: ColumnDefinition, colIndex: number): void {
+    if (e.button !== 0) return;
+    e.preventDefault();
+
+    this._colDrag = { col, colIndex, startX: e.clientX, ghost: null, active: false, targetIndex: colIndex };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!this._colDrag) return;
+      const dx = Math.abs(ev.clientX - this._colDrag.startX);
+      if (!this._colDrag.active && dx > 5) {
+        this._colDrag.active = true;
+        this._startColumnGhost(ev);
+        this.requestUpdate();
+      }
+      if (this._colDrag.active) {
+        this._updateColumnDrag(ev);
+      }
+    };
+
+    const onMouseUp = (_ev: MouseEvent) => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      if (this._colDrag?.active) {
+        this._finishColumnDrag();
+      }
+      if (this._colDrag?.ghost) {
+        this._colDrag.ghost.remove();
+      }
+      this._colDrag = null;
+      this._colDragIndicatorLeft = null;
+      this.requestUpdate();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  private _startColumnGhost(e: MouseEvent): void {
+    const ghost = document.createElement('div');
+    ghost.textContent = this._colDrag!.col.header ?? this._colDrag!.col.key;
+    ghost.style.cssText = [
+      'position:fixed',
+      'pointer-events:none',
+      'z-index:9999',
+      'opacity:0.85',
+      `background:${getComputedStyle(this).getPropertyValue('--ft-header-bg') || '#f0f0f0'}`,
+      `border:2px solid ${getComputedStyle(this).getPropertyValue('--ft-active-color') || '#3b82f6'}`,
+      'padding:4px 10px',
+      'border-radius:4px',
+      'font-size:13px',
+      'font-weight:600',
+      'white-space:nowrap',
+      `left:${e.clientX + 12}px`,
+      `top:${e.clientY - 14}px`,
+    ].join(';');
+    document.body.appendChild(ghost);
+    this._colDrag!.ghost = ghost;
+  }
+
+  private _updateColumnDrag(e: MouseEvent): void {
+    if (!this._colDrag) return;
+
+    if (this._colDrag.ghost) {
+      this._colDrag.ghost.style.left = `${e.clientX + 12}px`;
+      this._colDrag.ghost.style.top = `${e.clientY - 14}px`;
+    }
+
+    const rect = this.getBoundingClientRect();
+    const scrollLeft = this._scrollLeft;
+    const cols = this.visibleColumns;
+    const mouseX = e.clientX - rect.left + scrollLeft;
+
+    let targetIndex = cols.length;
+    for (let i = 0; i < cols.length; i++) {
+      const midpoint = (this._colLeftOffsets[i] ?? 0) + this._getColWidth(cols[i]) / 2;
+      if (mouseX < midpoint) { targetIndex = i; break; }
+    }
+
+    if (this._colDrag.colIndex < targetIndex) targetIndex--;
+
+    this._colDrag.targetIndex = targetIndex;
+    const indicatorColIndex = targetIndex < cols.length ? targetIndex : cols.length - 1;
+    const indicatorOffset = targetIndex < cols.length
+      ? (this._colLeftOffsets[indicatorColIndex] ?? 0)
+      : (this._colLeftOffsets[indicatorColIndex] ?? 0) + this._getColWidth(cols[indicatorColIndex]);
+    this._colDragIndicatorLeft = indicatorOffset - scrollLeft + this._prefixWidth;
+    this.requestUpdate();
+  }
+
+  private _finishColumnDrag(): void {
+    if (!this._colDrag) return;
+    const { col, colIndex, targetIndex } = this._colDrag;
+    if (targetIndex !== colIndex) {
+      this.moveColumn(col.key, targetIndex);
+    }
+  }
+
+  // --- Fill Handle ---
+
+  private _onFillHandleMouseDown(e: MouseEvent): void {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceRange = this._selection.getEffectiveRange();
+    if (!sourceRange) return;
+
+    this._fillDrag = { sourceRange, targetRange: null, active: false };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!this._fillDrag) return;
+      this._fillDrag.active = true;
+      this._updateFillDrag(ev);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      if (this._fillDrag?.active && this._fillDrag.targetRange) {
+        this._applyFillHandle(this._fillDrag.sourceRange, this._fillDrag.targetRange);
+      }
+      this._fillDrag = null;
+      this.requestUpdate();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  private _updateFillDrag(e: MouseEvent): void {
+    if (!this._fillDrag) return;
+    const rect = this.getBoundingClientRect();
+    const mx = e.clientX - rect.left + this._scrollLeft - this._prefixWidth;
+    const my = e.clientY - rect.top + this._scrollTop - this.headerHeight;
+    const cols = this.visibleColumns;
+
+    let colIdx = 0;
+    for (let i = 0; i < cols.length; i++) {
+      if ((this._colLeftOffsets[i] ?? 0) <= mx) colIdx = i;
+    }
+    const rowIdx = Math.max(0, Math.min(this._visibleRowCount - 1, Math.floor(my / this.rowHeight)));
+
+    const { sourceRange: src } = this._fillDrag;
+    const dRow = rowIdx - src.endRow;
+    const dCol = colIdx - src.endCol;
+
+    let target: CellRange;
+    if (Math.abs(dRow) >= Math.abs(dCol)) {
+      if (dRow >= 0) {
+        target = { ...src, endRow: rowIdx };
+      } else {
+        target = { ...src, startRow: Math.min(rowIdx, src.startRow) };
+      }
+    } else {
+      if (dCol >= 0) {
+        target = { ...src, endCol: colIdx };
+      } else {
+        target = { ...src, startCol: Math.min(colIdx, src.startCol) };
+      }
+    }
+    this._fillDrag.targetRange = target;
+    this.requestUpdate();
+  }
+
+  _applyFillHandle(sourceRange: CellRange, targetRange: CellRange): void {
+    const cols = this.visibleColumns;
+    const saved: Array<{ dataRow: number; key: string; oldValue: unknown; newValue: unknown }> = [];
+
+    for (let c = targetRange.startCol; c <= targetRange.endCol; c++) {
+      const col = cols[c];
+      const srcRows = [];
+      for (let r = sourceRange.startRow; r <= sourceRange.endRow; r++) {
+        srcRows.push(this.data[this._toDataIndex(r)][col.key]);
+      }
+      const series = this._detectNumericSeries(srcRows);
+
+      for (let r = targetRange.startRow; r <= targetRange.endRow; r++) {
+        if (r >= sourceRange.startRow && r <= sourceRange.endRow) continue;
+        const dataRow = this._toDataIndex(r);
+        const oldValue = this.data[dataRow][col.key];
+        let newValue: unknown;
+        if (series && r > sourceRange.endRow) {
+          const step = r - sourceRange.endRow;
+          const lastSrc = series.last + series.diff * step;
+          newValue = col.type === 'number' ? lastSrc : String(lastSrc);
+        } else {
+          const srcIdx = (r - sourceRange.startRow) % srcRows.length;
+          const normalizedIdx = srcIdx < 0 ? srcIdx + srcRows.length : srcIdx;
+          newValue = srcRows[normalizedIdx];
+        }
+        this.data[dataRow][col.key] = newValue;
+        saved.push({ dataRow, key: col.key, oldValue, newValue });
+      }
+    }
+
+    if (saved.length > 0) {
+      this._undo.push({
+        label: 'fill-handle',
+        undo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.oldValue; this.requestUpdate(); },
+        redo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.newValue; this.requestUpdate(); },
+      });
+      this._dispatchUndoStateEvent();
+      this.dispatchEvent(new CustomEvent('fill-handle-apply', {
+        detail: { sourceRange, targetRange, cells: saved },
+        bubbles: true, composed: true,
+      }));
+    }
+    this.requestUpdate();
+  }
+
+  private _detectNumericSeries(values: unknown[]): { last: number; diff: number } | null {
+    if (values.length < 2) return null;
+    const nums = values.map(v => Number(v));
+    if (nums.some(n => isNaN(n))) return null;
+    const diff = nums[1] - nums[0];
+    for (let i = 2; i < nums.length; i++) {
+      if (Math.abs(nums[i] - nums[i - 1] - diff) > 1e-9) return null;
+    }
+    return { last: nums[nums.length - 1], diff };
+  }
+
+  private _renderFillHandle() {
+    if (!this.editable) return '';
+    const range = this._selection.getEffectiveRange();
+    if (!range) return '';
+    const cols = this.visibleColumns;
+    if (range.endCol >= cols.length || range.endRow >= this._visibleRowCount) return '';
+
+    const left = this._prefixWidth + (this._colLeftOffsets[range.endCol] ?? 0) + this._getColWidth(cols[range.endCol]) - this._scrollLeft - 4;
+    const top = this.headerHeight + (range.endRow + 1) * this.rowHeight - this._scrollTop - 4;
+
+    if (left < 0 || top < this.headerHeight) return '';
+
+    // Preview dashed border during drag
+    const preview = this._fillDrag?.active && this._fillDrag.targetRange
+      ? this._renderFillPreview(this._fillDrag.targetRange)
+      : '';
+
+    return html`
+      ${preview}
+      <div class="ft-fill-handle"
+        style="left:${left}px;top:${top}px;"
+        @mousedown=${(e: MouseEvent) => this._onFillHandleMouseDown(e)}>
+      </div>
+    `;
+  }
+
+  private _renderFillPreview(range: CellRange) {
+    const cols = this.visibleColumns;
+    if (range.endCol >= cols.length || range.endRow >= this._visibleRowCount) return '';
+    const left = this._prefixWidth + (this._colLeftOffsets[range.startCol] ?? 0) - this._scrollLeft;
+    const top = this.headerHeight + range.startRow * this.rowHeight - this._scrollTop;
+    const width = (this._colLeftOffsets[range.endCol] ?? 0) + this._getColWidth(cols[range.endCol]) - (this._colLeftOffsets[range.startCol] ?? 0);
+    const height = (range.endRow - range.startRow + 1) * this.rowHeight;
+    return html`<div class="ft-fill-preview" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px;"></div>`;
+  }
+
+  // --- Row drag reorder ---
+
+  private _onRowNumMouseDown(e: MouseEvent, rowIndex: number): void {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    this._rowDrag = { rowIndex, startY: e.clientY, ghost: null, active: false, targetIndex: rowIndex };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!this._rowDrag) return;
+      const dy = Math.abs(ev.clientY - this._rowDrag.startY);
+      if (!this._rowDrag.active && dy > 5) {
+        this._rowDrag.active = true;
+        this._startRowGhost(ev, rowIndex);
+        this.requestUpdate();
+      }
+      if (this._rowDrag.active) this._updateRowDrag(ev);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      if (this._rowDrag?.active) this._finishRowDrag();
+      if (this._rowDrag?.ghost) this._rowDrag.ghost.remove();
+      this._rowDrag = null;
+      this._rowDragIndicatorY = null;
+      this.requestUpdate();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  private _startRowGhost(e: MouseEvent, rowIndex: number): void {
+    const dataIndex = this._toDataIndex(rowIndex);
+    const row = this.data[dataIndex];
+    const label = this.visibleColumns[0]
+      ? String(row[this.visibleColumns[0].key] ?? dataIndex + 1)
+      : String(dataIndex + 1);
+    const ghost = document.createElement('div');
+    ghost.textContent = label;
+    ghost.style.cssText = [
+      'position:fixed',
+      'pointer-events:none',
+      'z-index:9999',
+      'opacity:0.85',
+      'background:#e8f0fe',
+      'border:2px solid #3b82f6',
+      'padding:3px 10px',
+      'border-radius:3px',
+      'font-size:12px',
+      'white-space:nowrap',
+      `left:${e.clientX + 12}px`,
+      `top:${e.clientY - 10}px`,
+    ].join(';');
+    document.body.appendChild(ghost);
+    this._rowDrag!.ghost = ghost;
+  }
+
+  private _updateRowDrag(e: MouseEvent): void {
+    if (!this._rowDrag) return;
+    if (this._rowDrag.ghost) {
+      this._rowDrag.ghost.style.left = `${e.clientX + 12}px`;
+      this._rowDrag.ghost.style.top = `${e.clientY - 10}px`;
+    }
+
+    const rect = this.getBoundingClientRect();
+    const mouseY = e.clientY - rect.top + this._scrollTop - this.headerHeight;
+    const rowH = this.rowHeight;
+
+    let targetIndex = Math.round(mouseY / rowH);
+    targetIndex = Math.max(0, Math.min(this._visibleRowCount, targetIndex));
+    if (this._rowDrag.rowIndex < targetIndex) targetIndex--;
+
+    this._rowDrag.targetIndex = targetIndex;
+    const indicatorY = this.headerHeight + targetIndex * rowH - this._scrollTop;
+    this._rowDragIndicatorY = Math.max(this.headerHeight, Math.min(indicatorY, rect.height));
+    this.requestUpdate();
+  }
+
+  private _finishRowDrag(): void {
+    if (!this._rowDrag) return;
+    const { rowIndex, targetIndex } = this._rowDrag;
+    if (targetIndex === rowIndex) return;
+
+    const fromDataIdx = this._toDataIndex(rowIndex);
+    const toDataIdx = this._toDataIndex(targetIndex);
+    const oldData = [...this.data];
+    const newData = [...this.data];
+    const [moved] = newData.splice(fromDataIdx, 1);
+    newData.splice(toDataIdx, 0, moved);
+    this.data = newData;
+
+    this._undo.push({
+      label: 'row-reorder',
+      undo: () => { this.data = [...oldData]; this.requestUpdate(); },
+      redo: () => { this.data = [...newData]; this.requestUpdate(); },
+    });
+    this._dispatchUndoStateEvent();
+    this.dispatchEvent(new CustomEvent('row-reorder', {
+      detail: { from: fromDataIdx, to: toDataIdx },
+      bubbles: true, composed: true,
+    }));
+  }
+
+  // --- Find / Replace ---
+
+  private _toggleFindPanel(mode: 'find' | 'replace'): void {
+    if (this._findState?.mode === mode) {
+      this._closeFindPanel();
+      return;
+    }
+    this._openFindPanel(mode);
+  }
+
+  _openFindPanel(mode: 'find' | 'replace'): void {
+    this._findState = {
+      mode,
+      query: this._findState?.query ?? '',
+      replaceWith: this._findState?.replaceWith ?? '',
+      matchCase: false,
+      wholeCell: false,
+      results: [],
+      currentIndex: 0,
+    };
+    if (this._findState.query) this._findSearch();
+    this.requestUpdate();
+    requestAnimationFrame(() => {
+      this.shadowRoot?.querySelector<HTMLInputElement>('.ft-find-input')?.focus();
+    });
+  }
+
+  private _closeFindPanel(): void {
+    this._findState = null;
+    this.requestUpdate();
+  }
+
+  _findSearch(): void {
+    if (!this._findState) return;
+    const { query, matchCase, wholeCell } = this._findState;
+    if (!query) {
+      this._findState.results = [];
+      this._findState.currentIndex = 0;
+      this.requestUpdate();
+      return;
+    }
+
+    const needle = matchCase ? query : query.toLowerCase();
+    const cols = this.visibleColumns;
+    const results: Array<{ row: number; col: number }> = [];
+
+    for (let r = 0; r < this._visibleRowCount; r++) {
+      const dataRow = this._toDataIndex(r);
+      for (let c = 0; c < cols.length; c++) {
+        const cellVal = String(this.data[dataRow][cols[c].key] ?? '');
+        const haystack = matchCase ? cellVal : cellVal.toLowerCase();
+        const hit = wholeCell ? haystack === needle : haystack.includes(needle);
+        if (hit) results.push({ row: r, col: c });
+      }
+    }
+
+    this._findState.results = results;
+    this._findState.currentIndex = 0;
+    this.requestUpdate();
+  }
+
+  private _findGoTo(index: number): void {
+    if (!this._findState || this._findState.results.length === 0) return;
+    const count = this._findState.results.length;
+    this._findState.currentIndex = ((index % count) + count) % count;
+    const { row, col } = this._findState.results[this._findState.currentIndex];
+    this._selection.setActive(row, col);
+    this._activeCell = { row, col };
+    this._scrollToActiveCell();
+    this.requestUpdate();
+  }
+
+  private _findNext(): void {
+    if (!this._findState) return;
+    this._findGoTo(this._findState.currentIndex + 1);
+  }
+
+  private _findPrev(): void {
+    if (!this._findState) return;
+    this._findGoTo(this._findState.currentIndex - 1);
+  }
+
+  _replaceAll(): void {
+    if (!this._findState || this._findState.results.length === 0) return;
+    const { results, replaceWith } = this._findState;
+    const cols = this.visibleColumns;
+    const saved: Array<{ dataRow: number; key: string; oldValue: unknown; newValue: unknown }> = [];
+
+    for (const { row, col } of results) {
+      const dataRow = this._toDataIndex(row);
+      const key = cols[col].key;
+      const oldValue = this.data[dataRow][key];
+      this.data[dataRow][key] = replaceWith;
+      saved.push({ dataRow, key, oldValue, newValue: replaceWith });
+    }
+
+    if (saved.length > 0) {
+      this._undo.push({
+        label: 'replace-all',
+        undo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.oldValue; this.requestUpdate(); },
+        redo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.newValue; this.requestUpdate(); },
+      });
+      this._dispatchUndoStateEvent();
+      this.dispatchEvent(new CustomEvent('find-replace', {
+        detail: { type: 'replace-all', cells: saved.map(s => ({ row: s.dataRow, col: s.key, oldValue: s.oldValue, newValue: s.newValue })) },
+        bubbles: true, composed: true,
+      }));
+    }
+
+    this._findState.results = [];
+    this._findState.currentIndex = 0;
+    this.requestUpdate();
+  }
+
+  private _replaceOne(): void {
+    if (!this._findState || this._findState.results.length === 0) return;
+    const { currentIndex, results, replaceWith } = this._findState;
+    const { row, col } = results[currentIndex];
+    const dataRow = this._toDataIndex(row);
+    const key = this.visibleColumns[col].key;
+    const oldValue = this.data[dataRow][key];
+    this.data[dataRow][key] = replaceWith;
+
+    this._undo.push({
+      label: 'replace',
+      undo: () => { this.data[dataRow][key] = oldValue; this.requestUpdate(); },
+      redo: () => { this.data[dataRow][key] = replaceWith; this.requestUpdate(); },
+    });
+    this._dispatchUndoStateEvent();
+    this.dispatchEvent(new CustomEvent('find-replace', {
+      detail: { type: 'replace', cells: [{ row: dataRow, col: key, oldValue, newValue: replaceWith }] },
+      bubbles: true, composed: true,
+    }));
+
+    this._findSearch();
+    this._findGoTo(Math.min(currentIndex, this._findState.results.length - 1));
+  }
+
+  private _renderFindPanel() {
+    if (!this._findState) return '';
+    const { mode, query, replaceWith, matchCase, wholeCell, results, currentIndex } = this._findState;
+    const count = results.length;
+    const current = count > 0 ? currentIndex + 1 : 0;
+
+    return html`
+      <div class="ft-find-panel"
+        @keydown=${(e: KeyboardEvent) => {
+          e.stopPropagation();
+          if (e.key === 'Escape') { this._closeFindPanel(); return; }
+          if (e.key === 'Enter' && e.target instanceof HTMLInputElement && e.target.classList.contains('ft-find-input')) {
+            e.shiftKey ? this._findPrev() : this._findNext();
+          }
+        }}>
+        <div class="ft-find-row">
+          <input class="ft-find-input" type="text" placeholder="Find..."
+            .value=${query}
+            @input=${(e: Event) => {
+              this._findState!.query = (e.target as HTMLInputElement).value;
+              this._findSearch();
+            }}>
+          <span class="ft-find-count">${count > 0 ? `${current}/${count}` : query ? '0 results' : ''}</span>
+          <button @click=${() => this._findPrev()} title="Previous (Shift+Enter)">◀</button>
+          <button @click=${() => this._findNext()} title="Next (Enter)">▶</button>
+          <label title="Match case"><input type="checkbox" ?checked=${matchCase} @change=${(e: Event) => { this._findState!.matchCase = (e.target as HTMLInputElement).checked; this._findSearch(); }}> Aa</label>
+          <label title="Whole cell"><input type="checkbox" ?checked=${wholeCell} @change=${(e: Event) => { this._findState!.wholeCell = (e.target as HTMLInputElement).checked; this._findSearch(); }}> [ ]</label>
+          <button @click=${() => this._closeFindPanel()} title="Close (Escape)">✕</button>
+        </div>
+        ${mode === 'replace' ? html`
+          <div class="ft-find-row">
+            <input class="ft-find-replace-input" type="text" placeholder="Replace with..."
+              .value=${replaceWith}
+              @input=${(e: Event) => { this._findState!.replaceWith = (e.target as HTMLInputElement).value; }}>
+            <button @click=${() => this._replaceOne()} ?disabled=${count === 0}>Replace</button>
+            <button @click=${() => this._replaceAll()} ?disabled=${count === 0}>Replace All</button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
   // --- Rendering ---
 
   render() {
@@ -1975,12 +2648,17 @@ export class FlexTable extends LitElement {
       headerCells.push(this._renderHeaderCell(cols[i], i));
     }
 
+    const dropIndicator = this._colDragIndicatorLeft != null
+      ? html`<div class="ft-drop-indicator" style="left:${this._colDragIndicatorLeft}px"></div>`
+      : '';
+
     if (this.data.length === 0 || this._visibleRowCount === 0) {
       const msg = this.data.length === 0 ? 'No data' : 'No matching data';
       return html`
         <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
           ${selectAllHeader}${rowNumHeader}
           ${headerCells}
+          ${dropIndicator}
         </div>
         <div class="ft-empty">${msg}</div>
       `;
@@ -1992,15 +2670,24 @@ export class FlexTable extends LitElement {
       rows.push(this._renderRow(i, colStart, colEnd, pinnedIndices));
     }
 
+    const fillHandle = this._renderFillHandle();
+    const rowDropIndicator = this._rowDragIndicatorY != null
+      ? html`<div class="ft-row-drop-indicator" style="top:${this._rowDragIndicatorY}px;width:${tw + this._prefixWidth}px;"></div>`
+      : '';
+
     return html`
+      ${this._renderFindPanel()}
       <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
         ${selectAllHeader}${rowNumHeader}
         ${headerCells}
+        ${dropIndicator}
       </div>
       <div class="ft-body" style="height: ${this.totalBodyHeight}px; width: ${tw}px;">
         ${rows}
       </div>
       ${this.footerData ? this._renderFooter(colStart, colEnd, pinnedIndices) : ''}
+      ${rowDropIndicator}
+      ${fillHandle}
     `;
   }
 
@@ -2108,9 +2795,11 @@ export class FlexTable extends LitElement {
     ` : '';
     if (this.selectable) prefixLeft += 36;
 
+    const isDraggingRow = this._rowDrag?.active && this._rowDrag.rowIndex === index;
     const rowNumCell = this.showRowNumbers ? html`
-      <div class="ft-row-num"
-        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2;"
+      <div class="ft-row-num ${isDraggingRow ? 'ft-col-dragging' : ''}"
+        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2; cursor: grab;"
+        @mousedown=${(e: MouseEvent) => this._onRowNumMouseDown(e, index)}
         @click=${() => this._onRowNumberClick(index)}>${dataIndex + 1}</div>
     ` : '';
 
@@ -2169,6 +2858,10 @@ export class FlexTable extends LitElement {
 
     const selected = isActive || isSelected;
     const validationError = this._isCellInvalid(rowIndex, colIndex);
+    const findResults = this._findState?.results ?? [];
+    const findMatchIdx = findResults.findIndex(r => r.row === rowIndex && r.col === colIndex);
+    const isFindMatch = findMatchIdx >= 0;
+    const isFindCurrent = isFindMatch && findMatchIdx === this._findState!.currentIndex;
     const classes = [
       'ft-cell',
       `ft-type-${col.type ?? 'text'}`,
@@ -2176,6 +2869,7 @@ export class FlexTable extends LitElement {
       isSelected ? 'ft-selected' : '',
       isPinned ? 'ft-pinned' : '',
       validationError ? 'ft-invalid' : '',
+      isFindCurrent ? 'ft-find-current' : (isFindMatch ? 'ft-find-match' : ''),
     ].filter(Boolean).join(' ');
 
     return html`
@@ -2231,6 +2925,24 @@ export class FlexTable extends LitElement {
           .value=${dtStr}
           @keydown=${this._onEditorKeyDown}
           @blur=${() => this._commitEdit()}>
+      `;
+    }
+
+    if (col.type === 'select' && col.options && col.options.length > 0) {
+      const opts = col.options;
+      const isStringArray = typeof opts[0] === 'string';
+      return html`
+        <select class="ft-editor"
+          @keydown=${this._onEditorKeyDown}
+          @blur=${() => this._commitEdit()}
+          @change=${() => this._commitEdit()}>
+          ${isStringArray
+            ? (opts as string[]).map(o => html`<option value=${o} ?selected=${o === value}>${o}</option>`)
+            : (opts as { label: string; value: unknown }[]).map(o =>
+                html`<option value=${String(o.value)} ?selected=${o.value === value}>${o.label}</option>`
+              )
+          }
+        </select>
       `;
     }
 

@@ -107,4 +107,63 @@ describe('SelectionState', () => {
     state.clear();
     expect(state.activeCell).toBeNull();
   });
+
+  describe('non-contiguous selection (Ctrl+Click)', () => {
+    it('should toggle a cell into extraRanges', () => {
+      state.setActive(0, 0);
+      state.toggleCell(2, 3);
+      expect(state.extraRanges).toHaveLength(1);
+      expect(state.extraRanges[0]).toEqual({ startRow: 2, startCol: 3, endRow: 2, endCol: 3 });
+    });
+
+    it('should toggle a cell out of extraRanges when already present', () => {
+      state.setActive(0, 0);
+      state.toggleCell(2, 3);
+      state.toggleCell(2, 3);
+      expect(state.extraRanges).toHaveLength(0);
+    });
+
+    it('should accumulate multiple extra cells', () => {
+      state.setActive(0, 0);
+      state.toggleCell(1, 1);
+      state.toggleCell(3, 3);
+      expect(state.extraRanges).toHaveLength(2);
+    });
+
+    it('isInRange should include cells in extraRanges', () => {
+      state.setActive(0, 0);
+      state.toggleCell(2, 3);
+      expect(state.isInRange(2, 3)).toBe(true);
+    });
+
+    it('isInRange should still work for main range', () => {
+      state.setActive(1, 1);
+      state.setActiveWithRange(3, 3);
+      expect(state.isInRange(2, 2)).toBe(true);
+      expect(state.isInRange(0, 0)).toBe(false);
+    });
+
+    it('setActive should clear extraRanges', () => {
+      state.setActive(0, 0);
+      state.toggleCell(2, 3);
+      state.toggleCell(4, 1);
+      state.setActive(1, 1);
+      expect(state.extraRanges).toHaveLength(0);
+    });
+
+    it('clear should reset extraRanges', () => {
+      state.setActive(0, 0);
+      state.toggleCell(2, 3);
+      state.clear();
+      expect(state.extraRanges).toHaveLength(0);
+    });
+
+    it('toggleCell should ignore out-of-bounds cells', () => {
+      state.toggleCell(-1, 0);
+      state.toggleCell(0, -1);
+      state.toggleCell(10, 0);
+      state.toggleCell(0, 5);
+      expect(state.extraRanges).toHaveLength(0);
+    });
+  });
 });

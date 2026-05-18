@@ -4,7 +4,13 @@ import type { TemplateResult } from 'lit';
  * Built-in column data types for rendering and editing.
  * Any string is accepted as a type — unknown types fall back to 'text' behavior.
  */
-export type ColumnType = 'text' | 'number' | 'boolean' | 'date' | 'datetime' | (string & {});
+export type ColumnType = 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'select' | (string & {});
+
+/** Option item for select columns */
+export interface SelectOption {
+  label: string;
+  value: unknown;
+}
 
 /**
  * Custom cell renderer function.
@@ -77,6 +83,8 @@ export interface ColumnDefinition {
   pinned?: 'left' | 'right';
   /** Cell validator — called before committing edits */
   validator?: CellValidator;
+  /** Allowed values for select columns (strings or label/value pairs) */
+  options?: string[] | SelectOption[];
 }
 
 /**

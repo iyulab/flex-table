@@ -1905,4 +1905,255 @@ describe('FlexTable', () => {
       expect(el.data[1]['b']).toBe(99); // skipped (read-only)
     });
   });
+
+  describe('select type editor', () => {
+    it('should accept type select column definition', () => {
+      const el = createElement();
+      el.columns = [{ key: 'status', header: 'Status', type: 'select', options: ['A', 'B', 'C'] }];
+      el.data = [{ status: 'A' }];
+      expect(el.columns[0].type).toBe('select');
+      expect(el.columns[0].options).toEqual(['A', 'B', 'C']);
+    });
+
+    it('should render select editor when editing a select cell', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'status', header: 'Status', type: 'select', options: ['A', 'B', 'C'] }];
+      el.data = [{ status: 'B' }];
+      await el.updateComplete;
+
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._activeCell = { row: 0, col: 0 };
+      (el as any)._startEdit();
+      await el.updateComplete;
+
+      const select = el.shadowRoot!.querySelector('select.ft-editor') as HTMLSelectElement;
+      expect(select).toBeTruthy();
+      expect(select.value).toBe('B');
+    });
+
+    it('should commit select editor value on blur', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'status', header: 'Status', type: 'select', options: ['A', 'B', 'C'] }];
+      el.data = [{ status: 'B' }];
+      await el.updateComplete;
+
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._activeCell = { row: 0, col: 0 };
+      (el as any)._startEdit();
+      await el.updateComplete;
+
+      const select = el.shadowRoot!.querySelector('select.ft-editor') as HTMLSelectElement;
+      expect(select).toBeTruthy();
+      select.value = 'C';
+      (el as any)._commitEdit();
+      await el.updateComplete;
+
+      expect(el.data[0]['status']).toBe('C');
+    });
+
+    it('should display label for select cell when not editing', async () => {
+      const el = createElement();
+      el.columns = [{
+        key: 'color', header: 'Color', type: 'select',
+        options: [{ label: 'Red', value: 'red' }, { label: 'Blue', value: 'blue' }]
+      }];
+      el.data = [{ color: 'blue' }];
+      await el.updateComplete;
+
+      const cell = el.shadowRoot!.querySelector('.ft-cell');
+      expect(cell!.textContent?.trim()).toBe('Blue');
+    });
+  });
+
+  describe('row drag reorder', () => {
+    it('_finishRowDrag moves row in data array', async () => {
+      const el = createElement();
+      el.showRowNumbers = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
+      await el.updateComplete;
+
+      // targetIndex 1 means: insert at data position 1 (after removing row 0)
+      (el as any)._rowDrag = { rowIndex: 0, startY: 0, ghost: null, active: true, targetIndex: 1 };
+      (el as any)._finishRowDrag();
+      await el.updateComplete;
+
+      expect(el.data[0]['name']).toBe('B');
+      expect(el.data[1]['name']).toBe('A');
+      expect(el.data[2]['name']).toBe('C');
+    });
+
+    it('undo row reorder restores original order', async () => {
+      const el = createElement();
+      el.showRowNumbers = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
+      await el.updateComplete;
+
+      (el as any)._rowDrag = { rowIndex: 2, startY: 0, ghost: null, active: true, targetIndex: 0 };
+      (el as any)._finishRowDrag();
+      await el.updateComplete;
+      expect(el.data[0]['name']).toBe('C');
+
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+      expect(el.data[0]['name']).toBe('A');
+      expect(el.data[2]['name']).toBe('C');
+    });
+
+    it('row-reorder event fires on drag complete', async () => {
+      const el = createElement();
+      el.showRowNumbers = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'A' }, { name: 'B' }];
+      await el.updateComplete;
+
+      const events: CustomEvent[] = [];
+      el.addEventListener('row-reorder', e => events.push(e as CustomEvent));
+      (el as any)._rowDrag = { rowIndex: 0, startY: 0, ghost: null, active: true, targetIndex: 1 };
+      (el as any)._finishRowDrag();
+      await el.updateComplete;
+
+      expect(events).toHaveLength(1);
+      expect(events[0].detail.from).toBe(0);
+    });
+  });
+
+  describe('fill handle', () => {
+    it('should render fill handle when a cell is selected', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'a', header: 'A' }];
+      el.data = [{ a: 1 }, { a: 2 }];
+      await el.updateComplete;
+
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._activeCell = { row: 0, col: 0 };
+      await el.updateComplete;
+
+      const handle = el.shadowRoot!.querySelector('.ft-fill-handle');
+      expect(handle).toBeTruthy();
+    });
+
+    it('_applyFillHandle down replicates single value', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'a', header: 'A', type: 'number' }];
+      el.data = [{ a: 5 }, { a: 0 }, { a: 0 }];
+      await el.updateComplete;
+
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._activeCell = { row: 0, col: 0 };
+      // Source range: row 0, col 0. Target: extend to row 2
+      (el as any)._applyFillHandle({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 }, { startRow: 0, startCol: 0, endRow: 2, endCol: 0 });
+      await el.updateComplete;
+
+      expect(el.data[1]['a']).toBe(5);
+      expect(el.data[2]['a']).toBe(5);
+    });
+
+    it('_applyFillHandle down with numeric series', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'a', header: 'A', type: 'number' }];
+      el.data = [{ a: 1 }, { a: 3 }, { a: 0 }, { a: 0 }];
+      await el.updateComplete;
+
+      (el as any)._applyFillHandle(
+        { startRow: 0, startCol: 0, endRow: 1, endCol: 0 },
+        { startRow: 0, startCol: 0, endRow: 3, endCol: 0 }
+      );
+      await el.updateComplete;
+
+      expect(el.data[2]['a']).toBe(5);
+      expect(el.data[3]['a']).toBe(7);
+    });
+
+    it('undo fill handle reverts changes', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'a', header: 'A' }];
+      el.data = [{ a: 'x' }, { a: '' }, { a: '' }];
+      await el.updateComplete;
+
+      (el as any)._applyFillHandle({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 }, { startRow: 0, startCol: 0, endRow: 2, endCol: 0 });
+      await el.updateComplete;
+      expect(el.data[1]['a']).toBe('x');
+
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+      expect(el.data[1]['a']).toBe('');
+    });
+  });
+
+  describe('find/replace', () => {
+    function makeTable(values: string[]) {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = values.map(v => ({ name: v }));
+      return el;
+    }
+
+    it('Ctrl+F opens find panel', async () => {
+      const el = makeTable(['Alice', 'Bob', 'Carol']);
+      await el.updateComplete;
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('.ft-find-panel')).toBeTruthy();
+    });
+
+    it('Ctrl+H opens find+replace panel', async () => {
+      const el = makeTable(['Alice', 'Bob']);
+      await el.updateComplete;
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+      const panel = el.shadowRoot!.querySelector('.ft-find-panel');
+      expect(panel).toBeTruthy();
+      expect(panel!.querySelector('.ft-find-replace-input')).toBeTruthy();
+    });
+
+    it('Escape closes find panel', async () => {
+      const el = makeTable(['Alice']);
+      await el.updateComplete;
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-find-panel')!
+        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('.ft-find-panel')).toBeNull();
+    });
+
+    it('finds matching cells and highlights current match', async () => {
+      const el = makeTable(['Apple', 'Apricot', 'Banana']);
+      await el.updateComplete;
+      (el as any)._openFindPanel('find');
+      (el as any)._findState.query = 'ap';
+      (el as any)._findSearch();
+      await el.updateComplete;
+      expect((el as any)._findState.results).toHaveLength(2);
+    });
+
+    it('replace all replaces every match with single undo', async () => {
+      const el = makeTable(['foo', 'bar', 'foo']);
+      await el.updateComplete;
+      (el as any)._openFindPanel('replace');
+      (el as any)._findState.query = 'foo';
+      (el as any)._findState.replaceWith = 'baz';
+      (el as any)._findSearch();
+      (el as any)._replaceAll();
+      await el.updateComplete;
+      expect(el.data[0]['name']).toBe('baz');
+      expect(el.data[2]['name']).toBe('baz');
+      expect(el.data[1]['name']).toBe('bar');
+
+      // Single undo should revert all replacements
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+      await el.updateComplete;
+      expect(el.data[0]['name']).toBe('foo');
+      expect(el.data[2]['name']).toBe('foo');
+    });
+  });
 });
