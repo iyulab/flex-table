@@ -118,6 +118,8 @@ export class FlexTable extends LitElement {
   private _rowSelectionVersion = 0;
 
   private _viewDirty = true;
+  private _isDragging = false;
+  private _wasDrag = false;
   private _resizing: { colIndex: number; startX: number; startWidth: number } | null = null;
   private _resizeCleanup: (() => void) | null = null;
   private _columnWidths: Map<string, number> = new Map();
@@ -668,6 +670,8 @@ export class FlexTable extends LitElement {
     this.removeEventListener('keydown', this._onKeyDown);
     this.removeEventListener('contextmenu', this._onContextMenu);
     document.removeEventListener('click', this._onDocumentClick);
+    this._isDragging = false;
+    this._wasDrag = false;
     // Clean up any in-progress resize listeners
     if (this._resizeCleanup) {
       this._resizeCleanup();
@@ -860,6 +864,14 @@ export class FlexTable extends LitElement {
   }
 
   private _onCellClickEvent(e: MouseEvent, rowIndex: number, colIndex: number): void {
+    // If this click is the end of a drag selection, skip — drag already handled it
+    if (this._wasDrag) {
+      this._wasDrag = false;
+      this._isDragging = false;
+      return;
+    }
+    // Plain click: drag ended without moving to another cell, reset drag state
+    this._isDragging = false;
     if (this._editing.current) {
       this._commitEdit();
     }
@@ -868,6 +880,37 @@ export class FlexTable extends LitElement {
     } else {
       this._selection.setActive(rowIndex, colIndex);
     }
+    this._activeCell = this._selection.activeCell ? { ...this._selection.activeCell } : null;
+    this._dispatchSelectionEvent();
+    this.requestUpdate();
+  }
+
+  private _onCellMouseDown(e: MouseEvent, rowIndex: number, colIndex: number): void {
+    if (e.button !== 0) return;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) return;
+
+    this._isDragging = true;
+    this._wasDrag = false;
+
+    if (this._editing.current) this._commitEdit();
+    this._selection.setActive(rowIndex, colIndex);
+    this._activeCell = { row: rowIndex, col: colIndex };
+
+    // Prevent browser text selection during drag
+    e.preventDefault();
+
+    const onMouseUp = () => {
+      this._isDragging = false;
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  private _onCellMouseEnter(rowIndex: number, colIndex: number): void {
+    if (!this._isDragging) return;
+
+    this._wasDrag = true;
+    this._selection.setActiveWithRange(rowIndex, colIndex);
     this._activeCell = this._selection.activeCell ? { ...this._selection.activeCell } : null;
     this._dispatchSelectionEvent();
     this.requestUpdate();
@@ -2075,6 +2118,8 @@ export class FlexTable extends LitElement {
         aria-invalid=${validationError ? 'true' : nothing}
         title=${validationError ?? nothing}
         style=${cellStyle}
+        @mousedown=${(e: MouseEvent) => this._onCellMouseDown(e, rowIndex, colIndex)}
+        @mouseenter=${() => this._onCellMouseEnter(rowIndex, colIndex)}
         @click=${(e: MouseEvent) => this._onCellClickEvent(e, rowIndex, colIndex)}
         @dblclick=${() => this._onCellDblClick(rowIndex, colIndex)}>
         ${renderCell(row[col.key], row, col)}

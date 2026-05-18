@@ -1697,4 +1697,74 @@ describe('FlexTable', () => {
     await el.updateComplete;
     expect(el.filteredRowCount).toBe(2);
   });
+
+  describe('Mouse drag selection', () => {
+    it('should start range selection on mousedown and extend on mouseenter', async () => {
+      const el = createElement();
+      el.columns = [
+        { key: 'a', header: 'A' },
+        { key: 'b', header: 'B' },
+        { key: 'c', header: 'C' },
+      ];
+      el.data = [
+        { a: 1, b: 2, c: 3 },
+        { a: 4, b: 5, c: 6 },
+        { a: 7, b: 8, c: 9 },
+      ];
+      await el.updateComplete;
+
+      const cells = el.shadowRoot!.querySelectorAll('.ft-cell') as NodeListOf<HTMLElement>;
+      // cells layout: row0: [0,1,2], row1: [3,4,5], row2: [6,7,8]
+      // mousedown on (row=0, col=0)
+      cells[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      // mouseenter on (row=1, col=1) — drag to second row second col
+      cells[4].dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      await el.updateComplete;
+
+      // (0,0) to (1,1) should all be selected
+      expect(cells[0].classList.contains('ft-selected') || cells[0].classList.contains('ft-active')).toBe(true);
+      expect(cells[1].classList.contains('ft-selected')).toBe(true);
+      expect(cells[3].classList.contains('ft-selected')).toBe(true);
+      expect(cells[4].classList.contains('ft-selected') || cells[4].classList.contains('ft-active')).toBe(true);
+      // (row=0, col=2) should NOT be selected
+      expect(cells[2].classList.contains('ft-selected')).toBe(false);
+    });
+
+    it('should not interfere with plain click selection', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'a', header: 'A' }, { key: 'b', header: 'B' }];
+      el.data = [{ a: 1, b: 2 }, { a: 3, b: 4 }];
+      await el.updateComplete;
+
+      const cells = el.shadowRoot!.querySelectorAll('.ft-cell') as NodeListOf<HTMLElement>;
+      // Plain click (mousedown + click on same cell, no mouseenter on different cell)
+      cells[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      cells[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await el.updateComplete;
+
+      expect(cells[0].classList.contains('ft-active')).toBe(true);
+      expect(cells[1].classList.contains('ft-selected')).toBe(false);
+    });
+
+    it('should not start drag on right-click or shift-click', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'a', header: 'A' }, { key: 'b', header: 'B' }];
+      el.data = [{ a: 1, b: 2 }, { a: 3, b: 4 }];
+      await el.updateComplete;
+
+      const cells = el.shadowRoot!.querySelectorAll('.ft-cell') as NodeListOf<HTMLElement>;
+      // Set active first
+      cells[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      cells[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await el.updateComplete;
+
+      // Right-click mousedown should not start drag
+      cells[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 2 }));
+      cells[2].dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      await el.updateComplete;
+
+      // Selection should not have extended to cells[2] via right-drag
+      expect(el.shadowRoot!.querySelectorAll('.ft-selected').length).toBeLessThanOrEqual(1);
+    });
+  });
 });
