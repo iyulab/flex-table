@@ -1111,9 +1111,12 @@ export class FlexTable extends LitElement {
     // 크기 변화는 ResizeObserver가 비동기로 처리한다.
     this._focusEditor();
     this._adjustFilterDropdown();
-    // Update ARIA live attributes
-    this.setAttribute('aria-rowcount', String(this._visibleRowCount));
-    this.setAttribute('aria-colcount', String(this.visibleColumns.length));
+    // Update ARIA live attributes — guard against no-op setAttribute calls that
+    // can trigger MutationObserver → requestUpdate() in Lit dev mode.
+    const rowCount = String(this._visibleRowCount);
+    const colCount = String(this.visibleColumns.length);
+    if (this.getAttribute('aria-rowcount') !== rowCount) this.setAttribute('aria-rowcount', rowCount);
+    if (this.getAttribute('aria-colcount') !== colCount) this.setAttribute('aria-colcount', colCount);
     // Initialize comment popup textarea when popup first opens
     if (changedProps.has('_commentPopup') && this._commentPopup) {
       const ta = this.shadowRoot?.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement | null;
