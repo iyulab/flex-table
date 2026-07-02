@@ -17,10 +17,10 @@ export interface SelectOption {
  * Receives the cell value, the full row data, and the column definition.
  * Returns either a Lit TemplateResult or a plain string.
  */
-export type CellRenderer = (
+export type CellRenderer<T = DataRow> = (
   value: unknown,
-  row: DataRow,
-  col: ColumnDefinition
+  row: T,
+  col: ColumnDefinition<T>
 ) => TemplateResult | string;
 
 /**
@@ -28,19 +28,19 @@ export type CellRenderer = (
  * Receives the cell value, the full row data, and the column definition.
  * Should return a Lit TemplateResult containing an input element with class "ft-editor".
  */
-export type CellEditor = (
+export type CellEditor<T = DataRow> = (
   value: unknown,
-  row: DataRow,
-  col: ColumnDefinition
+  row: T,
+  col: ColumnDefinition<T>
 ) => TemplateResult;
 
 /**
  * Cell validator function. Returns null/undefined if valid, or an error message string.
  */
-export type CellValidator = (
+export type CellValidator<T = DataRow> = (
   value: unknown,
-  row: DataRow,
-  col: ColumnDefinition
+  row: T,
+  col: ColumnDefinition<T>
 ) => string | null | undefined;
 
 /**
@@ -57,8 +57,14 @@ export type DataMode = 'client' | 'server';
 
 /**
  * Definition of a single column in the table.
+ *
+ * `T` is the consumer's row type (defaults to the schema-agnostic `DataRow`).
+ * Internally, `FlexTable` (the registered custom element) always operates on
+ * `ColumnDefinition<DataRow>` — a custom element cannot itself be generic across
+ * instances, so `FlexTableReact<T>` performs a single internal cast at the
+ * React boundary instead of requiring consumers to cast at every callback.
  */
-export interface ColumnDefinition {
+export interface ColumnDefinition<T = DataRow> {
   /** Unique key matching data property names */
   key: string;
   /** Display header text */
@@ -74,15 +80,15 @@ export interface ColumnDefinition {
   /** Whether the column is sortable (default: true) */
   sortable?: boolean;
   /** Custom cell renderer — overrides built-in type rendering */
-  renderer?: CellRenderer;
+  renderer?: CellRenderer<T>;
   /** Whether the column is editable (default: true — follows global editable setting) */
   editable?: boolean;
   /** Custom cell editor — overrides built-in type editing */
-  editor?: CellEditor;
+  editor?: CellEditor<T>;
   /** Pin the column to one side during horizontal scroll */
   pinned?: 'left' | 'right';
   /** Cell validator — called before committing edits */
-  validator?: CellValidator;
+  validator?: CellValidator<T>;
   /** Allowed values for select columns (strings or label/value pairs) */
   options?: string[] | SelectOption[];
   /**
@@ -96,9 +102,9 @@ export interface ColumnDefinition {
    * - String: number format pattern (e.g. '#,##0.00', '0.00%', '$#,##0') or date pattern (e.g. 'yyyy-MM-dd')
    * - Function: custom formatter receiving (value, row, col)
    */
-  format?: string | ((value: unknown, row: DataRow, col: ColumnDefinition) => string);
+  format?: string | ((value: unknown, row: T, col: ColumnDefinition<T>) => string);
   /** Per-column conditional formatting rules applied during cell rendering */
-  conditionalRules?: ConditionalRule[];
+  conditionalRules?: ConditionalRule<T>[];
 }
 
 /** Style applied to a cell by a conditional formatting rule */
@@ -110,9 +116,9 @@ export interface CellStyle {
 }
 
 /** A single conditional formatting rule */
-export interface ConditionalRule {
+export interface ConditionalRule<T = DataRow> {
   /** Returns true when this rule's style should be applied */
-  when: (value: unknown, row: DataRow, col: ColumnDefinition) => boolean;
+  when: (value: unknown, row: T, col: ColumnDefinition<T>) => boolean;
   style: CellStyle;
 }
 

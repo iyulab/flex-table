@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-07-02
+
+### Added
+- `useODataSource`: `fetcher`(커스텀 transport), `baseUrl`(origin override), `onUnauthorized`(401/403 콜백) 옵션 추가
+  - 기본값은 기존 동작(전역 `fetch` + `window.location.origin`)과 동일 — 하위 호환
+  - 소비 앱이 인증 헤더 주입·세션 만료 처리를 `HttpClient` 등 자체 transport로 일원화 가능 (전역 `window.fetch` 몽키패치 우회 불필요)
+- `ColumnDefinition<T>`/`CellRenderer<T>`/`CellEditor<T>`/`CellValidator<T>`/`ConditionalRule<T>` 제네릭화, `FlexTableReact<T>` React 래퍼 제네릭 지원
+  - 기본값 `T = DataRow`로 기존(비제네릭) 사용 100% 하위 호환. `<FlexTableReact<Order> data={orders} columns={columns} />`처럼 실제 행 타입을 지정하면 `renderer`/`editor`/`validator`/`format` 콜백까지 타입 추론됨 — 소비 측 `as unknown as` 캐스트 불필요
+  - 내부 커스텀 엘리먼트(`FlexTable`)는 DOM 특성상 인스턴스별 제네릭이 불가능하므로 계속 `DataRow` 기반으로 동작 — 캐스트는 `FlexTableReact` 경계에서 라이브러리가 1회 수행(소비자에게는 보이지 않음)
+- `clearSelectionOnDataChange` 속성(`clear-selection-on-data-change`) 추가 — 활성화 시 `data`가 외부에서 교체될 때 행 선택(체크박스)을 자동 해제하고 빈 선택으로 `selection-change`를 재발화
+  - 기본값 `false`(기존 `clearUndoOnDataChange`와 동일 컨벤션) — 하위 호환
+  - **안전 목적**: 행 선택은 인덱스 기반이라, `data`가 동일 길이의 다른 행으로 교체돼도 선택 상태가 그대로 남아 잘못된 행에 일괄 작업(상태전이/입금 등)이 적용될 위험이 있음. 선택이 벌크 액션을 구동하는 `selectable` 그리드(특히 서버 모드 + `useODataSource` 조합)에는 이 옵션 활성화를 권장
+
 ## [0.18.0] - 2026-05-19
 
 ### Added

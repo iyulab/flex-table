@@ -12,7 +12,7 @@ export function useODataSource<T = Record<string, unknown>>(
   url: string,
   options: UseODataSourceOptions = {}
 ): UseODataSourceResult<T> {
-  const { pageSize = 20, defaultOrderBy, fixedFilter } = options;
+  const { pageSize = 20, defaultOrderBy, fixedFilter, baseUrl, fetcher = fetch, onUnauthorized } = options;
 
   /*
    * fixedFilter는 호출자가 매 render마다 새 객체 리터럴로 넘기는 경우가 흔하다
@@ -77,11 +77,14 @@ export function useODataSource<T = Record<string, unknown>>(
     }
 
     const queryString = buildQuery(queryParams);
-    const fullUrl = `${window.location.origin}${url}${queryString}`;
+    const fullUrl = `${baseUrl ?? window.location.origin}${url}${queryString}`;
 
-    fetch(fullUrl, { signal: controller.signal })
+    fetcher(fullUrl, { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) {
+          if ((res.status === 401 || res.status === 403) && onUnauthorized) {
+            onUnauthorized(res);
+          }
           const text = await res.text().catch(() => '');
           let msg = `요청 실패 (${res.status})`;
           try {
@@ -111,8 +114,10 @@ export function useODataSource<T = Record<string, unknown>>(
 
     return () => controller.abort();
   // fixedFilterKey(문자열)로 값 비교, fixedFilter 객체 자체는 eslint-disable.
+  // fetcher/onUnauthorized는 함수라 매 render 재생성될 수 있어 deps에서 제외 —
+  // 호출자가 useCallback 등으로 안정된 참조를 넘길 것을 전제로 한다(url과 동일한 계약).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, page, pageSize, sortCriteria, search, fixedFilterKey, defaultOrderBy, refreshToken]);
+  }, [url, page, pageSize, sortCriteria, search, fixedFilterKey, defaultOrderBy, refreshToken, baseUrl]);
 
   return {
     data, totalCount, loading, error,

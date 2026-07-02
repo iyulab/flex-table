@@ -3283,6 +3283,56 @@ describe('FlexTable', () => {
     });
   });
 
+  describe('row selection on data change (safety)', () => {
+    function makeSelectableEl() {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.selectable = true;
+      el.data = [{ name: 'Alice' }, { name: 'Bob' }];
+      return el;
+    }
+
+    it('external data replacement does not clear row selection by default', async () => {
+      const el = makeSelectableEl();
+      await el.updateComplete;
+
+      el.selectAll();
+      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1]);
+
+      // Same-length replacement with entirely different rows — selection stays on stale indices by default.
+      el.data = [{ name: 'Charlie' }, { name: 'Dave' }];
+      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1]);
+    });
+
+    it('clearSelectionOnDataChange clears selection when data replaced externally', async () => {
+      const el = makeSelectableEl();
+      el.clearSelectionOnDataChange = true;
+      await el.updateComplete;
+
+      el.selectAll();
+      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1]);
+
+      let lastEvent: CustomEvent | undefined;
+      el.addEventListener('selection-change', (e) => { lastEvent = e as CustomEvent; });
+
+      el.data = [{ name: 'Charlie' }, { name: 'Dave' }];
+      expect(el.getSelectedRows().selectedIndices).toEqual([]);
+      expect(lastEvent?.detail.selectedIndices).toEqual([]);
+    });
+
+    it('clearSelectionOnDataChange does not dispatch when selection is already empty', async () => {
+      const el = makeSelectableEl();
+      el.clearSelectionOnDataChange = true;
+      await el.updateComplete;
+
+      let dispatchCount = 0;
+      el.addEventListener('selection-change', () => { dispatchCount++; });
+
+      el.data = [{ name: 'Charlie' }, { name: 'Dave' }];
+      expect(dispatchCount).toBe(0);
+    });
+  });
+
   describe('comment popup', () => {
     function makeEl() {
       const el = createElement();

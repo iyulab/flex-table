@@ -60,6 +60,11 @@ export class FlexTable extends LitElement {
     if (this.clearUndoOnDataChange && !this._inUndoRedo) {
       this._undo.clear();
     }
+    if (this.clearSelectionOnDataChange && !this._inUndoRedo && this._rowSelection.selectedCount > 0) {
+      this._rowSelection.deselectAll();
+      this._rowSelectionVersion++;
+      this._dispatchRowSelectionEvent();
+    }
     this.requestUpdate('data', old);
   }
 
@@ -69,6 +74,20 @@ export class FlexTable extends LitElement {
    */
   @property({ type: Boolean, attribute: 'clear-undo-on-data-change' })
   clearUndoOnDataChange: boolean = false;
+
+  /**
+   * When true, replacing `data` externally automatically clears row selection
+   * (checkbox selection) and re-dispatches `selection-change` with an empty selection.
+   * Default: false, for consistency with `clearUndoOnDataChange`. Internal undo/redo
+   * operations are never affected.
+   *
+   * Row selection is index-based (no row-key concept), so a full `data` replacement can
+   * leave selection pointing at different underlying rows at the same indices —
+   * recommended for any `selectable` grid whose selection drives bulk actions
+   * (e.g. server-mode grids refreshed via `useODataSource`).
+   */
+  @property({ type: Boolean, attribute: 'clear-selection-on-data-change' })
+  clearSelectionOnDataChange: boolean = false;
 
   @property({ type: Number, attribute: 'row-height' })
   rowHeight: number = DEFAULT_ROW_HEIGHT;

@@ -144,6 +144,14 @@ The `validator` callback returns `null` if valid, or an error message string. On
 | `deselectAll()` | `void` | Deselect all rows |
 | `getSelectedRows()` | `{ selectedIndices, selectedRows }` | Get selected row data |
 
+Row selection is index-based (there is no row-key concept), so replacing `data` with a same-length but different set of rows leaves the selection pointing at the new rows occupying the old indices. If selection drives a bulk action (status changes, bulk delete, etc.), set `clear-selection-on-data-change` so a `data` swap always resets selection and re-fires `selection-change` with an empty selection:
+
+```html
+<flex-table selectable clear-selection-on-data-change></flex-table>
+```
+
+Default is `false`, matching `clear-undo-on-data-change`.
+
 ### Filtering
 
 | Method | Returns | Description |
@@ -304,6 +312,29 @@ function App() {
 
 All `<flex-table>` properties are available as React props, and all custom events are mapped to `on*` callbacks (e.g., `cell-edit-commit` → `onCellEditCommit`).
 
+#### Typed rows (generics)
+
+`FlexTableReact` and `ColumnDefinition` are generic over your row type — no `as unknown as` casts needed in `data`, `columns`, or callbacks:
+
+```tsx
+import { FlexTableReact, type ColumnDefinition } from '@iyulab/flex-table/react';
+
+interface Order {
+  id: string;
+  total: number;
+  currency: string;
+}
+
+const columns: ColumnDefinition<Order>[] = [
+  { key: 'id', header: 'ID' },
+  { key: 'total', header: 'Total', renderer: (_value, row) => `${row.total} ${row.currency}` },
+];
+
+<FlexTableReact<Order> data={orders} columns={columns} />
+```
+
+Omitting the type argument defaults to the previous `DataRow` (`Record<string, unknown>`) behavior — fully backward compatible.
+
 ### Custom Editor
 
 The `editor` callback lets you provide a fully custom editing UI. The component reads `.value` from the element with class `ft-editor` when committing.
@@ -408,6 +439,31 @@ table.addEventListener('sort-change', (e) => {
   });
 });
 ```
+
+### OData Source Hook (React)
+
+`useODataSource(url, options)` fetches paginated/sorted/filtered data from an OData v4 endpoint and returns props ready to bind to `<FlexTableReact dataMode="server" ...>`.
+
+```tsx
+import { useODataSource } from '@iyulab/flex-table/odata';
+
+const source = useODataSource('/api/orders', {
+  pageSize: 20,
+  fetcher: httpClient.fetch,          // custom transport, e.g. an HttpClient instance
+  onUnauthorized: () => navigate('/login'),
+});
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `pageSize` | `20` | Rows per page |
+| `defaultOrderBy` | — | Initial `$orderby` (e.g. `'name asc'`) |
+| `fixedFilter` | — | Filter always applied in addition to search |
+| `baseUrl` | `window.location.origin` | Override the request origin (proxy/BFF setups) |
+| `fetcher` | global `fetch` | Custom transport — pass a wrapper that injects auth headers |
+| `onUnauthorized` | — | Called on `401`/`403` responses, before the generic error is set |
+
+`fetcher`/`onUnauthorized` should be stable references (e.g. wrap in `useCallback`) — they are intentionally excluded from the hook's internal effect dependencies to avoid refetch loops on every render.
 
 ## Development
 

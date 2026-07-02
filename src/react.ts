@@ -1,8 +1,9 @@
 import React from 'react';
 import { createComponent, type EventName } from '@lit/react';
 import { FlexTable } from './flex-table.js';
+import type { ColumnDefinition, DataRow } from './models/types.js';
 
-export const FlexTableReact = createComponent({
+const FlexTableReactBase = createComponent({
   tagName: 'flex-table',
   elementClass: FlexTable,
   react: React,
@@ -33,5 +34,38 @@ export const FlexTableReact = createComponent({
   },
 });
 
+type BaseProps = React.ComponentProps<typeof FlexTableReactBase>;
+
+/**
+ * Props for {@link FlexTableReact}, parameterized on the consumer's row type `T`
+ * (defaults to `DataRow` — identical to the previous non-generic behavior).
+ */
+export type FlexTableReactProps<T = DataRow> = Omit<BaseProps, 'data' | 'columns'> & {
+  data?: T[];
+  columns?: ColumnDefinition<T>[];
+};
+
+/**
+ * React wrapper for the `<flex-table>` custom element, generic over the row type `T`.
+ *
+ * The underlying custom element (`FlexTable`) is a single registered class and cannot
+ * itself be generic across instances — the DOM has no notion of `FlexTable<Order>` vs
+ * `FlexTable<Consumer>`. `FlexTableReact<T>` performs one internal cast at this boundary
+ * so consumers get end-to-end type safety (`data`, `columns`, `renderer`/`editor`/`validator`
+ * callbacks) without casting at every call site.
+ *
+ * @example
+ * ```tsx
+ * const columns: ColumnDefinition<Order>[] = [
+ *   { key: 'id', header: 'ID' },
+ *   { key: 'total', header: 'Total', renderer: (v, row) => `${row.total} ${row.currency}` },
+ * ];
+ * <FlexTableReact<Order> data={orders} columns={columns} />
+ * ```
+ */
+export const FlexTableReact = FlexTableReactBase as unknown as <T = DataRow>(
+  props: FlexTableReactProps<T> & React.RefAttributes<FlexTable>
+) => React.ReactElement | null;
+
 export type { FlexTable };
-export type { ColumnDefinition, DataRow, ColumnType, CellRenderer, CellEditor, CellValidator, SelectionMode, DataMode } from './models/types.js';
+export type { ColumnDefinition, DataRow, ColumnType, CellRenderer, CellEditor, CellValidator, ConditionalRule, SelectionMode, DataMode } from './models/types.js';
