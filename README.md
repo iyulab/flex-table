@@ -105,15 +105,53 @@ interface ColumnDefinition {
   sortable?: boolean;      // Enable sorting (default: true)
   editable?: boolean;      // Per-column edit control (follows global editable)
   pinned?: 'left' | 'right'; // Freeze column during horizontal scroll
+  format?: string | ((value, row, col) => string); // Display format, see "format vs renderer" below
   renderer?: CellRenderer; // Custom cell render: (value, row, col) => TemplateResult | string
   editor?: CellEditor;     // Custom cell editor: (value, row, col) => TemplateResult
   validator?: CellValidator; // Validate before commit: (value, row, col) => string | null
+  conditionalRules?: ConditionalRule[]; // Per-cell style rules, see below
 }
 ```
 
 The `editor` callback must return a Lit `TemplateResult` containing an input element with class `"ft-editor"`. The component reads `.value` from that element on commit. See [Custom Editor](#custom-editor) for details.
 
 The `validator` callback returns `null` if valid, or an error message string. On failure, the cell shows a red border for 3 seconds and a `validation-error` event is dispatched.
+
+### `format` vs `renderer`
+
+Both control how a cell's raw value is displayed, but they differ in what they replace:
+
+- **`format`**: a plain string pattern (Excel-style, e.g. `'#,##0.00'`, `'0.00%'`, `'$#,##0'`, `'yyyy-MM-dd'`) or a `(value) => string` function. Only the *displayed text* changes — editing, sorting, filtering, and export all keep operating on the raw underlying value. Use this for number/date/currency display formatting.
+- **`renderer`**: a `(value, row, col) => TemplateResult | string` function that replaces the cell's rendered content entirely — badges, links, icons, multi-field composites. Sorting/filtering still use the raw value, but the visual output is fully custom.
+
+```typescript
+const columns: ColumnDefinition<Order>[] = [
+  { key: 'total', header: 'Total', format: '#,##0.00' },                 // "1,234.50"
+  { key: 'placedAt', header: 'Placed', format: 'yyyy-MM-dd' },           // date pattern
+  { key: 'status', header: 'Status', renderer: (v) => html`<span class="badge badge-${v}">${v}</span>` },
+];
+```
+
+If both are set on the same column, `renderer` takes precedence — `format` has no effect once a custom `renderer` fully controls the cell's output.
+
+### Conditional Formatting
+
+`conditionalRules` applies a style to a cell when its `when` predicate matches — a declarative alternative to writing a `renderer` just to color-code status/threshold values:
+
+```typescript
+const columns: ColumnDefinition<Order>[] = [
+  {
+    key: 'status',
+    header: 'Status',
+    conditionalRules: [
+      { when: (v) => v === 'overdue', style: { color: '#dc2626', fontWeight: 'bold' } },
+      { when: (v) => v === 'paid', style: { color: '#16a34a' } },
+    ],
+  },
+];
+```
+
+Rules are evaluated in order and combined; later matching rules override earlier ones for overlapping style properties.
 
 ## Methods
 
@@ -311,6 +349,27 @@ function App() {
 ```
 
 All `<flex-table>` properties are available as React props, and all custom events are mapped to `on*` callbacks (e.g., `cell-edit-commit` → `onCellEditCommit`).
+
+#### Imperative API via `ref`
+
+`FlexTableReact` forwards `ref` to the underlying `FlexTable` custom element instance, so all [Methods](#methods) (`addRow`, `deleteRows`, `selectAll`, `setFilter`, etc.) are reachable without re-rendering the whole table:
+
+```tsx
+import { useRef } from 'react';
+import { FlexTableReact, type FlexTable } from '@iyulab/flex-table/react';
+
+function App() {
+  const tableRef = useRef<FlexTable>(null);
+
+  return (
+    <>
+      <button onClick={() => tableRef.current?.addRow({ name: '', age: 0 })}>Add row</button>
+      <button onClick={() => tableRef.current?.deleteRows()}>Delete selected</button>
+      <FlexTableReact ref={tableRef} columns={columns} data={data} selectable />
+    </>
+  );
+}
+```
 
 #### Typed rows (generics)
 

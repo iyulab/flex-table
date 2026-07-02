@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-07-02
+
+### Documentation
+- README: `format` vs `renderer` 가이드 추가 — `ColumnDefinition.format`이 인터페이스 표에서 누락되어 있었고, 두 옵션의 차이(원본 값 유지 vs 렌더 전체 대체)와 우선순위(`renderer` > `format`)가 문서화되어 있지 않았음
+- README: React `ref` 명령형 API 사용 예시 추가 — `FlexTableReact`가 `ref`를 내부 `FlexTable` 엘리먼트로 포워딩해 `addRow`/`deleteRows`/`selectAll` 등 [Methods](#methods)를 리렌더 없이 호출 가능함을 명시
+
 ## [0.19.0] - 2026-07-02
 
 ### Added
