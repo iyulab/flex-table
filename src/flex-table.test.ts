@@ -43,6 +43,28 @@ describe('FlexTable', () => {
     expect(headers[1].textContent).toContain('Age');
   });
 
+  it('should show loading overlay and aria-busy when loading is true', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    el.loading = true;
+    await el.updateComplete;
+
+    expect(el.getAttribute('aria-busy')).toBe('true');
+    const overlay = el.shadowRoot!.querySelector('.ft-loading-overlay');
+    expect(overlay).toBeTruthy();
+  });
+
+  it('should not show loading overlay or aria-busy when loading is false', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    expect(el.hasAttribute('aria-busy')).toBe(false);
+    expect(el.shadowRoot!.querySelector('.ft-loading-overlay')).toBeNull();
+  });
+
   it('should render data cells', async () => {
     const el = createElement();
     el.columns = [

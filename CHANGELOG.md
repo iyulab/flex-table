@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-07-02
+
+### Added
+- `FlexTable`/`FlexTableReact`: `loading?: boolean` prop 추가. `true`일 때 그리드 위에 내장 오버레이를 표시하고 host에 `aria-busy="true"`를 반영한다. `useODataSource()`가 반환하는 `loading`과 자연 연동(`<FlexTableReact loading={source.loading} .../>`). 이전에는 각 소비 페이지가 `style={{opacity: loading ? 0.6 : 1}}` 같은 인라인 opacity 해킹으로 우회하고 있었다.
+
 ## [0.19.1] - 2026-07-02
 
 ### Documentation

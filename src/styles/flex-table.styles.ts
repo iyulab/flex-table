@@ -320,6 +320,24 @@ export const flexTableStyles = css`
     border-radius: 4px;
   }
 
+  .ft-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 90;
+    background: rgba(255, 255, 255, 0.5);
+    pointer-events: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host(:not([theme="light"])) .ft-loading-overlay {
+      background: rgba(30, 30, 30, 0.5);
+    }
+  }
+
+  :host([theme="dark"]) .ft-loading-overlay {
+    background: rgba(30, 30, 30, 0.5);
+  }
+
   .ft-row-num-header,
   .ft-row-num {
     position: absolute;

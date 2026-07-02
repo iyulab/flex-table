@@ -115,6 +115,14 @@ export class FlexTable extends LitElement {
   @property({ type: Number, attribute: 'frozen-rows' })
   frozenRows: number = 0;
 
+  /**
+   * True일 때 그리드 위에 로딩 오버레이를 표시하고 host에 `aria-busy="true"`를 반영한다.
+   * `useODataSource()`가 반환하는 `loading`과 자연 연동하도록 설계됨:
+   * `<FlexTableReact loading={source.loading} .../>`.
+   */
+  @property({ type: Boolean, reflect: true })
+  loading: boolean = false;
+
   /** Enable file drag-and-drop import (.xlsx, .csv). */
   @property({ type: Boolean, attribute: 'import-enabled' })
   importEnabled: boolean = false;
@@ -1136,6 +1144,11 @@ export class FlexTable extends LitElement {
     const colCount = String(this.visibleColumns.length);
     if (this.getAttribute('aria-rowcount') !== rowCount) this.setAttribute('aria-rowcount', rowCount);
     if (this.getAttribute('aria-colcount') !== colCount) this.setAttribute('aria-colcount', colCount);
+    if (this.loading) {
+      if (this.getAttribute('aria-busy') !== 'true') this.setAttribute('aria-busy', 'true');
+    } else if (this.hasAttribute('aria-busy')) {
+      this.removeAttribute('aria-busy');
+    }
     // Initialize comment popup textarea when popup first opens
     if (changedProps.has('_commentPopup') && this._commentPopup) {
       const ta = this.shadowRoot?.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement | null;
@@ -3437,9 +3450,12 @@ export class FlexTable extends LitElement {
     const importOverlay = this.importEnabled && this._isDragOver
       ? html`<div class="ft-import-overlay">Drop file to import (.xlsx / .csv)</div>`
       : nothing;
+    const loadingOverlay = this.loading
+      ? html`<div class="ft-loading-overlay"></div>`
+      : nothing;
 
     if (cols.length === 0) {
-      return html`${importOverlay}<div class="ft-empty">No columns defined</div>`;
+      return html`${importOverlay}${loadingOverlay}<div class="ft-empty">No columns defined</div>`;
     }
 
     const hdrH = this.headerHeight;
@@ -3494,6 +3510,7 @@ export class FlexTable extends LitElement {
     if (this.data.length === 0 || this._visibleRowCount === 0) {
       const msg = this.data.length === 0 ? 'No data' : 'No matching data';
       return html`
+        ${loadingOverlay}
         <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
           ${selectAllHeader}${rowNumHeader}
           ${headerCells}
@@ -3517,6 +3534,7 @@ export class FlexTable extends LitElement {
 
     return html`
       ${importOverlay}
+      ${loadingOverlay}
       ${this._renderFindPanel()}
       <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
         ${selectAllHeader}${rowNumHeader}
