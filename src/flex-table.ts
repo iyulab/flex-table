@@ -56,14 +56,21 @@ export class FlexTable extends LitElement {
 
   set data(value: DataRow[]) {
     const old = this._data;
+    // 참조 동일성 가드: `@lit/react`는 dirty-check 없이 매 렌더마다 `.data`를 재대입하므로,
+    // 동일 참조 재대입에도 아래 파괴적 side-effect(undo/선택 해제)가 실행되면
+    // "선택 → setState → 리렌더 → data 재대입 → 선택 해제" 루프로 selectable이 깨진다.
+    // side-effect는 외부에서 data를 실제로 "교체"했을 때(참조 변경)만 실행한다.
+    const isReplacement = value !== old;
     this._data = value;
-    if (this.clearUndoOnDataChange && !this._inUndoRedo) {
-      this._undo.clear();
-    }
-    if (this.clearSelectionOnDataChange && !this._inUndoRedo && this._rowSelection.selectedCount > 0) {
-      this._rowSelection.deselectAll();
-      this._rowSelectionVersion++;
-      this._dispatchRowSelectionEvent();
+    if (isReplacement && !this._inUndoRedo) {
+      if (this.clearUndoOnDataChange) {
+        this._undo.clear();
+      }
+      if (this.clearSelectionOnDataChange && this._rowSelection.selectedCount > 0) {
+        this._rowSelection.deselectAll();
+        this._rowSelectionVersion++;
+        this._dispatchRowSelectionEvent();
+      }
     }
     this.requestUpdate('data', old);
   }
