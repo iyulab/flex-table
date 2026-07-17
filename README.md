@@ -524,12 +524,30 @@ const source = useODataSource('/api/orders', {
 
 `fetcher`/`onUnauthorized` should be stable references (e.g. wrap in `useCallback`) — they are intentionally excluded from the hook's internal effect dependencies to avoid refetch loops on every render.
 
+The hook returns:
+
+| Field | Description |
+|---|---|
+| `data` / `totalCount` | Current page rows and the server's total (`@odata.count`) |
+| `loading` | A request is in flight |
+| `error` | Message of the last failed request, or `null`. **Render this** — a failed request otherwise leaves the grid silently empty |
+| `page` / `setPage` | Zero-based page index |
+| `sortCriteria` / `onSortChange` | Bind `onSortChange` to the table's `sort-change` event |
+| `search` / `setSearch` | Current search term and its setter (resets to page 0) |
+| `refresh` | Re-run the current request |
+
+#### Search semantics
+
+`setSearch` takes **literal text, not an OData search expression**. Each whitespace-separated token is sent as a quoted `$search` phrase joined with `AND` — `red shirt` becomes `$search="red" AND "shirt"`, matching rows that contain both terms.
+
+Terms are always quoted because OData 4.0 only allows letters in an unquoted `searchWord`, so `2026` or `ZT-E2E-A` would be rejected by servers that follow it (4.01 relaxed this, but [Microsoft.OData still lexes as 4.0](https://github.com/OData/odata.net/issues/2445)). Quoting keeps any term valid regardless of server version. Since a `$search` phrase cannot contain `"` and OData defines no escape for it, double quotes are stripped from the term.
+
 ## Development
 
 ```bash
 npm install
 npm run dev      # Dev server with demo
-npm test         # Run tests (179 tests)
+npm test         # Run tests
 npm run build    # Build library
 npm run lint     # ESLint check
 ```

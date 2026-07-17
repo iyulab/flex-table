@@ -5,6 +5,31 @@ import type { SortCriteria } from '../core/sorting.js';
 import type { UseODataSourceOptions, UseODataSourceResult } from './types.js';
 
 /**
+ * 검색어를 OData `$search` 표현식으로 인코딩한다 (`red shirt` → `"red" AND "shirt"`).
+ *
+ * 토큰을 인용하는 이유: OData 4.0의 `searchWord`는 문자(Unicode L/Nl)만 허용해
+ * `2026`·`ZT-E2E-A` 같은 검색어가 거부된다. 4.01이 숫자·하이픈을 허용하도록 완화했으나
+ * Microsoft.OData 렉서는 아직 4.0 규칙이다(odata.net#2445). `searchPhrase`는 두 버전
+ * 모두에서 적법하므로 서버 버전과 무관하게 안전하다.
+ *
+ * 통째로가 아니라 토큰별로 감싸는 이유: 인용 없는 다중 단어는 암묵 AND로 파싱되므로
+ * (`searchAndExpr = RWS [ 'AND' RWS ] searchExpr`), 전체를 한 phrase로 감싸면 연속
+ * 문자열 매칭으로 의미가 바뀐다. 토큰별 인용은 기존 의미론을 그대로 보존한다.
+ *
+ * `"`는 phrase 안에 넣을 수 없고 이스케이프 규칙도 없어(`qchar-no-AMP-DQUOTE`) 제거한다.
+ *
+ * @returns `$search` 표현식, 또는 유효 토큰이 없으면 `undefined`
+ */
+export function buildSearchExpression(term: string): string | undefined {
+  const tokens = term
+    .split(/\s+/)
+    .map(token => token.replace(/"/g, ''))
+    .filter(token => token.length > 0);
+  if (tokens.length === 0) return undefined;
+  return tokens.map(token => `"${token}"`).join(' AND ');
+}
+
+/**
  * OData v4 서버 사이드 데이터소스 React 훅.
  * flex-table의 dataMode="server"와 함께 사용한다.
  */
@@ -73,7 +98,8 @@ export function useODataSource<T = Record<string, unknown>>(
     if (orderBy) queryParams.orderBy = orderBy;
     if (fixedFilter) queryParams.filter = fixedFilter;
     if (search) {
-      queryParams.search = search;
+      const searchExpression = buildSearchExpression(search);
+      if (searchExpression) queryParams.search = searchExpression;
     }
 
     const queryString = buildQuery(queryParams);
@@ -113,10 +139,9 @@ export function useODataSource<T = Record<string, unknown>>(
       });
 
     return () => controller.abort();
-  // fixedFilterKey(문자열)로 값 비교, fixedFilter 객체 자체는 eslint-disable.
-  // fetcher/onUnauthorized는 함수라 매 render 재생성될 수 있어 deps에서 제외 —
+  // deps는 의도적으로 부분집합이다: fixedFilter 객체 대신 직렬화 키(fixedFilterKey)로 값을 비교하고,
+  // fetcher/onUnauthorized는 매 render 재생성될 수 있는 함수라 제외한다 —
   // 호출자가 useCallback 등으로 안정된 참조를 넘길 것을 전제로 한다(url과 동일한 계약).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, page, pageSize, sortCriteria, search, fixedFilterKey, defaultOrderBy, refreshToken, baseUrl]);
 
   return {
@@ -128,7 +153,11 @@ export function useODataSource<T = Record<string, unknown>>(
   };
 }
 
-function parseOrderBy(orderBy: string): SortCriteria[] {
+/**
+ * `$orderby` 문자열을 정렬 기준 배열로 파싱한다 (`'a asc, b desc'`).
+ * 방향이 생략되거나 `desc`가 아니면 `asc`로 본다(OData 기본값).
+ */
+export function parseOrderBy(orderBy: string): SortCriteria[] {
   return orderBy.split(',').map(s => {
     const parts = s.trim().split(/\s+/);
     return {

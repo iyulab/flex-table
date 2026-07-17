@@ -2252,7 +2252,6 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       let eventCount = 0;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let importedCount = -1;
       el.addEventListener('data-import', (e: Event) => {
         eventCount++;

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-07-17
+
+### Fixed
+- `useODataSource`: 검색어를 인용 없이 `$search`로 전송해 **숫자·하이픈이 포함된 검색어가 전부 400**으로 거부되던 결함 수정. 이제 공백으로 나눈 토큰을 각각 인용된 phrase로 감싸 `AND`로 결합해 전송한다 (`red shirt` → `$search="red" AND "shirt"`). yesung-oms dogfooding에서 발견(상품코드·주문번호·연도 검색이 전부 무응답).
+  - **원인은 문법 제약이 아니라 버전 스큐**: OData 4.0의 `searchWord`는 문자(Unicode L/Nl)만 허용하나, 4.01은 `searchChar`(`unreserved` 포함 — 숫자·`-`·`.`·`_`·`~`)로 완화했다. Microsoft.OData 렉서가 아직 4.0 규칙이라 `2026`·`ZT-E2E-A`를 거부한다([odata.net#2445](https://github.com/OData/odata.net/issues/2445), OPEN). `searchPhrase`는 4.0·4.01 양쪽에서 적법해 서버 버전과 무관하게 안전하다.
+  - **통째가 아니라 토큰별로 감싸는 이유**: 인용 없는 다중 단어는 암묵 AND로 파싱된다(`searchAndExpr = RWS [ 'AND' RWS ] searchExpr`). 전체를 한 phrase로 감싸면 연속 문자열 매칭으로 의미가 바뀌므로, 토큰별 인용이 기존 의미론을 보존한다.
+  - `"`는 phrase에 담을 수 없고 OData가 이스케이프를 정의하지 않아 검색어에서 제거한다. 공백뿐인 검색어는 `$search`를 붙이지 않는다.
+  - **거동 변경 주의**: 단일 토큰도 word에서 phrase로 바뀐다. `$search`의 매칭 정의는 스펙상 implementation-specific이라 서버에 따라 결과가 달라질 수 있어 patch가 아닌 minor로 올린다.
+- `eslint.config.js`에 `eslint-plugin-react-hooks`가 등록된 적이 없는데 `use-odata-source.ts`가 `react-hooks/exhaustive-deps` disable 지시자를 사용해 **`npm run lint`가 계속 exit 1**이던 결함 수정. 존재하지 않는 규칙을 가리키는 고아 지시자를 제거하고 deps가 부분집합인 이유는 산문 주석으로 보존했다.
+
+### Added
+- `src/odata/` 단위 테스트 신설(11건) — 이 디렉터리는 테스트가 전무했고, 그것이 위 `$search` 결함이 배포된 원인이다. `$search` 쿼리 문자열을 `odata-query` 통합까지 포함해 검증한다.
+
+### Documentation
+- README `OData Source Hook`: **반환값 표 신설**. 기존엔 옵션만 문서화되어 `setSearch`·`error` 등 반환 필드의 계약을 알 수 없었다. `error`는 렌더하지 않으면 실패한 요청이 그리드를 조용히 비운다는 점을 명시.
+- README `Search semantics` 신설: `setSearch`가 OData 검색 표현식이 아닌 **리터럴 텍스트**를 받는다는 계약과 인용 근거를 문서화.
+
 ## [0.20.1] - 2026-07-03
 
 ### Fixed
