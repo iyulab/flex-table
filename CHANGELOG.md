@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.21.0] - 2026-07-17
 
 ### Fixed
-- `useODataSource`: 검색어를 인용 없이 `$search`로 전송해 **숫자·하이픈이 포함된 검색어가 전부 400**으로 거부되던 결함 수정. 이제 공백으로 나눈 토큰을 각각 인용된 phrase로 감싸 `AND`로 결합해 전송한다 (`red shirt` → `$search="red" AND "shirt"`). yesung-oms dogfooding에서 발견(상품코드·주문번호·연도 검색이 전부 무응답).
+- `useODataSource`: 검색어를 인용 없이 `$search`로 전송해 **숫자·하이픈이 포함된 검색어가 전부 400**으로 거부되던 결함 수정. 이제 공백으로 나눈 토큰을 각각 인용된 phrase로 감싸 `AND`로 결합해 전송한다 (`red shirt` → `$search="red" AND "shirt"`). 실사용에서 관측(상품코드·주문번호·연도처럼 숫자·하이픈을 포함한 검색이 전부 무응답).
   - **원인은 문법 제약이 아니라 버전 스큐**: OData 4.0의 `searchWord`는 문자(Unicode L/Nl)만 허용하나, 4.01은 `searchChar`(`unreserved` 포함 — 숫자·`-`·`.`·`_`·`~`)로 완화했다. Microsoft.OData 렉서가 아직 4.0 규칙이라 `2026`·`ZT-E2E-A`를 거부한다([odata.net#2445](https://github.com/OData/odata.net/issues/2445), OPEN). `searchPhrase`는 4.0·4.01 양쪽에서 적법해 서버 버전과 무관하게 안전하다.
   - **통째가 아니라 토큰별로 감싸는 이유**: 인용 없는 다중 단어는 암묵 AND로 파싱된다(`searchAndExpr = RWS [ 'AND' RWS ] searchExpr`). 전체를 한 phrase로 감싸면 연속 문자열 매칭으로 의미가 바뀌므로, 토큰별 인용이 기존 의미론을 보존한다.
   - `"`는 phrase에 담을 수 없고 OData가 이스케이프를 정의하지 않아 검색어에서 제거한다. 공백뿐인 검색어는 `$search`를 붙이지 않는다.
@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.20.1] - 2026-07-03
 
 ### Fixed
-- `FlexTable`: `clearSelectionOnDataChange` 활성화 시 React 래퍼(`FlexTableReact`, `@lit/react`) 경유하면 체크박스 행 선택 자체가 불가능하던 결함 수정. `@lit/react`가 dirty-check 없이 매 렌더마다 `.data`를 재대입하는데, `set data()`가 참조 동일성 비교 없이 무조건 `deselectAll()`을 호출해 "선택 → setState → 리렌더 → data 재대입 → 선택 해제" 루프가 발생했다. 이제 `set data()`는 참조가 실제로 바뀐(외부 교체) 경우에만 선택 해제/undo 클리어 side-effect를 실행한다(`clearUndoOnDataChange`도 동일 가드 적용). 동일 참조 재대입에도 `hasChanged: () => true`에 의한 in-place 리렌더는 유지된다. yesung-oms dogfooding에서 발견(기존 우회: `gridKey` remount).
+- `FlexTable`: `clearSelectionOnDataChange` 활성화 시 React 래퍼(`FlexTableReact`, `@lit/react`) 경유하면 체크박스 행 선택 자체가 불가능하던 결함 수정. `@lit/react`가 dirty-check 없이 매 렌더마다 `.data`를 재대입하는데, `set data()`가 참조 동일성 비교 없이 무조건 `deselectAll()`을 호출해 "선택 → setState → 리렌더 → data 재대입 → 선택 해제" 루프가 발생했다. 이제 `set data()`는 참조가 실제로 바뀐(외부 교체) 경우에만 선택 해제/undo 클리어 side-effect를 실행한다(`clearUndoOnDataChange`도 동일 가드 적용). 동일 참조 재대입에도 `hasChanged: () => true`에 의한 in-place 리렌더는 유지된다. 실사용에서 관측(기존 우회: `gridKey` remount).
 
 ## [0.20.0] - 2026-07-02
 

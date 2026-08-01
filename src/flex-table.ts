@@ -1040,8 +1040,8 @@ export class FlexTable extends LitElement {
 
     // ResizeObserver — host의 client size 변화만 감시.
     // 이전 구현은 `updated()`에서 매번 _measureViewport()를 호출하여 @state를 갱신했는데,
-    // scrollbar 출현으로 clientWidth가 진동하는 경우 무한 reflow loop 발생 (yesung 11차 run에서 발견:
-    // F12에서 <html> 요소가 빠르게 깜빡이는 현상).
+    // scrollbar 출현으로 clientWidth가 진동하는 경우 무한 reflow loop 발생 (실사용에서 관측:
+    // 개발자도구에서 <html> 요소가 빠르게 깜빡이는 현상).
     // ResizeObserver는 ResizeObserverLoop 보호 메커니즘이 있어 안전.
     if (typeof ResizeObserver !== 'undefined') {
       this._hostResizeObserver = new ResizeObserver(() => this._measureViewport());
