@@ -19,7 +19,10 @@ export const flexTableStyles = css`
     --ft-bool-color: #2196f3;
     --ft-sort-indicator-color: #5f6368;
     --ft-editor-bg: #fff;
-    --ft-empty-color: #999;
+    /* #999 was 2.85 against --ft-bg (#fff); AA needs 4.5. The dark value (#9aa0a6 on
+       #1e1e2e = 6.31) was already fine, so this was a light-only defect. #5f6368 is the
+       same grey the sort indicator uses, which keeps the palette to one family. */
+    --ft-empty-color: #5f6368;
   }
 
   /* --- Dark Theme (auto via prefers-color-scheme) --- */
