@@ -82,10 +82,13 @@ jobs:
         if: steps.probe.outputs.types == 'true'
         run: npx tsc --noEmit
 
-      - name: Test
-        if: steps.probe.outputs.test == 'true'
-        run: npm test
-
+      # ⚠Build 가 Test 보다 먼저다. 첫 CI 실행이 그 이유를 실측으로 보여 줬다 —
+      # 어떤 패키지의 테스트는 게시될 번들 자체를 검증하므로 dist 가 있어야 한다
+      # (`bundle-size` 계열). 로컬에는 이전 빌드의 dist 가 남아 있어 드러나지 않는다.
       - name: Build
         if: steps.probe.outputs.build == 'true'
         run: npm run build
+
+      - name: Test
+        if: steps.probe.outputs.test == 'true'
+        run: npm test
