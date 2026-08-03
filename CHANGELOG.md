@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.23.2] - 2026-08-04
+
+### Changed
+
+- **OData 요청 실패 기본 문구가 영어가 된다** — `요청 실패 (500)` → `Request failed (500)`.
+  서버가 오류 메시지를 주면 **그쪽이 이긴다**(종전과 같다) — 이 문구는 서버가 아무것도 주지
+  않을 때의 폴백이다.
+
+  ⚠**로케일 레지스트리를 도입하지 않았다.** 문자열 하나를 위해 런타임 의존을 들이는 것은
+  비용이 이득을 넘는다(이 패키지의 의존은 `lit` · `odata-query` 둘뿐이다). 수요가 모이면 그때
+  같은 형태로 연다.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

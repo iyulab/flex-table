@@ -112,7 +112,11 @@ export function useODataSource<T = Record<string, unknown>>(
             onUnauthorized(res);
           }
           const text = await res.text().catch(() => '');
-          let msg = `요청 실패 (${res.status})`;
+          // ⚠영어 리터럴이다 — 이 패키지는 로케일 레지스트리를 갖지 않는다.
+          // 한 문자열을 위해 @iyulab/components 런타임 의존을 들이는 것은 비용이 이득을
+          // 넘는다(이 패키지는 지금 lit + odata-query 둘뿐이다). 표준의 «영어 기본»은
+          // 충족하고, 서버가 메시지를 주면 그쪽이 이긴다(아래 두 줄).
+          let msg = `Request failed (${res.status})`;
           try {
             const json = JSON.parse(text);
             msg = json?.error?.message ?? json?.message ?? msg;
