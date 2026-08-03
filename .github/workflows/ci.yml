@@ -40,9 +40,12 @@ jobs:
 
       # lock 파일이 없는 정책이므로(배포도 `npm install` 을 쓴다) 자동 캐싱을 끈다 —
       # setup-node v5 의 packageManager 기반 캐싱은 lock-less 설치와 충돌한다.
+      # ⚠Node 24 다. 22 로는 라우터 테스트가 `URLPattern is not defined` 로 죽는다 —
+      # 이 API 는 브라우저 대상 코드가 런타임에 쓰는 것이고 Node 에는 24 부터 전역으로
+      # 들어왔다. 로컬은 24 라 드러나지 않았고 첫 CI 실행이 잡았다.
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "24"
           package-manager-cache: false
 
       - name: Detect package capabilities
