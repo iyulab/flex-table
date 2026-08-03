@@ -21,8 +21,10 @@ describe('--ft-* 토큰 파생', () => {
 
   const colorTokens = [...baseBlock.matchAll(/^\s*(--ft-[\w-]+):\s*([^;]+);/gm)]
     .map(([, name, value]) => ({ name, value: value.trim() }))
-    // 색이 아닌 축(글꼴·치수)은 이 계약의 대상이 아니다.
-    .filter(t => !/font|size|width|height|radius|spacing/.test(t.name));
+    // 색이 아닌 축(글꼴·치수)은 이 계약의 대상이 아니다 — 파생할 --u-* 색이 없다.
+    // ⚠이름 기반 제외 목록이라 **치수 토큰을 새로 만들 때 함께 늘려야 한다.**
+    // 그 계약은 density-tokens.test.ts 가 따로 지킨다.
+    .filter(t => !/font|size|width|height|radius|spacing|padding/.test(t.name));
 
   it('색 토큰이 하나 이상 잡힌다 (이 테스트가 공허하게 통과하지 않는다)', () => {
     expect(colorTokens.length).toBeGreaterThan(10);

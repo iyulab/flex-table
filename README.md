@@ -67,7 +67,7 @@ npm install @iyulab/flex-table
 |----------|-----------|------|---------|-------------|
 | `columns` | — | `ColumnDefinition[]` | `[]` | Column definitions |
 | `data` | — | `DataRow[]` | `[]` | Data rows (`Record<string, unknown>[]`) |
-| `rowHeight` | `row-height` | `number` | `32` | Row height in pixels |
+| `rowHeight` | `row-height` | `number` | `32` | Row height in pixels. Falls back to the `--ft-row-height` token when not set — see [Density](#density-and-header-hierarchy) |
 | `showRowNumbers` | `show-row-numbers` | `boolean` | `false` | Show row number column |
 | `theme` | `theme` | `'light' \| 'dark'` | auto | Force theme; auto-detects `prefers-color-scheme` |
 | `editable` | `editable` | `boolean` | `true` | Global read-only mode when `false` |
@@ -313,6 +313,33 @@ flex-table {
   --ft-find-color: #f9a825;          /* --u-warning-color */
 }
 ```
+
+### Density and header hierarchy
+
+Since 0.23.0 the vertical rhythm and the header's typographic weight are adjustable, so a
+table can be matched to the other tables on the page:
+
+```css
+flex-table {
+  --ft-row-height: 32px;           /* body row height */
+  --ft-cell-padding-block: 6px;    /* text placement inside that height */
+  --ft-cell-padding-inline: 12px;
+  --ft-header-font-size: 14px;     /* defaults to --ft-font-size */
+  --ft-header-font-weight: 600;
+}
+```
+
+⚠ **`--ft-row-height` is read once, at first render.** The grid is virtualised — rows are
+positioned at `index × rowHeight`, so the height cannot come from the cascade the way
+padding does. Declare it in a stylesheet that is in effect before the table is attached; to
+change it later, set the `rowHeight` property (or the `row-height` attribute) instead. An
+explicitly set property or attribute always wins over the token, and a value in any unit
+other than `px` is ignored.
+
+⚠ **Row height is fixed, and padding places the text within it.** Cells are single-line
+(`nowrap` + ellipsis) by design. If you reduce `--ft-row-height`, reduce
+`--ft-cell-padding-block` to match — keep `padding-block × 2 + line box ≤ row-height`, or
+the text is clipped at the bottom.
 
 **Without the token sheet nothing changes.** Every reference carries the literal above as
 its fallback, and the built-in dark theme (`prefers-color-scheme` or `theme="dark"`) still

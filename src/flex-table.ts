@@ -96,8 +96,31 @@ export class FlexTable extends LitElement {
   @property({ type: Boolean, attribute: 'clear-selection-on-data-change' })
   clearSelectionOnDataChange: boolean = false;
 
+  /**
+   * 행 높이(px).
+   *
+   * ⚠**이 표는 가상 스크롤이라 행 높이가 CSS 가 아니라 여기서 정해진다** — 행은
+   * `index * rowHeight` 로 절대 배치되고 셀 높이도 인라인으로 박힌다. 그래서 셀 여백을
+   * 아무리 조절해도 행 높이는 따라오지 않는다.
+   *
+   * 소비자가 표를 **문서 스코프 한 규칙**으로 맞출 수 있도록 CSS 토큰
+   * `--ft-row-height` 도 읽는다. 우선순위는 **프로퍼티/속성 > CSS 토큰 > 32px** 이다 —
+   * 명시적으로 지정한 쪽이 항상 이긴다.
+   */
   @property({ type: Number, attribute: 'row-height' })
-  rowHeight: number = DEFAULT_ROW_HEIGHT;
+  get rowHeight(): number {
+    return this._rowHeightExplicit ?? this._rowHeightFromCss ?? DEFAULT_ROW_HEIGHT;
+  }
+  set rowHeight(value: number) {
+    const old = this.rowHeight;
+    this._rowHeightExplicit = value;
+    this.requestUpdate('rowHeight', old);
+  }
+
+  /** 프로퍼티·속성으로 **명시 지정된** 값. 지정 전에는 undefined 라 CSS 가 이긴다. */
+  private _rowHeightExplicit?: number;
+  /** `--ft-row-height` 판독 결과. 판독 전·판독 실패 시 기본값. */
+  private _rowHeightFromCss: number = DEFAULT_ROW_HEIGHT;
 
   @property({ type: Boolean, attribute: 'show-row-numbers' })
   showRowNumbers: boolean = false;
@@ -1073,7 +1096,27 @@ export class FlexTable extends LitElement {
   }
 
   protected firstUpdated(): void {
+    this._readDensityTokens();
     this._measureViewport();
+  }
+
+  /**
+   * `--ft-row-height` 를 판독해 가상화 계산에 넣는다.
+   *
+   * ⚠**`_measureViewport` 안에 두지 않는다** — 그쪽은 ResizeObserver 가 호스트 크기가
+   * 바뀔 때마다 부른다. `getComputedStyle` 은 그 빈도로 돌릴 것이 아니다. 이 토큰은
+   * 문서 스코프의 정적 선언으로 쓰이므로 첫 렌더에 한 번 읽으면 충분하다.
+   */
+  private _readDensityTokens(): void {
+    const raw = getComputedStyle(this).getPropertyValue('--ft-row-height').trim();
+    if (!raw) return;
+    const px = parseFloat(raw);
+    // px 이외 단위(em·%)는 여기서 해석할 수 없다 — 조용히 기본값을 유지한다.
+    if (!Number.isFinite(px) || px <= 0 || !/px\s*$/.test(raw)) return;
+    if (px === this._rowHeightFromCss) return;
+    const old = this.rowHeight;
+    this._rowHeightFromCss = px;
+    if (this._rowHeightExplicit === undefined) this.requestUpdate('rowHeight', old);
   }
 
   private _updateColOffsets(): void {

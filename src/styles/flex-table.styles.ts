@@ -5,6 +5,20 @@ export const flexTableStyles = css`
   :host {
     --ft-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --ft-font-size: 14px;
+
+    /* --- 치수·위계 축 (기본값 = 종전 렌더값) ---
+       이 표는 가상 스크롤이라 행 높이가 **JS 로 계산된다**(index * rowHeight).
+       그래서 --ft-row-height 는 CSS 만으로는 닿지 않고, 컴포넌트가 첫 렌더에서
+       판독해 가상화 계산에 넣는다. 그 결과가 rowHeight 프로퍼티의 기본값이다.
+
+       ⚠여백과 행 높이의 관계: 행 높이는 **고정**이고 여백은 그 안에서 글자를
+       배치한다. 행 높이를 줄이면서 여백을 그대로 두면 아래가 잘린다
+       (padding-block * 2 + 한 줄 높이 <= row-height 를 유지할 것). */
+    --ft-row-height: 32px;
+    --ft-cell-padding-block: 6px;
+    --ft-cell-padding-inline: 12px;
+    --ft-header-font-size: var(--ft-font-size);
+    --ft-header-font-weight: 600;
     --ft-border-color: var(--u-border-color, #e0e0e0);
     --ft-bg: var(--u-bg-color, #fff);
     --ft-text-color: var(--u-txt-color, #202124);
@@ -108,10 +122,12 @@ export const flexTableStyles = css`
   .ft-header-cell {
     position: absolute;
     top: 0;
-    padding: 8px 12px;
+    /* 머리행은 종전에도 본문보다 상하 2px 넉넉했다 — 그 관계를 유지한다. */
+    padding: calc(var(--ft-cell-padding-block) + 2px) var(--ft-cell-padding-inline);
     background: var(--ft-header-bg);
     color: var(--ft-header-text-color);
-    font-weight: 600;
+    font-size: var(--ft-header-font-size);
+    font-weight: var(--ft-header-font-weight);
     user-select: none;
     border-bottom: 2px solid var(--ft-border-color);
     overflow: hidden;
@@ -213,7 +229,7 @@ export const flexTableStyles = css`
   .ft-cell {
     position: absolute;
     top: 0;
-    padding: 6px 12px;
+    padding: var(--ft-cell-padding-block) var(--ft-cell-padding-inline);
     border-bottom: 1px solid var(--ft-border-color);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -247,7 +263,8 @@ export const flexTableStyles = css`
   .ft-editor {
     width: 100%; height: 100%;
     border: none; outline: none;
-    padding: 6px 12px;
+    /* 편집기는 셀 위에 겹쳐 뜬다 — 여백이 어긋나면 글자가 튄다. */
+    padding: var(--ft-cell-padding-block) var(--ft-cell-padding-inline);
     font: inherit;
     color: var(--ft-text-color);
     background: var(--ft-editor-bg);
