@@ -19,24 +19,24 @@ export const flexTableStyles = css`
     --ft-cell-padding-inline: 12px;
     --ft-header-font-size: var(--ft-font-size);
     --ft-header-font-weight: 600;
-    --ft-border-color: var(--u-border-color, #e0e0e0);
-    --ft-bg: var(--u-bg-color, #fff);
-    --ft-text-color: var(--u-txt-color, #202124);
-    --ft-header-bg: var(--u-bg-color-raised, #f8f9fa);
-    --ft-header-hover-bg: var(--u-bg-color-active, #e8eaed);
-    --ft-header-text-color: var(--u-txt-color, #202124);
-    --ft-row-even-bg: var(--u-bg-color, #fff);
-    --ft-row-odd-bg: var(--u-bg-color-raised, #fafafa);
-    --ft-row-hover-bg: var(--u-bg-color-hover, #f0f4ff);
-    --ft-active-color: var(--u-primary-color, #1a73e8);
-    --ft-selection-bg: var(--u-primary-bg-color, #e8f0fe);
-    --ft-bool-color: var(--u-primary-color, #2196f3);
-    --ft-sort-indicator-color: var(--u-txt-color-weak, #5f6368);
-    --ft-editor-bg: var(--u-input-bg-color, #fff);
+    --ft-border-color: var(--u-border-color, #E0E0E0);
+    --ft-bg: var(--u-bg-color, #FFFFFF);
+    --ft-text-color: var(--u-txt-color, #212121);
+    --ft-header-bg: var(--u-bg-color-raised, #FAFAFA);
+    --ft-header-hover-bg: var(--u-bg-color-active, #EEEEEE);
+    --ft-header-text-color: var(--u-txt-color, #212121);
+    --ft-row-even-bg: var(--u-bg-color, #FFFFFF);
+    --ft-row-odd-bg: var(--u-bg-color-raised, #FAFAFA);
+    --ft-row-hover-bg: var(--u-bg-color-hover, #F5F5F5);
+    --ft-active-color: var(--u-primary-color, #1976D2);
+    --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
+    --ft-bool-color: var(--u-primary-color, #1976D2);
+    --ft-sort-indicator-color: var(--u-txt-color-weak, #757575);
+    --ft-editor-bg: var(--u-input-bg-color, #FFFFFF);
     /* #999 was 2.85 against --ft-bg (#fff); AA needs 4.5. The dark value (#9aa0a6 on
        #1e1e2e = 6.31) was already fine, so this was a light-only defect. #5f6368 is the
        same grey the sort indicator uses, which keeps the palette to one family. */
-    --ft-empty-color: var(--u-txt-color-weak, #5f6368);
+    --ft-empty-color: var(--u-txt-color-weak, #757575);
 
     /* 상태 색 — 종전에는 규칙 안에 리터럴로 박혀 있어 소비자가 덮을 경로가 없었고
        테마도 따라오지 않았다(다크에서 라이트용 값 그대로).
@@ -45,11 +45,11 @@ export const flexTableStyles = css`
        아래에 있고 그것이 비쳐야 "어느 행의 어떤 셀"인지 읽힌다. 그래서 면 토큰
        (--u-*-bg-color)이 아니라 **상태 색에서 알파를 뽑는다** — 부수 효과로 두 테마
        모두에서 성립하므로 아래 다크 블록에 이 셋을 다시 적을 필요가 없다. */
-    --ft-invalid-color: var(--u-danger-color, #d93025);
+    --ft-invalid-color: var(--u-danger-color, #D32F2F);
     --ft-invalid-bg: color-mix(in srgb, var(--ft-invalid-color) 8%, transparent);
-    --ft-drop-color: var(--u-primary-color, #1a73e8);
+    --ft-drop-color: var(--u-primary-color, #1976D2);
     --ft-drop-bg: color-mix(in srgb, var(--ft-drop-color) 15%, transparent);
-    --ft-find-color: var(--u-warning-color, #f9a825);
+    --ft-find-color: var(--u-warning-color, #FDD835);
     --ft-find-bg: color-mix(in srgb, var(--ft-find-color) 25%, transparent);
     --ft-find-current-bg: color-mix(in srgb, var(--ft-find-color) 50%, transparent);
   }
@@ -62,41 +62,41 @@ export const flexTableStyles = css`
      ⇒ 즉 이 표는 시트 없이도 종전처럼 자체 테마를 갖는다(그것이 이 패키지의 계약이었다). */
   @media (prefers-color-scheme: dark) {
     :host(:not([theme="light"])) {
-      --ft-border-color: var(--u-border-color, #3c4043);
-      --ft-bg: var(--u-bg-color, #1e1e1e);
-      --ft-text-color: var(--u-txt-color, #e8eaed);
-      --ft-header-bg: var(--u-bg-color-raised, #292a2d);
-      --ft-header-hover-bg: var(--u-bg-color-active, #3c4043);
-      --ft-header-text-color: var(--u-txt-color, #e8eaed);
-      --ft-row-even-bg: var(--u-bg-color, #1e1e1e);
-      --ft-row-odd-bg: var(--u-bg-color-raised, #252526);
-      --ft-row-hover-bg: var(--u-bg-color-hover, #2a2d2e);
-      --ft-active-color: var(--u-primary-color, #4da3ff);
-      --ft-selection-bg: var(--u-primary-bg-color, #264f78);
-      --ft-bool-color: var(--u-primary-color, #64b5f6);
-      --ft-sort-indicator-color: var(--u-txt-color-weak, #9aa0a6);
-      --ft-editor-bg: var(--u-input-bg-color, #2d2d2d);
-      --ft-empty-color: var(--u-txt-color-weak, #9aa0a6);
+      --ft-border-color: var(--u-border-color, #E0E0E0);
+      --ft-bg: var(--u-bg-color, #FFFFFF);
+      --ft-text-color: var(--u-txt-color, #212121);
+      --ft-header-bg: var(--u-bg-color-raised, #FAFAFA);
+      --ft-header-hover-bg: var(--u-bg-color-active, #EEEEEE);
+      --ft-header-text-color: var(--u-txt-color, #212121);
+      --ft-row-even-bg: var(--u-bg-color, #FFFFFF);
+      --ft-row-odd-bg: var(--u-bg-color-raised, #FAFAFA);
+      --ft-row-hover-bg: var(--u-bg-color-hover, #F5F5F5);
+      --ft-active-color: var(--u-primary-color, #1976D2);
+      --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
+      --ft-bool-color: var(--u-primary-color, #1976D2);
+      --ft-sort-indicator-color: var(--u-txt-color-weak, #757575);
+      --ft-editor-bg: var(--u-input-bg-color, #FFFFFF);
+      --ft-empty-color: var(--u-txt-color-weak, #757575);
     }
   }
 
   /* --- Force dark via attribute --- */
   :host([theme="dark"]) {
-    --ft-border-color: var(--u-border-color, #3c4043);
-    --ft-bg: var(--u-bg-color, #1e1e1e);
-    --ft-text-color: var(--u-txt-color, #e8eaed);
-    --ft-header-bg: var(--u-bg-color-raised, #292a2d);
-    --ft-header-hover-bg: var(--u-bg-color-active, #3c4043);
-    --ft-header-text-color: var(--u-txt-color, #e8eaed);
-    --ft-row-even-bg: var(--u-bg-color, #1e1e1e);
-    --ft-row-odd-bg: var(--u-bg-color-raised, #252526);
-    --ft-row-hover-bg: var(--u-bg-color-hover, #2a2d2e);
-    --ft-active-color: var(--u-primary-color, #4da3ff);
-    --ft-selection-bg: var(--u-primary-bg-color, #264f78);
-    --ft-bool-color: var(--u-primary-color, #64b5f6);
-    --ft-sort-indicator-color: var(--u-txt-color-weak, #9aa0a6);
-    --ft-editor-bg: var(--u-input-bg-color, #2d2d2d);
-    --ft-empty-color: var(--u-txt-color-weak, #9aa0a6);
+    --ft-border-color: var(--u-border-color, #E0E0E0);
+    --ft-bg: var(--u-bg-color, #FFFFFF);
+    --ft-text-color: var(--u-txt-color, #212121);
+    --ft-header-bg: var(--u-bg-color-raised, #FAFAFA);
+    --ft-header-hover-bg: var(--u-bg-color-active, #EEEEEE);
+    --ft-header-text-color: var(--u-txt-color, #212121);
+    --ft-row-even-bg: var(--u-bg-color, #FFFFFF);
+    --ft-row-odd-bg: var(--u-bg-color-raised, #FAFAFA);
+    --ft-row-hover-bg: var(--u-bg-color-hover, #F5F5F5);
+    --ft-active-color: var(--u-primary-color, #1976D2);
+    --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
+    --ft-bool-color: var(--u-primary-color, #1976D2);
+    --ft-sort-indicator-color: var(--u-txt-color-weak, #757575);
+    --ft-editor-bg: var(--u-input-bg-color, #FFFFFF);
+    --ft-empty-color: var(--u-txt-color-weak, #757575);
   }
 
   /* --- Layout --- */
