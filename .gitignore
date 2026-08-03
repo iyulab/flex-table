@@ -23,3 +23,5 @@ Thumbs.db
 CLAUDE.md
 claudedocs/
 .playwright-mcp/
+# lock 파일을 추적하지 않는다 — 설치·배포 모두 npm install 을 쓴다
+package-lock.json

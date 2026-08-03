@@ -39,7 +39,7 @@ jobs:
         if: steps.check.outputs.exists == 'true'
         run: echo "Version ${{ steps.version.outputs.value }} already published — skipping."
 
-      - run: npm ci
+      - run: npm install
         if: steps.check.outputs.exists == 'false'
 
       - run: npm run build
