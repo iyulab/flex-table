@@ -1,0 +1,91 @@
+# CI — push/PR 시점 검증
+#
+# ★왜 생겼나: 종전에 린트·타입·테스트를 강제하는 자동 지점이 **배포 워크플로 하나뿐**이었다.
+#   그래서 두 가지가 실제로 일어났다:
+#     - eslint flat-config 의 함정으로 4개 패키지가 **한 번도 린팅되지 않은** 채
+#       `build` 게이트를 통과했다(게이트 존재 ≠ 린팅 동작)
+#     - `tsc --noEmit` 은 **어느 패키지의 build 에도 걸려 있지 않아** 타입 에러가
+#       여러 릴리스를 지나 살아남았다(`vite build` 도 `vite-plugin-dts` 도 막지 않는다)
+#   ⇒ 재발 방지의 논리적 완결은 **머지 전에** 도는 게이트다.
+#
+# ★왜 12개 리포에 **같은 파일**인가: 패키지마다 스크립트 구성이 다르지만(린트 6/12 ·
+#   테스트 11/12 · 브라우저 프로젝트 2/12), 그 차이를 파일에 새기면 12벌이 갈라진다.
+#   대신 **런타임 탐지**로 하나의 파일을 유지한다 — 이 리포가 반복해서 값을 본 형태다.
+#
+# ⚠**`--if-present` 는 조용히 건너뛴다.** 그것이 이 파일의 가장 큰 위험이므로 "무엇이
+#   돌았는가"를 먼저 출력한다 — 로그를 보면 그 패키지에서 실제로 무엇이 검증됐는지 안다.
+#
+# ⚠**artifact 를 올리지 않는다** — CI 는 검증만 하고, 산출물 업로드는 릴리스 파이프라인
+#   소관이다(스토리지 정책).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 같은 브랜치에 연속 push 하면 앞의 실행을 취소한다 — 검증 결과가 필요한 것은 최신 커밋뿐이다.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # lock 파일이 없는 정책이므로(배포도 `npm install` 을 쓴다) 자동 캐싱을 끈다 —
+      # setup-node v5 의 packageManager 기반 캐싱은 lock-less 설치와 충돌한다.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Detect package capabilities
+        id: probe
+        run: |
+          node -e "
+            const p = require('./package.json');
+            const s = p.scripts || {};
+            const d = { ...p.devDependencies, ...p.dependencies };
+            const browser = ('@vitest/browser-playwright' in d) || ('playwright' in d);
+            const fs = require('fs');
+            const out = [
+              'lint=' + !!s.lint,
+              'test=' + !!s.test,
+              'build=' + !!s.build,
+              'browser=' + browser,
+            ];
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, out.join('\n') + '\n');
+            console.log('검증 대상: ' + out.join(' · '));
+            if (!fs.existsSync('tsconfig.json')) console.log('⚠ tsconfig.json 없음 — 타입 검사를 건너뛴다');
+          "
+
+      - name: Install
+        run: npm install
+
+      # 브라우저 프로젝트를 가진 패키지만 크로미움을 내려받는다(설치가 느리고 무겁다).
+      - name: Install Chromium
+        if: steps.probe.outputs.browser == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Lint
+        if: steps.probe.outputs.lint == 'true'
+        run: npm run lint
+
+      # ★이 게이트는 신설이다 — 어느 패키지의 `build` 에도 타입 검사가 걸려 있지 않았다.
+      - name: Typecheck
+        if: steps.probe.outputs.types == 'true'
+        run: npx tsc --noEmit
+
+      - name: Test
+        if: steps.probe.outputs.test == 'true'
+        run: npm test
+
+      - name: Build
+        if: steps.probe.outputs.build == 'true'
+        run: npm run build
