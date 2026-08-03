@@ -5,64 +5,84 @@ export const flexTableStyles = css`
   :host {
     --ft-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --ft-font-size: 14px;
-    --ft-border-color: #e0e0e0;
-    --ft-bg: #fff;
-    --ft-text-color: #202124;
-    --ft-header-bg: #f8f9fa;
-    --ft-header-hover-bg: #e8eaed;
-    --ft-header-text-color: #202124;
-    --ft-row-even-bg: #fff;
-    --ft-row-odd-bg: #fafafa;
-    --ft-row-hover-bg: #f0f4ff;
-    --ft-active-color: #1a73e8;
-    --ft-selection-bg: #e8f0fe;
-    --ft-bool-color: #2196f3;
-    --ft-sort-indicator-color: #5f6368;
-    --ft-editor-bg: #fff;
+    --ft-border-color: var(--u-border-color, #e0e0e0);
+    --ft-bg: var(--u-bg-color, #fff);
+    --ft-text-color: var(--u-txt-color, #202124);
+    --ft-header-bg: var(--u-bg-color-raised, #f8f9fa);
+    --ft-header-hover-bg: var(--u-bg-color-active, #e8eaed);
+    --ft-header-text-color: var(--u-txt-color, #202124);
+    --ft-row-even-bg: var(--u-bg-color, #fff);
+    --ft-row-odd-bg: var(--u-bg-color-raised, #fafafa);
+    --ft-row-hover-bg: var(--u-bg-color-hover, #f0f4ff);
+    --ft-active-color: var(--u-primary-color, #1a73e8);
+    --ft-selection-bg: var(--u-primary-bg-color, #e8f0fe);
+    --ft-bool-color: var(--u-primary-color, #2196f3);
+    --ft-sort-indicator-color: var(--u-txt-color-weak, #5f6368);
+    --ft-editor-bg: var(--u-input-bg-color, #fff);
     /* #999 was 2.85 against --ft-bg (#fff); AA needs 4.5. The dark value (#9aa0a6 on
        #1e1e2e = 6.31) was already fine, so this was a light-only defect. #5f6368 is the
        same grey the sort indicator uses, which keeps the palette to one family. */
-    --ft-empty-color: #5f6368;
+    --ft-empty-color: var(--u-txt-color-weak, #5f6368);
+
+    /* 상태 색 — 종전에는 규칙 안에 리터럴로 박혀 있어 소비자가 덮을 경로가 없었고
+       테마도 따라오지 않았다(다크에서 라이트용 값 그대로).
+
+       ★**셀 배경은 불투명 면이 아니라 반투명 겹침이다.** 줄무늬(홀/짝 행)와 선택 표시가
+       아래에 있고 그것이 비쳐야 "어느 행의 어떤 셀"인지 읽힌다. 그래서 면 토큰
+       (--u-*-bg-color)이 아니라 **상태 색에서 알파를 뽑는다** — 부수 효과로 두 테마
+       모두에서 성립하므로 아래 다크 블록에 이 셋을 다시 적을 필요가 없다. */
+    --ft-invalid-color: var(--u-danger-color, #d93025);
+    --ft-invalid-bg: color-mix(in srgb, var(--ft-invalid-color) 8%, transparent);
+    --ft-drop-color: var(--u-primary-color, #1a73e8);
+    --ft-drop-bg: color-mix(in srgb, var(--ft-drop-color) 15%, transparent);
+    --ft-find-color: var(--u-warning-color, #f9a825);
+    --ft-find-bg: color-mix(in srgb, var(--ft-find-color) 25%, transparent);
+    --ft-find-current-bg: color-mix(in srgb, var(--ft-find-color) 50%, transparent);
   }
 
-  /* --- Dark Theme (auto via prefers-color-scheme) --- */
+  /* --- Dark Theme (auto via prefers-color-scheme) ---
+     ★**토큰 시트가 로드된 환경에서 아래 두 블록은 아무 일도 하지 않는다** — --u-* 가
+     이미 테마별로 다른 값을 가리키므로 base 규칙만으로 두 테마가 성립한다.
+     남겨 두는 이유는 **시트가 없는 소비자**다: 그때는 각 var() 의 리터럴 폴백이
+     발동하고, 아래 블록이 그 폴백을 다크 값으로 바꿔 준다.
+     ⇒ 즉 이 표는 시트 없이도 종전처럼 자체 테마를 갖는다(그것이 이 패키지의 계약이었다). */
   @media (prefers-color-scheme: dark) {
     :host(:not([theme="light"])) {
-      --ft-border-color: #3c4043;
-      --ft-bg: #1e1e1e;
-      --ft-text-color: #e8eaed;
-      --ft-header-bg: #292a2d;
-      --ft-header-hover-bg: #3c4043;
-      --ft-header-text-color: #e8eaed;
-      --ft-row-even-bg: #1e1e1e;
-      --ft-row-odd-bg: #252526;
-      --ft-row-hover-bg: #2a2d2e;
-      --ft-active-color: #4da3ff;
-      --ft-selection-bg: #264f78;
-      --ft-bool-color: #64b5f6;
-      --ft-sort-indicator-color: #9aa0a6;
-      --ft-editor-bg: #2d2d2d;
-      --ft-empty-color: #9aa0a6;
+      --ft-border-color: var(--u-border-color, #3c4043);
+      --ft-bg: var(--u-bg-color, #1e1e1e);
+      --ft-text-color: var(--u-txt-color, #e8eaed);
+      --ft-header-bg: var(--u-bg-color-raised, #292a2d);
+      --ft-header-hover-bg: var(--u-bg-color-active, #3c4043);
+      --ft-header-text-color: var(--u-txt-color, #e8eaed);
+      --ft-row-even-bg: var(--u-bg-color, #1e1e1e);
+      --ft-row-odd-bg: var(--u-bg-color-raised, #252526);
+      --ft-row-hover-bg: var(--u-bg-color-hover, #2a2d2e);
+      --ft-active-color: var(--u-primary-color, #4da3ff);
+      --ft-selection-bg: var(--u-primary-bg-color, #264f78);
+      --ft-bool-color: var(--u-primary-color, #64b5f6);
+      --ft-sort-indicator-color: var(--u-txt-color-weak, #9aa0a6);
+      --ft-editor-bg: var(--u-input-bg-color, #2d2d2d);
+      --ft-empty-color: var(--u-txt-color-weak, #9aa0a6);
     }
   }
 
   /* --- Force dark via attribute --- */
   :host([theme="dark"]) {
-    --ft-border-color: #3c4043;
-    --ft-bg: #1e1e1e;
-    --ft-text-color: #e8eaed;
-    --ft-header-bg: #292a2d;
-    --ft-header-hover-bg: #3c4043;
-    --ft-header-text-color: #e8eaed;
-    --ft-row-even-bg: #1e1e1e;
-    --ft-row-odd-bg: #252526;
-    --ft-row-hover-bg: #2a2d2e;
-    --ft-active-color: #4da3ff;
-    --ft-selection-bg: #264f78;
-    --ft-bool-color: #64b5f6;
-    --ft-sort-indicator-color: #9aa0a6;
-    --ft-editor-bg: #2d2d2d;
-    --ft-empty-color: #9aa0a6;
+    --ft-border-color: var(--u-border-color, #3c4043);
+    --ft-bg: var(--u-bg-color, #1e1e1e);
+    --ft-text-color: var(--u-txt-color, #e8eaed);
+    --ft-header-bg: var(--u-bg-color-raised, #292a2d);
+    --ft-header-hover-bg: var(--u-bg-color-active, #3c4043);
+    --ft-header-text-color: var(--u-txt-color, #e8eaed);
+    --ft-row-even-bg: var(--u-bg-color, #1e1e1e);
+    --ft-row-odd-bg: var(--u-bg-color-raised, #252526);
+    --ft-row-hover-bg: var(--u-bg-color-hover, #2a2d2e);
+    --ft-active-color: var(--u-primary-color, #4da3ff);
+    --ft-selection-bg: var(--u-primary-bg-color, #264f78);
+    --ft-bool-color: var(--u-primary-color, #64b5f6);
+    --ft-sort-indicator-color: var(--u-txt-color-weak, #9aa0a6);
+    --ft-editor-bg: var(--u-input-bg-color, #2d2d2d);
+    --ft-empty-color: var(--u-txt-color-weak, #9aa0a6);
   }
 
   /* --- Layout --- */
@@ -217,9 +237,9 @@ export const flexTableStyles = css`
   }
 
   .ft-cell.ft-invalid {
-    outline: 2px solid #d93025;
+    outline: 2px solid var(--ft-invalid-color);
     outline-offset: -2px;
-    background: rgba(217, 48, 37, 0.08);
+    background: var(--ft-invalid-bg);
   }
 
   .ft-cell.ft-editing { padding: 0; overflow: visible; }
@@ -311,14 +331,14 @@ export const flexTableStyles = css`
     position: absolute;
     inset: 0;
     z-index: 100;
-    background: rgba(59, 130, 246, 0.15);
-    border: 2px dashed rgba(59, 130, 246, 0.8);
+    background: var(--ft-drop-bg);
+    border: 2px dashed var(--ft-drop-color);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
     font-weight: 500;
-    color: rgb(37, 99, 235);
+    color: var(--ft-drop-color);
     pointer-events: none;
     border-radius: 4px;
   }
@@ -691,7 +711,7 @@ export const flexTableStyles = css`
 
   .ft-comment-popup-textarea:focus {
     border-color: var(--ft-active-color, #3b82f6);
-    box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ft-active-color) 20%, transparent);
   }
 
   .ft-comment-popup-buttons {
@@ -800,12 +820,12 @@ export const flexTableStyles = css`
 
   /* Find highlight */
   .ft-cell.ft-find-match {
-    background: rgba(255, 200, 0, 0.25) !important;
+    background: var(--ft-find-bg) !important;
   }
 
   .ft-cell.ft-find-current {
-    background: rgba(255, 160, 0, 0.5) !important;
-    outline: 2px solid orange;
+    background: var(--ft-find-current-bg) !important;
+    outline: 2px solid var(--ft-find-color);
     outline-offset: -2px;
   }
 `;

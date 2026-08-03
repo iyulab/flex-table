@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-08-03
+
+### Changed
+
+- ★**표 색이 `@iyulab/components` 디자인 토큰에서 파생한다.**
+
+  종전에는 자체 팔레트를 리터럴로 갖고 있어, 소비자가 셸·버튼의 브랜드를 맞춰도
+  **표만 다른 색 체계**로 남았다. 업무앱에서 표는 화면 면적의 대부분이라 나머지를
+  아무리 맞춰도 체감이 바뀌지 않는다. 이제 `--u-primary-color` 한 줄로 표의 강조색·
+  선택 표시·불리언 표시가 함께 따라온다.
+
+  ```
+  --ft-active-color      → --u-primary-color        (강조 · 정렬 활성 · 포커스)
+  --ft-selection-bg      → --u-primary-bg-color     (선택된 셀/행)
+  --ft-bg / -row-even-bg → --u-bg-color
+  --ft-header-bg         → --u-bg-color-raised      (크롬 면)
+  --ft-row-hover-bg      → --u-bg-color-hover
+  --ft-text-color        → --u-txt-color
+  --ft-border-color      → --u-border-color
+  --ft-sort-…/-empty-…   → --u-txt-color-weak
+  --ft-editor-bg         → --u-input-bg-color
+  ```
+
+  ⚠**의존성이 늘지 않는다.** CSS 커스텀 프로퍼티 참조는 `import` 를 만들지 않는다 —
+  `package.json` 은 그대로다.
+
+  ⚠**시트 없는 독립 사용은 종전과 같다.** 모든 참조가 리터럴 폴백을 갖고 다크 블록도
+  남아 있어, 토큰 시트를 로드하지 않으면 예전 색·예전 자동 다크로 렌더된다.
+  회귀 테스트가 이 둘을 함께 지킨다.
+
+  **소비자 영향**: 토큰 시트를 쓰는 앱에서는 **표 색이 바뀐다** — Google 계열
+  (`#1a73e8` 등)에서 디자인 시스템 팔레트로 이동한다. 종전 색을 유지하려면 `--ft-*` 를
+  직접 지정하면 된다(그 경로는 그대로다).
+
+### Fixed
+
+- **상태 색이 규칙 안에 박혀 있어 덮을 수 없고 테마를 몰랐다** — 무효 셀, 드롭 표시,
+  찾기 강조가 리터럴이라 다크에서도 라이트 값 그대로였다. `--ft-invalid-*`·`--ft-drop-*`·
+  `--ft-find-*` 로 열고 상태 색에서 알파를 뽑는다.
+
+  ★**면 토큰이 아니라 알파 파생인 이유**: 이 배경들은 불투명 면이 아니라 **겹침**이다 —
+  줄무늬(홀/짝 행)와 선택 표시가 아래에서 비쳐야 "어느 행의 어떤 셀"인지 읽힌다.
+  부수 효과로 두 테마 모두에서 성립한다.
+
+- **댓글 입력 포커스 링이 팔레트에 없는 색이었다**(`rgba(59,130,246,.2)` — Tailwind
+  blue-500). 바로 옆 줄의 테두리는 `--ft-active-color` 를 쓰고 있어 **두 색이 서로 달랐다.**
+
 ## [0.21.1] - 2026-08-02
 
 ### Fixed

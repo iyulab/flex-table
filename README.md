@@ -269,29 +269,55 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 
 ## CSS Custom Properties
 
-All colors and styles are customizable via CSS custom properties:
+All colors and styles are customizable via CSS custom properties.
+
+**Two levels, pick whichever fits.** Since 0.22.0 every `--ft-*` colour is derived from
+the `@iyulab/components` design tokens, so if you already load that token sheet the table
+follows your brand with no per-table configuration:
+
+```css
+:root { --u-primary-color: #7b1fa2; }   /* the table's accent, selection and boolean
+                                           markers follow — so do the buttons and shell */
+```
+
+Override an individual `--ft-*` when you want the table to differ from the rest of the app:
 
 ```css
 flex-table {
   --ft-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --ft-font-size: 14px;
-  --ft-border-color: #e0e0e0;
-  --ft-bg: #fff;
-  --ft-text-color: #202124;
-  --ft-header-bg: #f8f9fa;
-  --ft-header-hover-bg: #e8eaed;
-  --ft-header-text-color: #202124;
-  --ft-row-even-bg: #fff;
-  --ft-row-odd-bg: #fafafa;
-  --ft-row-hover-bg: #f0f4ff;
-  --ft-active-color: #1a73e8;
-  --ft-selection-bg: #e8f0fe;
-  --ft-bool-color: #2196f3;
-  --ft-sort-indicator-color: #5f6368;
-  --ft-editor-bg: #fff;
-  --ft-empty-color: #999;
+
+  /* Surfaces and text            derived from */
+  --ft-bg: #fff;                     /* --u-bg-color */
+  --ft-text-color: #202124;          /* --u-txt-color */
+  --ft-border-color: #e0e0e0;        /* --u-border-color */
+  --ft-header-bg: #f8f9fa;           /* --u-bg-color-raised */
+  --ft-header-hover-bg: #e8eaed;     /* --u-bg-color-active */
+  --ft-header-text-color: #202124;   /* --u-txt-color */
+  --ft-row-even-bg: #fff;            /* --u-bg-color */
+  --ft-row-odd-bg: #fafafa;          /* --u-bg-color-raised */
+  --ft-row-hover-bg: #f0f4ff;        /* --u-bg-color-hover */
+  --ft-editor-bg: #fff;              /* --u-input-bg-color */
+  --ft-sort-indicator-color: #5f6368;/* --u-txt-color-weak */
+  --ft-empty-color: #5f6368;         /* --u-txt-color-weak */
+
+  /* Accent */
+  --ft-active-color: #1a73e8;        /* --u-primary-color */
+  --ft-selection-bg: #e8f0fe;        /* --u-primary-bg-color */
+  --ft-bool-color: #2196f3;          /* --u-primary-color */
+
+  /* State overlays — these are translucent on purpose, so the row striping and
+     selection underneath stay visible. Set the *-color and the background follows. */
+  --ft-invalid-color: #d93025;       /* --u-danger-color */
+  --ft-drop-color: #1a73e8;          /* --u-primary-color */
+  --ft-find-color: #f9a825;          /* --u-warning-color */
 }
 ```
+
+**Without the token sheet nothing changes.** Every reference carries the literal above as
+its fallback, and the built-in dark theme (`prefers-color-scheme` or `theme="dark"`) still
+applies — the table remains usable standalone. Referencing the tokens does not add a
+package dependency; CSS custom properties are resolved at render time, not imported.
 
 ## Keyboard Shortcuts
 
