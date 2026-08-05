@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.24.0] - 2026-08-05
+
+### Changed
+
+- ⚠**`@iyulab/components` is now a required peer dependency (`>=1.24.0`).** The
+  stylesheet is not decoration here — 313 token references depend on it, and without
+  it the fallback literals silently stand in for the real theme. Declaring the peer as
+  optional would keep allowing exactly the situation the fallbacks were meant to reveal.
+
+  Consumers pinned to `@iyulab/components@1.23.x` will see an `ERESOLVE` on install.
+
+### Fixed
+
+- **`sideEffects` no longer misses the shared chunk.** With more than one entry point,
+  the bundler splits common code — including the custom-element registrations — into a
+  hash-named chunk. The declaration listed only the named entries, so a consumer's
+  bundler could drop that chunk and the elements would never register, with no error at
+  build time. It now covers the emitted output as a whole (`./dist/*.js`), which is
+  hash-stable across builds.
+
+- **The `./react` and `./odata` subpaths point back at the built output.** They had been
+  rewritten to source paths, which do not exist in the published package.
+
 ## [0.23.2] - 2026-08-04
 
 ### Changed
