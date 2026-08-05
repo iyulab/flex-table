@@ -12,12 +12,12 @@
       "import": "./dist/flex-table.js"
     },
     "./react": {
-      "types": "./src/react.d.ts",
-      "import": "./src/react.js"
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
     },
     "./odata": {
-      "types": "./src/odata/index.d.ts",
-      "import": "./src/odata/index.js"
+      "types": "./dist/odata/index.d.ts",
+      "import": "./dist/odata/index.js"
     }
   },
   "sideEffects": [
