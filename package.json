@@ -22,7 +22,7 @@
   },
   "sideEffects": [
     "./src/flex-table.ts",
-    "./dist/flex-table.js"
+    "./dist/*.js"
   ],
   "engines": {
     "node": ">=20"
