@@ -12,16 +12,27 @@
       "import": "./dist/flex-table.js"
     },
     "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
+      "types": "./src/react.d.ts",
+      "import": "./src/react.js"
     },
     "./odata": {
-      "types": "./dist/odata/index.d.ts",
-      "import": "./dist/odata/index.js"
+      "types": "./src/odata/index.d.ts",
+      "import": "./src/odata/index.js"
     }
   },
+  "sideEffects": [
+    "./src/flex-table.ts",
+    "./dist/flex-table.js"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
-    "dist"
+    "dist",
+    "package.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "dev": "vite serve demo",
@@ -56,6 +67,7 @@
     "odata-query": "^8.1.0"
   },
   "peerDependencies": {
+    "@iyulab/components": ">=1.24.0",
     "@lit/react": "^1.0.0",
     "react": "^18.0.0 || ^19.0.0"
   },
