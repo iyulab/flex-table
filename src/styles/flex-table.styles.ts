@@ -4,7 +4,8 @@ export const flexTableStyles = css`
   /* --- Theme Variables (Light defaults) --- */
   :host {
     --ft-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --ft-font-size: 14px;
+    /* 밀도 스위치 진입점 — components 의 --u-density 를 그대로 읽는다(묶음 결정 DL-253-1). */
+    --ft-font-size: var(--u-density, 14px);
 
     /* --- 치수·위계 축 (기본값 = 종전 렌더값) ---
        이 표는 가상 스크롤이라 행 높이가 **JS 로 계산된다**(index * rowHeight).

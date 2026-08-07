@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`--ft-font-size` now reads `var(--u-density, 14px)`.** When a consumer sets the design
+  system's `--u-density` switch on an ancestor, the table's base font size (and everything
+  derived from it) follows automatically. Unset, behavior is unchanged.
+
 ### Fixed
 
 - **Hovering an odd (striped) row produced no visible feedback in dark mode.** Odd rows sit on
