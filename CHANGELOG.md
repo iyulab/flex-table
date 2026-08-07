@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **Hovering an odd (striped) row produced no visible feedback in dark mode.** Odd rows sit on
+  the raised-surface background, and the hover style used the same global hover token that raised
+  happened to equal in dark — so the row simply didn't respond. Odd-row hover now reads a
+  dedicated raised-surface hover token when the design system sheet provides one, falling back to
+  the previous behavior otherwise. Even rows are unaffected.
+
 ## [0.24.0] - 2026-08-05
 
 ### Changed

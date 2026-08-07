@@ -28,6 +28,13 @@ export const flexTableStyles = css`
     --ft-row-even-bg: var(--u-bg-color, #FFFFFF);
     --ft-row-odd-bg: var(--u-bg-color-raised, #FAFAFA);
     --ft-row-hover-bg: var(--u-bg-color-hover, #F5F5F5);
+    /* ★홀수 행은 --ft-row-odd-bg(=raised) 위에 앉는다 — 짝수 행과 같은
+       --ft-row-hover-bg(=전역 hover) 를 쓰면 다크에서 raised==hover 라 «올려도 아무
+       일도 안 일어난다»(§D-14, L2-11-1). --u-bg-color-raised-hover 는 다크에서
+       color-mix 로 새로 계산되고, 라이트에서는 기존 hover 에 별칭된다(components
+       light.css) — 두 테마 다 늘 선언돼 있으므로 폴백 리터럴은 시트 미로드 시에만
+       쓰인다(다른 토큰들과 같은 관례). */
+    --ft-row-odd-hover-bg: var(--u-bg-color-raised-hover, #F5F5F5);
     --ft-active-color: var(--u-primary-color, #1976D2);
     --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
     --ft-bool-color: var(--u-primary-color, #1976D2);
@@ -71,6 +78,7 @@ export const flexTableStyles = css`
       --ft-row-even-bg: var(--u-bg-color, #FFFFFF);
       --ft-row-odd-bg: var(--u-bg-color-raised, #FAFAFA);
       --ft-row-hover-bg: var(--u-bg-color-hover, #F5F5F5);
+      --ft-row-odd-hover-bg: var(--u-bg-color-raised-hover, #F5F5F5);
       --ft-active-color: var(--u-primary-color, #1976D2);
       --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
       --ft-bool-color: var(--u-primary-color, #1976D2);
@@ -91,6 +99,7 @@ export const flexTableStyles = css`
     --ft-row-even-bg: var(--u-bg-color, #FFFFFF);
     --ft-row-odd-bg: var(--u-bg-color-raised, #FAFAFA);
     --ft-row-hover-bg: var(--u-bg-color-hover, #F5F5F5);
+    --ft-row-odd-hover-bg: var(--u-bg-color-raised-hover, #F5F5F5);
     --ft-active-color: var(--u-primary-color, #1976D2);
     --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
     --ft-bool-color: var(--u-primary-color, #1976D2);
@@ -240,7 +249,8 @@ export const flexTableStyles = css`
 
   .ft-row-even .ft-cell { background: var(--ft-row-even-bg); }
   .ft-row-odd .ft-cell { background: var(--ft-row-odd-bg); }
-  .ft-row:hover .ft-cell { background: var(--ft-row-hover-bg); }
+  .ft-row-even:hover .ft-cell { background: var(--ft-row-hover-bg); }
+  .ft-row-odd:hover .ft-cell { background: var(--ft-row-odd-hover-bg); }
 
   .ft-cell.ft-active {
     outline: 2px solid var(--ft-active-color);
@@ -406,7 +416,8 @@ export const flexTableStyles = css`
   }
 
   .ft-row-odd .ft-row-num { background: var(--ft-row-odd-bg); }
-  .ft-row:hover .ft-row-num { background: var(--ft-row-hover-bg); }
+  .ft-row-even:hover .ft-row-num { background: var(--ft-row-hover-bg); }
+  .ft-row-odd:hover .ft-row-num { background: var(--ft-row-odd-hover-bg); }
 
   .ft-row-num:hover {
     background: var(--ft-header-hover-bg);
@@ -424,7 +435,8 @@ export const flexTableStyles = css`
 
   .ft-row-even .ft-cell.ft-pinned { background: var(--ft-row-even-bg); }
   .ft-row-odd .ft-cell.ft-pinned { background: var(--ft-row-odd-bg); }
-  .ft-row:hover .ft-cell.ft-pinned { background: var(--ft-row-hover-bg); }
+  .ft-row-even:hover .ft-cell.ft-pinned { background: var(--ft-row-hover-bg); }
+  .ft-row-odd:hover .ft-cell.ft-pinned { background: var(--ft-row-odd-hover-bg); }
   .ft-cell.ft-pinned.ft-selected { background: var(--ft-selection-bg) !important; }
 
   /* --- Filter UI --- */
@@ -575,7 +587,8 @@ export const flexTableStyles = css`
   }
 
   .ft-row-odd .ft-checkbox-cell { background: var(--ft-row-odd-bg); }
-  .ft-row:hover .ft-checkbox-cell { background: var(--ft-row-hover-bg); }
+  .ft-row-even:hover .ft-checkbox-cell { background: var(--ft-row-hover-bg); }
+  .ft-row-odd:hover .ft-checkbox-cell { background: var(--ft-row-odd-hover-bg); }
   .ft-row-selected .ft-checkbox-cell { background: var(--ft-selection-bg); }
   .ft-row-selected .ft-cell { background: var(--ft-selection-bg) !important; }
   .ft-row-selected .ft-row-num { background: var(--ft-selection-bg); }
