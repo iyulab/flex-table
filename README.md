@@ -4,6 +4,12 @@ A lightweight, schema-agnostic data grid web component built with [Lit](https://
 
 Designed for effortless data input and crystal-clear visibility. Bridges the gap between spreadsheet freedom and database structural integrity.
 
+**`flex-table` vs. `URichTable`** (`@iyulab/data-components`): both can consume external data
+sources such as OData — the choice is about scale and interaction, not the data source.
+
+- **`flex-table`** — large datasets, cell-level editing, spreadsheet-grade interaction
+- **`URichTable`** — small-to-medium datasets, row-level CRUD, selection/filter-focused UX
+
 ## Install
 
 ```bash
