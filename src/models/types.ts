@@ -79,6 +79,13 @@ export interface ColumnDefinition<T = DataRow> {
   hidden?: boolean;
   /** Whether the column is sortable (default: true) */
   sortable?: boolean;
+  /**
+   * Horizontal alignment of the header label (default: 'start').
+   * Independent of cell content alignment — a consumer centering cell content
+   * via a custom `renderer` (e.g. an icon-only action column) sets this to
+   * 'center' so the header visually matches.
+   */
+  headerAlign?: 'start' | 'center' | 'end';
   /** Custom cell renderer — overrides built-in type rendering */
   renderer?: CellRenderer<T>;
   /** Whether the column is editable (default: true — follows global editable setting) */

@@ -1093,6 +1093,23 @@ describe('FlexTable', () => {
     expect(secondPinned.style.left).toBe('60px');
   });
 
+  it('should apply headerAlign as a class on the header cell', async () => {
+    const el = createElement();
+    el.columns = [
+      { key: 'id', header: 'ID' },
+      { key: 'actions', header: 'Actions', headerAlign: 'center' },
+      { key: 'total', header: 'Total', headerAlign: 'end' },
+    ];
+    el.data = [{ id: 1, actions: '', total: 0 }];
+    await el.updateComplete;
+
+    const headers = el.shadowRoot!.querySelectorAll('.ft-header-cell');
+    expect(headers[0].classList.contains('ft-header-align-center')).toBe(false);
+    expect(headers[0].classList.contains('ft-header-align-end')).toBe(false);
+    expect(headers[1].classList.contains('ft-header-align-center')).toBe(true);
+    expect(headers[2].classList.contains('ft-header-align-end')).toBe(true);
+  });
+
   // --- Column Reorder ---
 
   it('should move a column via moveColumn()', async () => {

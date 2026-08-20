@@ -152,6 +152,9 @@ export const flexTableStyles = css`
   .ft-header-cell.ft-sortable { cursor: pointer; }
   .ft-header-cell.ft-sortable:hover { background: var(--ft-header-hover-bg); }
 
+  .ft-header-cell.ft-header-align-center { justify-content: center; }
+  .ft-header-cell.ft-header-align-end { justify-content: flex-end; }
+
   .ft-resize-handle {
     position: absolute;
     right: 0; top: 0; bottom: 0;

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.26.0] - 2026-08-20
+
+### Added
+
+- **`ColumnDefinition.headerAlign`** (`'start' | 'center' | 'end'`, default `'start'`). Header
+  label alignment was previously fixed to the left regardless of how the column's own content is
+  rendered. A column whose `renderer` centers its content (an icon-only action column, for
+  example) had no way to make the header label match, so the two visually drifted apart. Setting
+  `headerAlign: 'center'` (or `'end'`) aligns the header text independently of cell content
+  alignment, which the consumer already fully controls via `renderer`.
+
 ## [0.25.0] - 2026-08-07
 
 ### Added

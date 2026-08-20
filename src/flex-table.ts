@@ -2213,6 +2213,8 @@ export class FlexTable extends LitElement {
       'ft-header-cell',
       sortable ? 'ft-sortable' : '',
       isPinned ? 'ft-pinned' : '',
+      col.headerAlign === 'center' ? 'ft-header-align-center' : '',
+      col.headerAlign === 'end' ? 'ft-header-align-end' : '',
     ].filter(Boolean).join(' ');
 
     const ariaSortValue = sortable
