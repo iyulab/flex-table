@@ -11,6 +11,13 @@ function createElement(): FlexTable {
   return el;
 }
 
+// jsdom's ShadowRoot doesn't implement `adoptedStyleSheets` (it's `undefined`, not an empty
+// array) — real browsers (Chrome/Firefox/Safari 16.4+) do. Skip rather than fake a pass; the
+// merge logic itself was verified manually in a real browser (see flex-table.ts `_syncStylesheets`).
+const supportsAdoptedStyleSheets = Array.isArray(
+  document.createElement('div').attachShadow({ mode: 'open' }).adoptedStyleSheets
+);
+
 describe('FlexTable', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -130,6 +137,43 @@ describe('FlexTable', () => {
     await el.updateComplete;
     const empty = el.shadowRoot!.querySelector('.ft-empty');
     expect(empty!.textContent).toContain('데이터가 없습니다');
+  });
+
+  it.skipIf(!supportsAdoptedStyleSheets)('should adopt a custom stylesheet into the shadow root without dropping the grid\'s own styles', async () => {
+    const el = createElement();
+    await el.updateComplete;
+    const baseCount = el.shadowRoot!.adoptedStyleSheets.length;
+    expect(baseCount).toBeGreaterThan(0);
+
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync('.is-xs { font-size: 11px; }');
+    el.stylesheets = [sheet];
+    await el.updateComplete;
+
+    const adopted = el.shadowRoot!.adoptedStyleSheets;
+    expect(adopted).toHaveLength(baseCount + 1);
+    expect(adopted).toContain(sheet);
+  });
+
+  it.skipIf(!supportsAdoptedStyleSheets)('should swap adopted custom stylesheets when `stylesheets` is reassigned', async () => {
+    const el = createElement();
+    await el.updateComplete;
+    const baseCount = el.shadowRoot!.adoptedStyleSheets.length;
+
+    const sheetA = new CSSStyleSheet();
+    sheetA.replaceSync('.a { color: red; }');
+    el.stylesheets = [sheetA];
+    await el.updateComplete;
+
+    const sheetB = new CSSStyleSheet();
+    sheetB.replaceSync('.b { color: blue; }');
+    el.stylesheets = [sheetB];
+    await el.updateComplete;
+
+    const adopted = el.shadowRoot!.adoptedStyleSheets;
+    expect(adopted).toHaveLength(baseCount + 1);
+    expect(adopted).not.toContain(sheetA);
+    expect(adopted).toContain(sheetB);
   });
 
   it('should handle null/undefined values gracefully', async () => {

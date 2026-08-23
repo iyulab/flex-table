@@ -190,6 +190,16 @@ export class FlexTable extends LitElement {
   @property({ type: Object, attribute: 'footer-data' })
   footerData: Record<string, string | TemplateResult> | null = null;
 
+  /**
+   * Constructable stylesheets adopted into this element's shadow root, in addition to the
+   * grid's own styles. Cell renderers run inside the shadow root, so external document
+   * stylesheets (class-based utilities, design-system CSS) don't reach elements a `renderer`
+   * returns — this is the escape hatch for that. Not an attribute (a `CSSStyleSheet` can't be
+   * serialized to one) — set it as a property.
+   */
+  @property({ attribute: false })
+  stylesheets: CSSStyleSheet[] = [];
+
   @property({ type: Number, attribute: 'max-undo-size' })
   set maxUndoSize(value: number) {
     this._undo.maxSize = value;
@@ -212,6 +222,8 @@ export class FlexTable extends LitElement {
 
   private _colLeftOffsets: number[] = [];
   private _totalRowWidth = 0;
+  /** The grid's own compiled styles, captured once so `stylesheets` merges without dropping them. */
+  private _baseStyleSheets: CSSStyleSheet[] = [];
 
   @state()
   private _activeCell: CellPosition | null = null;
@@ -1135,6 +1147,19 @@ export class FlexTable extends LitElement {
   protected firstUpdated(): void {
     this._readDensityTokens();
     this._measureViewport();
+    // Lit adopts the grid's own compiled styles into the shadow root once, before this runs —
+    // capture that base set now so `stylesheets` can be merged in without ever dropping it.
+    // Environments without constructable-stylesheet support (Lit's `<style>`-tag fallback path)
+    // never populate this, so guard rather than assume an iterable.
+    if (this.shadowRoot && Array.isArray(this.shadowRoot.adoptedStyleSheets)) {
+      this._baseStyleSheets = [...this.shadowRoot.adoptedStyleSheets];
+    }
+    this._syncStylesheets();
+  }
+
+  private _syncStylesheets(): void {
+    if (!this.shadowRoot || !Array.isArray(this.shadowRoot.adoptedStyleSheets)) return;
+    this.shadowRoot.adoptedStyleSheets = [...this._baseStyleSheets, ...this.stylesheets];
   }
 
   /**
@@ -1225,6 +1250,7 @@ export class FlexTable extends LitElement {
     // 크기 변화는 ResizeObserver가 비동기로 처리한다.
     this._focusEditor();
     this._adjustFilterDropdown();
+    if (changedProps.has('stylesheets')) this._syncStylesheets();
     // Update ARIA live attributes — guard against no-op setAttribute calls that
     // can trigger MutationObserver → requestUpdate() in Lit dev mode.
     const rowCount = String(this._visibleRowCount);

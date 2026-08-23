@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.28.0] - 2026-08-23
+
+### Added
+
+- **`stylesheets: CSSStyleSheet[]`** — constructable stylesheets adopted into the grid's shadow
+  root alongside its own styles. A `ColumnDefinition.renderer` returns content that's inserted
+  inside `<flex-table>`'s shadow root, so a class-based utility from the host document's CSS
+  (`.is-xs`, a design-system size variant, anything selector-based rather than a CSS custom
+  property) never reaches it — the class attaches but no rule matches, since document stylesheets
+  don't cross the shadow boundary. Passing the same `CSSStyleSheet` the host document already
+  uses (`document.adoptedStyleSheets`) into this new property closes that gap without copying
+  CSS or reaching into internals. Reassigning `stylesheets` swaps the previously-adopted sheets
+  for the new ones — it doesn't accumulate — and the grid's own styles are never affected either
+  way.
+
 ## [0.27.0] - 2026-08-23
 
 ### Added

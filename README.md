@@ -84,6 +84,9 @@ npm install @iyulab/flex-table
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | Row selection mode |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Client-side or server-side data processing |
 | `footerData` | `footer-data` | `Record<string, string>` | `null` | Footer/summary row data (keys match column keys) |
+| `emptyMessage` | `empty-message` | `string` | `'No data'` | Shown when `data` is empty |
+| `noMatchingMessage` | `no-matching-message` | `string` | `'No matching data'` | Shown when `data` has rows but every one is hidden by an active column filter |
+| `stylesheets` | — | `CSSStyleSheet[]` | `[]` | Constructable stylesheets adopted into the shadow root alongside the grid's own styles — the escape hatch for styling content a `renderer` inserts, since document CSS doesn't cross the shadow boundary. Reassigning swaps the previous set, it doesn't accumulate |
 
 ### Read-only Properties
 
