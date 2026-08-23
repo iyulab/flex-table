@@ -223,6 +223,10 @@ export class FlexTable extends LitElement {
 
   @state()
   private _rowSelectionVersion = 0;
+  /** Anchor row for shift-click range selection on the row checkbox column. */
+  private _lastCheckboxRowIndex: number | null = null;
+  /** Set by the checkbox's own click (which carries shiftKey) just before its change event fires. */
+  private _checkboxShiftPending = false;
 
   @state()
   private _autocompleteState: { candidates: string[]; activeIndex: number } | null = null;
@@ -346,6 +350,28 @@ export class FlexTable extends LitElement {
     this._rowSelection.deselectAll();
     this._rowSelectionVersion++;
     this._dispatchRowSelectionEvent();
+  }
+
+  /**
+   * Selects every currently-loaded row for which `predicate` returns true, in addition to
+   * whatever is already selected — call `deselectAll()` first for a fresh set. Iterates the
+   * visible (post filter/sort) view and resolves each visual row to its underlying data row,
+   * so the predicate always sees the same objects `data` was set with.
+   *
+   * Built for "paste a list of business keys, select the matching rows" flows — e.g. a user
+   * pastes order numbers and the host selects whichever loaded rows match, without the host
+   * needing to know how visual/data indices relate.
+   */
+  selectWhere(predicate: (row: DataRow, dataIndex: number) => boolean): void {
+    if (!this.selectable) return;
+    for (let visualRow = 0; visualRow < this._visibleRowCount; visualRow++) {
+      const dataIndex = this._toDataIndex(visualRow);
+      const row = this.data[dataIndex];
+      if (row !== undefined && predicate(row, dataIndex)) this._rowSelection.select(visualRow);
+    }
+    this._rowSelectionVersion++;
+    this._dispatchRowSelectionEvent();
+    this.requestUpdate();
   }
 
   private _dispatchRowSelectionEvent(): void {
@@ -3619,9 +3645,24 @@ export class FlexTable extends LitElement {
 
   private _onRowCheckboxChange(e: Event, rowIndex: number): void {
     e.stopPropagation();
-    this._rowSelection.toggle(rowIndex);
+    if (this._checkboxShiftPending && this._lastCheckboxRowIndex !== null) {
+      this._rowSelection.selectRange(this._lastCheckboxRowIndex, rowIndex);
+    } else {
+      this._rowSelection.toggle(rowIndex);
+    }
+    this._lastCheckboxRowIndex = rowIndex;
+    this._checkboxShiftPending = false;
     this._rowSelectionVersion++;
     this._dispatchRowSelectionEvent();
+  }
+
+  /**
+   * Captures shiftKey from the checkbox's own click (MouseEvent) — the subsequent native
+   * `change` event does not carry modifier keys. Click always fires before change for a
+   * checkbox input, so this reliably primes `_onRowCheckboxChange` for the same interaction.
+   */
+  private _onRowCheckboxClick(e: MouseEvent): void {
+    this._checkboxShiftPending = e.shiftKey;
   }
 
   private _renderFrozenRows(colStart: number, colEnd: number, pinnedIndices: number[]) {
@@ -3721,6 +3762,7 @@ export class FlexTable extends LitElement {
         style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 36px; height: ${rowH}px; z-index: 2;">
         <input type="checkbox"
           .checked=${isRowSelected}
+          @click=${(e: MouseEvent) => this._onRowCheckboxClick(e)}
           @change=${(e: Event) => this._onRowCheckboxChange(e, index)}>
       </div>
     ` : '';

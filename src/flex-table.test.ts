@@ -3371,6 +3371,132 @@ describe('FlexTable', () => {
     });
   });
 
+  describe('row checkbox shift-click range selection', () => {
+    function makeSelectableEl(rowCount = 5) {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.selectable = true;
+      el.data = Array.from({ length: rowCount }, (_, i) => ({ name: `Row${i}` }));
+      return el;
+    }
+
+    function rowCheckboxes(el: FlexTable): HTMLInputElement[] {
+      return Array.from(el.shadowRoot!.querySelectorAll('.ft-checkbox-cell input[type="checkbox"]'));
+    }
+
+    /**
+     * A dispatched (untrusted) `click` MouseEvent still runs jsdom's native checkbox activation
+     * behavior — it flips `checked` and fires `change` itself. Do NOT also flip `checked`/fire
+     * `change` by hand here; that double-fires the component's change handler and the two
+     * toggles cancel out.
+     */
+    function clickCheckbox(box: HTMLInputElement, opts: { shiftKey?: boolean } = {}) {
+      box.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: opts.shiftKey ?? false }));
+    }
+
+    it('shift-clicking a later row selects the range from the last-clicked row to it', async () => {
+      const el = makeSelectableEl();
+      await el.updateComplete;
+
+      clickCheckbox(rowCheckboxes(el)[1]);
+      await el.updateComplete;
+      expect(el.getSelectedRows().selectedIndices).toEqual([1]);
+
+      clickCheckbox(rowCheckboxes(el)[3], { shiftKey: true });
+      await el.updateComplete;
+      expect(el.getSelectedRows().selectedIndices).toEqual([1, 2, 3]);
+    });
+
+    it('shift-clicking an earlier row selects the range in reverse just as well', async () => {
+      const el = makeSelectableEl();
+      await el.updateComplete;
+
+      clickCheckbox(rowCheckboxes(el)[3]);
+      await el.updateComplete;
+      expect(el.getSelectedRows().selectedIndices).toEqual([3]);
+
+      clickCheckbox(rowCheckboxes(el)[1], { shiftKey: true });
+      await el.updateComplete;
+      expect(el.getSelectedRows().selectedIndices).toEqual([1, 2, 3]);
+    });
+
+    it('a plain click after a shift-range only toggles the clicked row (does not repeat the range)', async () => {
+      const el = makeSelectableEl();
+      await el.updateComplete;
+
+      clickCheckbox(rowCheckboxes(el)[0]);
+      await el.updateComplete;
+      clickCheckbox(rowCheckboxes(el)[2], { shiftKey: true });
+      await el.updateComplete;
+      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1, 2]);
+
+      clickCheckbox(rowCheckboxes(el)[4]);
+      await el.updateComplete;
+      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1, 2, 4]);
+    });
+
+    it('shift-click with no prior anchor (first click on the grid) just toggles that row', async () => {
+      const el = makeSelectableEl();
+      await el.updateComplete;
+
+      clickCheckbox(rowCheckboxes(el)[2], { shiftKey: true });
+      await el.updateComplete;
+      expect(el.getSelectedRows().selectedIndices).toEqual([2]);
+    });
+  });
+
+  describe('selectWhere', () => {
+    function makeSelectableEl() {
+      const el = createElement();
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.selectable = true;
+      el.data = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Carol' }, { name: 'Dave' }];
+      return el;
+    }
+
+    it('selects every row matching the predicate', async () => {
+      const el = makeSelectableEl();
+      await el.updateComplete;
+
+      el.selectWhere(row => (row as { name: string }).name === 'Bob' || (row as { name: string }).name === 'Dave');
+      expect(el.getSelectedRows().selectedIndices).toEqual([1, 3]);
+    });
+
+    it('adds to the existing selection rather than replacing it', async () => {
+      const el = makeSelectableEl();
+      await el.updateComplete;
+
+      el.selectAll();
+      el.deselectAll();
+      el.selectWhere(row => (row as { name: string }).name === 'Alice');
+      expect(el.getSelectedRows().selectedIndices).toEqual([0]);
+
+      el.selectWhere(row => (row as { name: string }).name === 'Carol');
+      expect(el.getSelectedRows().selectedIndices).toEqual([0, 2]);
+    });
+
+    it('is a no-op when the grid is not selectable', async () => {
+      const el = makeSelectableEl();
+      el.selectable = false;
+      await el.updateComplete;
+
+      el.selectWhere(() => true);
+      expect(el.getSelectedRows().selectedIndices).toEqual([]);
+    });
+
+    it('dispatches selection-change with the matched rows', async () => {
+      const el = makeSelectableEl();
+      await el.updateComplete;
+
+      let lastEvent: CustomEvent | undefined;
+      el.addEventListener('selection-change', (e) => { lastEvent = e as CustomEvent; });
+
+      el.selectWhere(row => (row as { name: string }).name === 'Carol');
+      expect(lastEvent?.detail.selectedIndices).toEqual([2]);
+      expect((lastEvent?.detail.selectedRows as { name: string }[])[0].name).toBe('Carol');
+    });
+  });
+
   describe('comment popup', () => {
     function makeEl() {
       const el = createElement();
