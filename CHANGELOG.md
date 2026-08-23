@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.27.0] - 2026-08-23
+
+### Added
+
+- **Shift-click range selection on the row checkbox column** (`selectable` + `selectionMode:
+  'multi'`). Clicking a row's checkbox while holding Shift now selects every row between it and
+  the last row you clicked, matching the row-selection convention used by spreadsheets and file
+  managers. A plain click still just toggles the one row it lands on, and the anchor resets to
+  whichever row you last clicked (shift or not) — the same rules as native cell selection already
+  followed elsewhere in the grid.
+- **`selectWhere(predicate)`** — selects every currently-loaded row for which `predicate(row,
+  dataIndex)` returns true, added to whatever is already selected (call `deselectAll()` first for
+  a fresh set). Built for "the user pastes a list of keys, select the matching rows" flows: the
+  host doesn't need to reason about visual-vs-data row indices or virtualization — it gets the
+  same row objects `data` was set with.
+- **`emptyMessage` / `noMatchingMessage`** — the text shown in the empty state (`data` is empty,
+  or every row is hidden by an active column filter) was previously hardcoded to `'No data'` /
+  `'No matching data'` with no way to override it. Any consumer localizing their UI, or wanting a
+  more specific message ("no orders yet — create one"), had to reimplement the empty state
+  themselves. Both now default to the same English strings for backward compatibility, and can be
+  overridden as string properties/attributes (`empty-message`, `no-matching-message`).
+
 ## [0.26.0] - 2026-08-20
 
 ### Added

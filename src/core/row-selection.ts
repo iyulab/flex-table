@@ -90,4 +90,22 @@ export class RowSelectionState {
   deselectAll(): void {
     this._selected.clear();
   }
+
+  /**
+   * Selects every index between from and to, inclusive, in either direction.
+   * Used for shift-click range selection anchored at the last toggled row.
+   * Single mode: only the endpoint (to) ends up selected, matching toggle()'s
+   * "one at a time" semantics — a range doesn't make sense with one slot.
+   */
+  selectRange(from: number, to: number): void {
+    if (this._mode === 'single') {
+      this.select(to);
+      return;
+    }
+    const start = Math.min(from, to);
+    const end = Math.max(from, to);
+    for (let i = start; i <= end; i++) {
+      if (i >= 0 && i < this._rowCount) this._selected.add(i);
+    }
+  }
 }
