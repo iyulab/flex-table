@@ -122,6 +122,16 @@ describe('FlexTable', () => {
     expect(empty!.textContent).toContain('No data');
   });
 
+  it('should show a custom emptyMessage instead of "No data"', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.emptyMessage = '데이터가 없습니다';
+    el.data = [];
+    await el.updateComplete;
+    const empty = el.shadowRoot!.querySelector('.ft-empty');
+    expect(empty!.textContent).toContain('데이터가 없습니다');
+  });
+
   it('should handle null/undefined values gracefully', async () => {
     const el = createElement();
     el.columns = [{ key: 'name', header: 'Name' }];
@@ -432,6 +442,20 @@ describe('FlexTable', () => {
     const empty = el.shadowRoot!.querySelector('.ft-empty');
     expect(empty).toBeTruthy();
     expect(empty!.textContent).toContain('No matching data');
+  });
+
+  it('should show a custom noMatchingMessage instead of "No matching data"', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    el.noMatchingMessage = '조건에 맞는 데이터가 없습니다';
+    await el.updateComplete;
+
+    el.setFilter('name', () => false);
+    await el.updateComplete;
+
+    const empty = el.shadowRoot!.querySelector('.ft-empty');
+    expect(empty!.textContent).toContain('조건에 맞는 데이터가 없습니다');
   });
 
   it('should restore data with removeFilter()', async () => {

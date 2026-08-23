@@ -15,6 +15,12 @@
   a fresh set). Built for "the user pastes a list of keys, select the matching rows" flows: the
   host doesn't need to reason about visual-vs-data row indices or virtualization — it gets the
   same row objects `data` was set with.
+- **`emptyMessage` / `noMatchingMessage`** — the text shown in the empty state (`data` is empty,
+  or every row is hidden by an active column filter) was previously hardcoded to `'No data'` /
+  `'No matching data'` with no way to override it. Any consumer localizing their UI, or wanting a
+  more specific message ("no orders yet — create one"), had to reimplement the empty state
+  themselves. Both now default to the same English strings for backward compatibility, and can be
+  overridden as string properties/attributes (`empty-message`, `no-matching-message`).
 
 ## [0.26.0] - 2026-08-20
 

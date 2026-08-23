@@ -145,6 +145,17 @@ export class FlexTable extends LitElement {
   @property({ type: Number, attribute: 'frozen-rows' })
   frozenRows: number = 0;
 
+  /** Message shown when `data` is empty (no rows at all). Default: 'No data'. */
+  @property({ type: String, attribute: 'empty-message' })
+  emptyMessage: string = 'No data';
+
+  /**
+   * Message shown when `data` has rows but every one is hidden by the active
+   * column filters (0 visible rows, non-empty `data`). Default: 'No matching data'.
+   */
+  @property({ type: String, attribute: 'no-matching-message' })
+  noMatchingMessage: string = 'No matching data';
+
   /**
    * True일 때 그리드 위에 로딩 오버레이를 표시하고 host에 `aria-busy="true"`를 반영한다.
    * `useODataSource()`가 반환하는 `loading`과 자연 연동하도록 설계됨:
@@ -3586,7 +3597,7 @@ export class FlexTable extends LitElement {
       : '';
 
     if (this.data.length === 0 || this._visibleRowCount === 0) {
-      const msg = this.data.length === 0 ? 'No data' : 'No matching data';
+      const msg = this.data.length === 0 ? this.emptyMessage : this.noMatchingMessage;
       return html`
         ${loadingOverlay}
         <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
