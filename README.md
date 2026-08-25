@@ -306,6 +306,7 @@ flex-table {
   --ft-row-even-bg: #fff;            /* --u-bg-color */
   --ft-row-odd-bg: #fafafa;          /* --u-bg-color-raised */
   --ft-row-hover-bg: #f0f4ff;        /* --u-bg-color-hover */
+  --ft-row-odd-hover-bg: #f0f4ff;    /* --u-bg-color-raised-hover — odd row's hover, independent of --ft-row-hover-bg */
   --ft-editor-bg: #fff;              /* --u-input-bg-color */
   --ft-sort-indicator-color: #5f6368;/* --u-txt-color-weak */
   --ft-empty-color: #5f6368;         /* --u-txt-color-weak */
