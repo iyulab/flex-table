@@ -1,2 +1,2 @@
-export { useODataSource } from './use-odata-source.js';
+export { useODataSource, buildSearchExpression, parseOrderBy } from './use-odata-source.js';
 export type { UseODataSourceOptions, UseODataSourceResult } from './types.js';

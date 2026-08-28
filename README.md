@@ -606,6 +606,16 @@ The hook returns:
 
 Terms are always quoted because OData 4.0 only allows letters in an unquoted `searchWord`, so `2026` or `ZT-E2E-A` would be rejected by servers that follow it (4.01 relaxed this, but [Microsoft.OData still lexes as 4.0](https://github.com/OData/odata.net/issues/2445)). Quoting keeps any term valid regardless of server version. Since a `$search` phrase cannot contain `"` and OData defines no escape for it, double quotes are stripped from the term.
 
+The quoting/escaping logic above is also available standalone as `buildSearchExpression(term)`, for consumers that need the same `$search` encoding without the pagination hook (e.g. a typeahead/combobox that isn't a table). `parseOrderBy(orderBy)` (`'a asc, b desc'` → `SortCriteria[]`) is exported the same way, for consumers driving a sort UI that isn't `useODataSource` either:
+
+```ts
+import { buildSearchExpression, parseOrderBy } from '@iyulab/flex-table/odata';
+
+buildSearchExpression('red shirt'); // '"red" AND "shirt"'
+buildSearchExpression('');          // undefined
+parseOrderBy('name desc');          // [{ key: 'name', direction: 'desc' }]
+```
+
 ## Development
 
 ```bash
