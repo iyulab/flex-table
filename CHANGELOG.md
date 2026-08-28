@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.30.0] - 2026-08-28
+
+### Added
+
+- **`buildSearchExpression` and `parseOrderBy` are now exported from
+  `./odata`.** Both were already implemented as pure, tested functions used
+  internally by `useODataSource`, but the public barrel only re-exported
+  the hook itself. A consumer needing the same `$search`/`$orderby`
+  encoding without the pagination hook (a typeahead, a standalone sort
+  control) had to reimplement the OData 4.0 search-quoting workaround
+  from scratch.
+
 ## [0.29.0] - 2026-08-28
 
 ### Added
