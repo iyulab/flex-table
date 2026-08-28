@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.29.0] - 2026-08-28
+
+### Added
+
+- **`row-activate` event, fired on Enter for a non-editable cell.** The internal
+  keydown handler always consumed Enter/F2 regardless of a column's editability,
+  so a host attaching its own `keydown` listener to the grid had no reliable way
+  to react to Enter in a read-only grid (registration order dependent). Enter on
+  a non-editable cell now dispatches `row-activate` (`{ row, index, col, key }`)
+  instead of attempting to start an edit — mirroring the existing `row-add`/
+  `row-delete` detail shape. F2 is unaffected (edit-only key). Mapped through to
+  the React wrapper as `onRowActivate`.
+
 ## [0.28.0] - 2026-08-23
 
 ### Added
