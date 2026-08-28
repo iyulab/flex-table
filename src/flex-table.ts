@@ -1488,6 +1488,24 @@ export class FlexTable extends LitElement {
     return true;
   }
 
+  /**
+   * Enter가 non-editable 셀에서 눌렸을 때 "이 행을 확정한다"는 신호를 호스트에
+   * 공식적으로 알린다. 그리드가 자체 `keydown` 핸들러에서 Enter를 먼저 처리하므로,
+   * 호스트가 같은 엘리먼트에 직접 붙인 리스너는 등록 순서에 의존하게 되어 안전한
+   * 공개 계약이 못 된다 — 이 이벤트가 유일한 보장된 훅이다.
+   */
+  private _fireRowActivate(col: ColumnDefinition | undefined): void {
+    if (!this._activeCell) return;
+    const dataIndex = this._toDataIndex(this._activeCell.row);
+    const row = this.data[dataIndex];
+    if (!row) return;
+    this.dispatchEvent(new CustomEvent('row-activate', {
+      detail: { row, index: dataIndex, col: this._activeCell.col, key: col?.key },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   private _startEdit(): void {
     if (!this._activeCell) return;
     const cols = this.visibleColumns;
@@ -1728,10 +1746,15 @@ export class FlexTable extends LitElement {
 
     if (cols.length === 0 || this._visibleRowCount === 0) return;
 
-    // Enter/F2 to start editing
+    // Enter/F2 to start editing; Enter on a non-editable cell fires `row-activate` instead
     if ((e.key === 'Enter' || e.key === 'F2') && this._activeCell) {
       e.preventDefault();
-      this._startEdit();
+      const col = cols[this._activeCell.col];
+      if (col && this._isCellEditable(col)) {
+        this._startEdit();
+      } else if (e.key === 'Enter') {
+        this._fireRowActivate(col);
+      }
       return;
     }
 

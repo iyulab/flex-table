@@ -16,6 +16,7 @@ const FlexTableReactBase = createComponent({
     onFilterChange: 'filter-change' as EventName<CustomEvent>,
     onRowAdd: 'row-add' as EventName<CustomEvent>,
     onRowDelete: 'row-delete' as EventName<CustomEvent>,
+    onRowActivate: 'row-activate' as EventName<CustomEvent>,
     onColumnResize: 'column-resize' as EventName<CustomEvent>,
     onColumnSelect: 'column-select' as EventName<CustomEvent>,
     onColumnAdd: 'column-add' as EventName<CustomEvent>,

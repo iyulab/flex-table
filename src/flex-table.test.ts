@@ -727,6 +727,92 @@ describe('FlexTable', () => {
     expect(cells[0].textContent).toContain('Alice');
   });
 
+  // --- row-activate (Enter on a non-editable cell) ---
+
+  it('should fire row-activate on Enter when editable=false, instead of entering edit mode', async () => {
+    const el = createElement();
+    el.editable = false;
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    let detail: any = null;
+    el.addEventListener('row-activate', ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
+
+    const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
+    cell.click();
+    await el.updateComplete;
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await el.updateComplete;
+
+    expect(el.editingCell).toBeNull();
+    expect(detail).toEqual({ row: { name: 'Alice' }, index: 0, col: 0, key: 'name' });
+  });
+
+  it('should fire row-activate on Enter for a per-column non-editable cell', async () => {
+    const el = createElement();
+    el.columns = [
+      { key: 'name', header: 'Name', editable: false },
+      { key: 'age', header: 'Age', type: 'number', editable: true },
+    ];
+    el.data = [{ name: 'Alice', age: 30 }];
+    await el.updateComplete;
+
+    let detail: any = null;
+    el.addEventListener('row-activate', ((e: CustomEvent) => { detail = e.detail; }) as EventListener);
+
+    const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
+    cell.click();
+    await el.updateComplete;
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await el.updateComplete;
+
+    expect(detail).toEqual({ row: { name: 'Alice', age: 30 }, index: 0, col: 0, key: 'name' });
+  });
+
+  it('should NOT fire row-activate on Enter for an editable cell (starts editing instead)', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    let fired = false;
+    el.addEventListener('row-activate', () => { fired = true; });
+
+    const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
+    cell.click();
+    await el.updateComplete;
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await el.updateComplete;
+
+    expect(fired).toBe(false);
+    expect(el.editingCell).not.toBeNull();
+  });
+
+  it('should NOT fire row-activate on F2 for a non-editable cell', async () => {
+    const el = createElement();
+    el.editable = false;
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    let fired = false;
+    el.addEventListener('row-activate', () => { fired = true; });
+
+    const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
+    cell.click();
+    await el.updateComplete;
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2' }));
+    await el.updateComplete;
+
+    expect(fired).toBe(false);
+    expect(el.editingCell).toBeNull();
+  });
+
   // --- maxRows Limit ---
 
   it('should prevent addRow when maxRows is reached', async () => {

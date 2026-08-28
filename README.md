@@ -76,7 +76,7 @@ npm install @iyulab/flex-table
 | `rowHeight` | `row-height` | `number` | `32` | Row height in pixels. Falls back to the `--ft-row-height` token when not set — see [Density](#density-and-header-hierarchy) |
 | `showRowNumbers` | `show-row-numbers` | `boolean` | `false` | Show row number column |
 | `theme` | `theme` | `'light' \| 'dark'` | auto | Force theme; auto-detects `prefers-color-scheme` |
-| `editable` | `editable` | `boolean` | `true` | Global read-only mode when `false` |
+| `editable` | `editable` | `boolean` | `true` | Global read-only mode when `false`. Defaults to `true` — a purely read-only grid should set this explicitly rather than relying on per-column `editable: false` alone, since it's also what makes Enter fire `row-activate` (see [Events](#events)) instead of entering edit mode |
 | `showFilters` | `show-filters` | `boolean` | `false` | Show built-in header filter dropdowns |
 | `maxRows` | `max-rows` | `number` | `0` | Max row count (0 = unlimited); blocks `addRow()` and paste expansion |
 | `maxUndoSize` | `max-undo-size` | `number` | `100` | Max undo history stack size |
@@ -234,6 +234,7 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 |-------|--------|-------------|
 | `row-add` | `{ row, index }` | Row added |
 | `row-delete` | `{ indices, rows }` | Rows deleted |
+| `row-activate` | `{ row, index, col, key }` | Enter pressed on a non-editable cell — the grid's own contract for "activate this row" (e.g. navigate to a detail view), guaranteed even though the internal Enter handler prevents the keystroke from reliably reaching a listener the host attaches to the same element |
 | `batch-update` | `{ changes: [{ row, key, oldValue, newValue }] }` | Batch update applied |
 
 ### Column Events
