@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.31.1] - 2026-09-01
+
+### Fixed
+
+- **`0.31.0`'s release pipeline never actually published to npm** — the repo's
+  `preversion` guard script assumed a monorepo layout this repo doesn't have,
+  so the workflow's own version-sync step failed before publishing. No package
+  code changed; this release exists to get `0.31.0`'s content onto the
+  registry with a working pipeline.
+
 ## [0.31.0] - 2026-08-31
 
 ### Added
