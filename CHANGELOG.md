@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.31.0] - 2026-08-31
+
+### Added
+
+- **`useArraySource`, a client-array sibling to `useODataSource`.** `useODataSource`
+  is server-mode only, so a lookup table needing a client-side join (a display
+  field living on a different endpoint than the row) had no library-level path
+  and required reimplementing filter/sort/pagination by hand. `useArraySource`
+  returns the exact same shape (`data`/`totalCount`/`loading`/`error`/`page`/
+  `setPage`/`sortCriteria`/`onSortChange`/`search`/`setSearch`/`refresh`) driven
+  off a local array instead of a fetch, so the same `<FlexTableReact
+  dataMode="server" ...>` binding code works with either source. Sorting reuses
+  the grid's own `computeSortedIndices` for value-aware (not string) comparison.
+  New `./array` subpath export, mirroring `./odata`'s shape.
+
 ## [0.30.0] - 2026-08-28
 
 ### Added
