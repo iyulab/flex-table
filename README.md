@@ -616,6 +616,43 @@ buildSearchExpression('');          // undefined
 parseOrderBy('name desc');          // [{ key: 'name', direction: 'desc' }]
 ```
 
+### Array Source Hook (React)
+
+`useArraySource(data, options)` runs search/sort/pagination over an in-memory array and
+returns the **same shape** as `useODataSource` — `data`/`totalCount`/`loading`/`error`/
+`page`/`setPage`/`sortCriteria`/`onSortChange`/`search`/`setSearch`/`refresh` — so the
+same `<FlexTableReact dataMode="server" ...>` binding code works with either source.
+
+Reach for this when the rows come from a client-side join a server query can't express —
+e.g. a lookup table whose display name lives on a different endpoint than the row itself,
+so search/sort has to run after the join, in memory:
+
+```tsx
+import { useArraySource } from '@iyulab/flex-table/array';
+
+const joined = useMemo(
+  () => seasonPrices.map(p => ({ ...p, productName: productsById[p.productId]?.name ?? '' })),
+  [seasonPrices, productsById]
+);
+
+const source = useArraySource(joined, {
+  pageSize: 20,
+  columns, // pass the same ColumnDefinition[] used by <FlexTableReact> for value-aware sort
+});
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `pageSize` | `20` | Rows per page |
+| `defaultOrderBy` | — | Initial sort (e.g. `'name asc'`), same syntax as `useODataSource` |
+| `columns` | — | `ColumnDefinition[]` — enables value-aware sort (numbers/dates/booleans compared by value, not as text). Omit and every column sorts as text. |
+| `searchFields` | all values | `(row) => value[]` — narrows or widens what free-text search matches; the default searches every property on the row, including client-joined ones |
+
+The returned fields mean the same thing as `useODataSource`'s, except `totalCount` is the
+count after search (not a server-reported total), and `loading`/`error` are always
+`false`/`null` — there's no request to fail. `refresh` is a no-op kept only so a
+"refresh" button wired unconditionally against either hook doesn't need a branch.
+
 ## Development
 
 ```bash

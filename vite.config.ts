@@ -8,6 +8,7 @@ export default defineConfig({
         'flex-table': resolve(__dirname, 'src/index.ts'),
         'react': resolve(__dirname, 'src/react.ts'),
         'odata/index': resolve(__dirname, 'src/odata/index.ts'),
+        'array/index': resolve(__dirname, 'src/array/index.ts'),
       },
       formats: ['es'],
     },

@@ -18,6 +18,10 @@
     "./odata": {
       "types": "./dist/odata/index.d.ts",
       "import": "./dist/odata/index.js"
+    },
+    "./array": {
+      "types": "./dist/array/index.d.ts",
+      "import": "./dist/array/index.js"
     }
   },
   "sideEffects": [
