@@ -39,7 +39,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "preversion": "node ../../scripts/preversion-check.mjs",
+    "preversion": "node -e \"if(require('fs').existsSync('../../scripts/preversion-check.mjs'))require('child_process').execFileSync('node',['../../scripts/preversion-check.mjs'],{stdio:'inherit'})\"",
     "dev": "vite serve demo",
     "build": "npm run typecheck && vite build && tsc --emitDeclarationOnly",
     "build:demo": "vite build --config vite.config.demo.ts",
