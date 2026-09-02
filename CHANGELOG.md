@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.2] - 2026-09-02
+
+### Fixed
+
+- **`ColumnDefinition`'s README reference was missing three real, shipped
+  fields**: `headerAlign` (per-column header alignment, added in a later
+  commit than the rest of the snippet), `options`/`autocomplete` (select-type
+  columns and autocomplete editing, since `0.13.0`). The `select` value of
+  `ColumnType` was also missing from its inline comment. None of these had
+  any mention anywhere in the README — a consumer had no way to discover
+  select columns or autocomplete existed short of reading the source.
+
 ## [0.31.1] - 2026-09-01
 
 ### Fixed
