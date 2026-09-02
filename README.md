@@ -107,13 +107,16 @@ npm install @iyulab/flex-table
 interface ColumnDefinition {
   key: string;             // Unique key matching data property names
   header: string;          // Display header text
-  type?: ColumnType;       // 'text' | 'number' | 'boolean' | 'date' | 'datetime'
-  width?: number;          // Column width in pixels (default: 120)
+  type?: ColumnType;       // 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'select' (any other string falls back to 'text')
+  width?: number;          // Column width in pixels (default: auto)
   minWidth?: number;       // Minimum width in pixels (default: 40, enforced in rendering)
   hidden?: boolean;        // Hide column from view
   sortable?: boolean;      // Enable sorting (default: true)
+  headerAlign?: 'start' | 'center' | 'end'; // Header label alignment (default: 'start'), independent of cell content alignment
   editable?: boolean;      // Per-column edit control (follows global editable)
   pinned?: 'left' | 'right'; // Freeze column during horizontal scroll
+  options?: string[] | SelectOption[]; // Allowed values for type: 'select' (SelectOption = { label, value })
+  autocomplete?: boolean | 'strict'; // Suggest existing column values while editing; 'strict' rejects values not in the list
   format?: string | ((value, row, col) => string); // Display format, see "format vs renderer" below
   renderer?: CellRenderer; // Custom cell render: (value, row, col) => TemplateResult | string
   editor?: CellEditor;     // Custom cell editor: (value, row, col) => TemplateResult
