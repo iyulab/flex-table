@@ -2270,6 +2270,27 @@ describe('FlexTable', () => {
       expect(events).toHaveLength(1);
       expect(events[0].detail.from).toBe(0);
     });
+
+    it('does not re-select the row when the browser synthesizes a click after a real row-drag reorder', async () => {
+      const el = createElement();
+      el.showRowNumbers = true;
+      el.columns = [{ key: 'name', header: 'Name' }];
+      el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
+      await el.updateComplete;
+
+      const events: CustomEvent[] = [];
+      el.addEventListener('cell-select', e => events.push(e as CustomEvent));
+
+      const rowNums = el.shadowRoot!.querySelectorAll('.ft-row-num') as NodeListOf<HTMLElement>;
+      rowNums[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientY: 10 }));
+      // dy > 5 activates the drag (same threshold used by the column-drag reorder above)
+      document.dispatchEvent(new MouseEvent('mousemove', { clientY: 40 }));
+      document.dispatchEvent(new MouseEvent('mouseup', { clientY: 40 }));
+      rowNums[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await el.updateComplete;
+
+      expect(events).toHaveLength(0);
+    });
   });
 
   describe('fill handle', () => {

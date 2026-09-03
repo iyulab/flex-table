@@ -272,6 +272,9 @@ export class FlexTable extends LitElement {
    * suppress the browser's synthetic click that follows mouseup (same pattern as `_wasDrag` for
    * cell-selection drags below). */
   private _wasHeaderDrag = false;
+  /** Same as `_wasHeaderDrag`, for the row-number gutter's real row-drag reorder vs. its own
+   * `click`-to-select-row listener. */
+  private _wasRowDrag = false;
   private _colDrag: {
     col: ColumnDefinition;
     colIndex: number;
@@ -1462,6 +1465,11 @@ export class FlexTable extends LitElement {
   }
 
   private _onRowNumberClick(rowIndex: number): void {
+    // Synthetic click following a real row-drag reorder — not a select intent.
+    if (this._wasRowDrag) {
+      this._wasRowDrag = false;
+      return;
+    }
     if (this._editing.current) {
       this._commitEdit();
     }
@@ -3329,7 +3337,10 @@ export class FlexTable extends LitElement {
     const onMouseUp = () => {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
-      if (this._rowDrag?.active) this._finishRowDrag();
+      if (this._rowDrag?.active) {
+        this._wasRowDrag = true;
+        this._finishRowDrag();
+      }
       if (this._rowDrag?.ghost) this._rowDrag.ghost.remove();
       this._rowDrag = null;
       this._rowDragIndicatorY = null;
