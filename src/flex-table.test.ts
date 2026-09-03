@@ -1513,6 +1513,61 @@ describe('FlexTable', () => {
     expect(handles.length).toBe(2);
   });
 
+  describe('header click suppression after resize/column-drag', () => {
+    it('does not toggle sort when the browser synthesizes a click after a resize drag', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'a', header: 'A' }];
+      el.data = [{ a: '1' }];
+      await el.updateComplete;
+
+      const handle = el.shadowRoot!.querySelector('.ft-resize-handle') as HTMLElement;
+      handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 100 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 130 }));
+      document.dispatchEvent(new MouseEvent('mouseup', { clientX: 130 }));
+      // The browser fires a synthetic `click` on the element under the pointer after mouseup;
+      // it is not stopped by the resize handle's mousedown stopPropagation() and bubbles to the
+      // header cell that owns the sort `@click` listener.
+      handle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await el.updateComplete;
+
+      expect(el.sortCriteria).toEqual([]);
+      expect(el.shadowRoot!.querySelector('.ft-sort-indicator')).toBeNull();
+    });
+
+    it('does not toggle sort when the browser synthesizes a click after a real column-drag reorder', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'a', header: 'A' }, { key: 'b', header: 'B' }];
+      el.data = [{ a: '1', b: '2' }];
+      await el.updateComplete;
+
+      const header = el.shadowRoot!.querySelector('.ft-header-cell') as HTMLElement;
+      header.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 10 }));
+      // dx > 5 activates the drag (vs. a plain click, which never crosses this threshold)
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 40 }));
+      document.dispatchEvent(new MouseEvent('mouseup', { clientX: 40 }));
+      header.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await el.updateComplete;
+
+      expect(el.sortCriteria).toEqual([]);
+      expect(el.shadowRoot!.querySelector('.ft-sort-indicator')).toBeNull();
+    });
+
+    it('still sorts on a plain click that never became a drag', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'a', header: 'A' }];
+      el.data = [{ a: '1' }];
+      await el.updateComplete;
+
+      const header = el.shadowRoot!.querySelector('.ft-header-cell') as HTMLElement;
+      header.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 10 }));
+      document.dispatchEvent(new MouseEvent('mouseup', { clientX: 10 }));
+      header.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await el.updateComplete;
+
+      expect(el.sortCriteria).toEqual([{ key: 'a', direction: 'asc' }]);
+    });
+  });
+
   // --- aria-selected ---
 
   it('should set aria-selected on active cell', async () => {

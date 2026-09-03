@@ -268,6 +268,10 @@ export class FlexTable extends LitElement {
   private _wasDrag = false;
   private _resizing: { colIndex: number; startX: number; startWidth: number } | null = null;
   private _resizeCleanup: (() => void) | null = null;
+  /** Set by a resize or a real column-drag reorder; consumed once by the next header `click` to
+   * suppress the browser's synthetic click that follows mouseup (same pattern as `_wasDrag` for
+   * cell-selection drags below). */
+  private _wasHeaderDrag = false;
   private _colDrag: {
     col: ColumnDefinition;
     colIndex: number;
@@ -2208,6 +2212,12 @@ export class FlexTable extends LitElement {
   // --- Sorting ---
 
   private _onHeaderClick(e: MouseEvent, col: ColumnDefinition): void {
+    // Synthetic click following a resize or column-drag mouseup — not a sort intent.
+    if (this._wasHeaderDrag) {
+      this._wasHeaderDrag = false;
+      return;
+    }
+
     const colIndex = this.visibleColumns.indexOf(col);
 
     // Ctrl+Click or Meta+Click → column selection
@@ -2367,7 +2377,7 @@ export class FlexTable extends LitElement {
           </button>
         ` : ''}
         <div class="ft-resize-handle"
-          @mousedown=${(e: MouseEvent) => { e.stopPropagation(); this._onResizeStart(e, colIndex); }}
+          @mousedown=${(e: MouseEvent) => { e.stopPropagation(); this._wasHeaderDrag = true; this._onResizeStart(e, colIndex); }}
           @dblclick=${(e: MouseEvent) => this._onResizeAutoFit(e, colIndex)}></div>
       </div>
       ${this._openFilterKey === col.key ? this._renderFilterDropdown(col) : ''}
@@ -3062,6 +3072,7 @@ export class FlexTable extends LitElement {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
       if (this._colDrag?.active) {
+        this._wasHeaderDrag = true;
         this._finishColumnDrag();
       }
       if (this._colDrag?.ghost) {
