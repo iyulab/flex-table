@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.5] - 2026-09-04
+
+### Fixed
+
+- **`0.31.3` and `0.31.4` both failed to reach npm for the same reason**: the
+  publish and demo-deploy workflows pinned Node 22, and npm's dependency
+  resolver crashes with a null-pointer error during a lockfile-less install
+  on that runner (this repo doesn't commit a `package-lock.json`) — the CI
+  workflow, which already runs Node 24, never hit it. Both workflows now run
+  Node 24 to match CI. No package code changed; this release exists to get
+  `0.31.3`'s content onto the registry with a working pipeline.
+
 ## [0.31.4] - 2026-09-04
 
 ### Fixed
