@@ -1,6 +1,6 @@
 {
   "name": "@iyulab/flex-table",
-  "version": "0.31.2",
+  "version": "0.31.3",
   "description": "A minimalist, input-centric data grid web component",
   "type": "module",
   "main": "./dist/flex-table.js",
