@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.31.3] - 2026-09-04
+
+### Fixed
+
+- **Header resize/reorder drag and row-number drag reorder could spuriously
+  toggle column sort or extend row selection on drop.** A native `click`
+  event the browser synthesizes after `mouseup` bubbles to the header
+  cell's own sort listener (or the row-number cell's select listener)
+  even though `stopPropagation()` on the drag handle's `mousedown` had
+  already fired — that call only blocks the `mousedown` itself, not the
+  separate `click` that follows. Both interactions now track whether the
+  gesture that just ended was a genuine resize/drag and skip the next
+  click when it was.
+
 ## [0.31.2] - 2026-09-02
 
 ### Fixed
