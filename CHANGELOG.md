@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.4] - 2026-09-04
+
+### Fixed
+
+- **`0.31.3`'s release pipeline never actually published to npm** — the
+  publish step's `npm install` crashed with a null-pointer error inside
+  npm's own dependency-resolution engine, unrelated to this package's
+  dependency graph (the lockfile is byte-for-byte unchanged from the prior,
+  successfully published `0.31.2`, and two separate retries reproduced the
+  identical crash). No package code changed; this release exists to get
+  `0.31.3`'s content onto the registry with a working pipeline.
+
 ## [0.31.3] - 2026-09-04
 
 ### Fixed
