@@ -46,7 +46,20 @@ export function computeArrayView<T extends DataRow>(
   }
 
   const totalCount = sorted.length;
-  const start = page * pageSize;
+  /*
+   * 🔴**페이지가 결과 집합을 넘어서면 마지막 유효 페이지로 클램프한다.**
+   * 배열 소스에서 「좁히기」의 실제 형태는 소비자가 상위에서 `rows.filter(...)` 한 **더 짧은
+   * 배열을 넘기는 것**이다. 클램프가 없으면 `slice` 가 결과 집합 밖을 가리켜 **행은 하나도
+   * 없는데 `totalCount` 는 0이 아닌** 상태가 화면에 나온다.
+   *
+   * ⚠**`useODataSource` 의 `fixedFilter` 리셋과 처방이 다르다.** 거기서는 «바뀌면 0페이지로»
+   * 가 맞지만(소비자가 쿼리를 명시적으로 바꾼 것이다), `data` 는 routine refresh·polling
+   * 으로도 바뀌므로 같은 규칙을 쓰면 **보던 페이지가 이유 없이 튄다.** 클램프는 범위를 넘을
+   * 때만 움직이므로 그 오작동이 없다.
+   */
+  const lastPage = totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize) - 1;
+  const safePage = Math.min(Math.max(page, 0), lastPage);
+  const start = safePage * pageSize;
   return { data: sorted.slice(start, start + pageSize), totalCount };
 }
 
@@ -106,6 +119,24 @@ export function useArraySource<T extends DataRow = DataRow>(
     () => computeArrayView(data, { search, sortCriteria, page, pageSize, columns, searchFields }),
     [data, search, sortCriteria, page, pageSize, columns, searchFields]
   );
+
+  /**
+   * 계산된 `totalCount` 기준으로 `page` **상태**도 같이 되돌린다.
+   *
+   * `computeArrayView` 만 클램프하면 «보이는 행»은 맞지만 훅이 돌려주는 `page` 는 범위를
+   * 넘은 값 그대로라, 페이저가 **존재하지 않는 페이지를 강조**한다(그 자리를 눌러도 아무
+   * 일이 일어나지 않는다). 표시와 상태가 갈라지는 것이 이 조정을 두는 이유다.
+   *
+   * ⚠**effect 가 아니라 렌더 중 조정이다** — `useODataSource` 의 `fixedFilter` 리셋과 같은
+   * 근거(React `you-might-not-need-an-effect`). 여기서는 요청이 없어 낭비 요청 문제는
+   * 없지만, effect 로 하면 한 프레임 동안 페이저가 틀린 페이지를 강조한 뒤 튄다.
+   *
+   * ⚠**루프하지 않는다** — 조정은 `page` 를 항상 **낮추기만** 하고 `lastPage` 에서 멈춘다.
+   */
+  const lastPage = totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize) - 1;
+  if (page > lastPage) {
+    setPage(lastPage);
+  }
 
   return {
     data: pageData,

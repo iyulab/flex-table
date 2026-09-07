@@ -120,3 +120,44 @@ describe('computeArrayView — 페이지', () => {
     expect(result.data.length).toBe(1);
   });
 });
+
+describe('computeArrayView — 페이지 범위 초과', () => {
+  /**
+   * 🔴**데이터가 줄면 빈 목록이 나온다.** 배열 소스에서 「필터를 좁히는」 것의 실제 형태는
+   * 소비자가 상위에서 `rows.filter(...)` 한 **더 짧은 배열을 넘기는 것**이다. 그때 `page`
+   * 는 그대로라 `slice(page * pageSize, …)` 가 결과 집합 밖을 가리키고, 화면에는
+   * **행이 하나도 없는데 `totalCount` 는 0이 아닌** 상태가 나온다.
+   *
+   * ⚠**처방이 `useODataSource` 의 `fixedFilter` 리셋과 다르다**: `data` 는 routine
+   * refresh/polling 으로도 바뀌므로 «바뀌면 0페이지로» 는 과잉이다(사용자가 보던 페이지가
+   * 이유 없이 튄다). 여기서는 **마지막 유효 페이지로 클램프**한다.
+   */
+  const MANY = Array.from({ length: 45 }, (_, i) => ({ id: i, name: `row ${i}` }));
+
+  it('페이지가 결과 집합을 넘어서면 마지막 유효 페이지를 돌려준다', () => {
+    const result = computeArrayView(MANY.slice(0, 5), { ...BASE, page: 4, pageSize: 10 });
+    // 5행 / 10행씩 = 마지막 페이지는 0
+    expect(result.totalCount).toBe(5);
+    expect(result.data).toHaveLength(5);
+  });
+
+  it('마지막 페이지가 0이 아닌 경우에도 그 페이지를 돌려준다', () => {
+    const result = computeArrayView(MANY, { ...BASE, page: 99, pageSize: 20 });
+    // 45행 / 20행씩 = 페이지 0,1,2 — 마지막은 2 (5행)
+    expect(result.totalCount).toBe(45);
+    expect(result.data).toHaveLength(5);
+    expect(result.data[0]).toEqual({ id: 40, name: 'row 40' });
+  });
+
+  it('결과가 0건이면 빈 배열 (클램프할 페이지가 없다)', () => {
+    const result = computeArrayView([], { ...BASE, page: 3, pageSize: 10 });
+    expect(result.totalCount).toBe(0);
+    expect(result.data).toEqual([]);
+  });
+
+  it('범위 안의 페이지는 종전과 똑같이 동작한다', () => {
+    const result = computeArrayView(MANY, { ...BASE, page: 1, pageSize: 20 });
+    expect(result.data).toHaveLength(20);
+    expect(result.data[0]).toEqual({ id: 20, name: 'row 20' });
+  });
+});

@@ -587,12 +587,25 @@ const source = useODataSource('/api/orders', {
 | `initialPage` | `0` | Initial page, **zero-based** — the same axis as the returned `page`/`setPage`, and `$skip` is `page * pageSize` |
 | `initialSearch` | `''` | Initial search term |
 | `initialSort` | — | Initial sort as `SortCriteria[]`. Takes precedence over `defaultOrderBy` — it is the shape `onSortChange` hands you, so a stored sort round-trips without re-serializing it |
-| `fixedFilter` | — | Filter always applied in addition to search |
+| `fixedFilter` | — | Filter always applied in addition to search. Changing it resets the page to 0 — see below |
 | `baseUrl` | `window.location.origin` | Override the request origin (proxy/BFF setups) |
 | `fetcher` | global `fetch` | Custom transport — pass a wrapper that injects auth headers |
 | `onUnauthorized` | — | Called on `401`/`403` responses, before the generic error is set |
 
 `fetcher`/`onUnauthorized` should be stable references (e.g. wrap in `useCallback`) — they are intentionally excluded from the hook's internal effect dependencies to avoid refetch loops on every render.
+
+Changing `fixedFilter` resets the page to `0`, the same way `setSearch` and `onSortChange`
+already do. All three change the size of the result set, so keeping the old `$skip` would
+request a range the new set no longer has — a filter applied while on page 5 would come back
+empty. Comparison is by value, not by reference, so passing a fresh object literal on every
+render (`fixedFilter={{ IsActive: true }}`) does not reset anything on its own. The reset
+does not run on mount, so it never overrides `initialPage`.
+
+If a response reports fewer rows than the current page needs, the page falls back to the
+last page that exists — a result set can shrink without you asking (another user deleting
+rows, a `refresh` landing after a change), and holding the old `$skip` would leave an empty
+table next to a non-zero total. Reaching that state costs one extra request, only in that
+case; the page only ever moves down, so it cannot loop.
 
 The three `initial*` options are read **on the first render only** (the same contract
 `defaultOrderBy` has always had); use `setPage`/`setSearch` to move afterwards. Reach for
@@ -649,6 +662,12 @@ parseOrderBy('name desc');          // [{ key: 'name', direction: 'desc' }]
 returns the **same shape** as `useODataSource` — `data`/`totalCount`/`loading`/`error`/
 `page`/`setPage`/`sortCriteria`/`onSortChange`/`search`/`setSearch`/`refresh` — so the
 same `<FlexTableReact dataMode="server" ...>` binding code works with either source.
+
+Paging is clamped to the data you pass: if the array shrinks below the current page — the
+in-memory equivalent of narrowing a filter, usually `rows.filter(...)` upstream — the hook
+falls back to the last page that exists instead of rendering an empty table. It only ever
+moves the page down, so an array that changes identity on every poll without changing length
+leaves the current page alone.
 
 Reach for this when the rows come from a client-side join a server query can't express —
 e.g. a lookup table whose display name lives on a different endpoint than the row itself,

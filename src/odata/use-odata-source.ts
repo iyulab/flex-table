@@ -110,6 +110,33 @@ export function useODataSource<T = Record<string, unknown>>(
   const [search, setSearch] = useState(initial.search);
   const [refreshToken, setRefreshToken] = useState(0);
 
+  /**
+   * `fixedFilter`가 바뀌면 페이지를 **첫 장으로 되돌린다.**
+   *
+   * 🔴**없으면 빈 목록이 나온다**: 5페이지를 보던 중 필터를 좁히면 `$skip`(= `page *
+   * pageSize`)이 그대로 유지돼, 새 결과 집합의 범위를 넘어선 구간을 요청하게 된다.
+   * `setSearch`(`handleSetSearch` → `setPage(0)`)와 `onSortChange`가 이미 같은 이유로
+   * 페이지를 되돌리고 있었는데, **결과 집합의 크기를 바꾸는 세 번째 축인 `fixedFilter`만**
+   * **빠져 있었다.**
+   *
+   * ⚠**effect 가 아니라 «렌더 중 조정»이다** — React 공식 권장 패턴이고
+   * (`you-might-not-need-an-effect` → *"Adjusting some state when a prop changes"*),
+   * 여기서는 그 차이가 성능이 아니라 **정확성**이다: effect 로 `setPage(0)`을 하면
+   * React 가 DOM 을 커밋하고 effect 를 돌린 «뒤에» 페이지가 바뀌므로, 그 사이에 아래
+   * fetch effect 가 **낡은 page + 새 filter** 조합으로 요청을 한 번 내보낸다. 렌더 중
+   * 조정하면 React 는 `return` 직후 **즉시 다시 렌더**하고 자식 렌더·DOM 커밋·effect 를
+   * 아직 하지 않았으므로 그 요청 자체가 없다. (버려지는 첫 요청은 `initial*` 옵션이
+   * 막으려던 것과 같은 종류의 낭비다 — 그것을 여기서 새로 만들지 않는다.)
+   *
+   * ⚠**마운트 시에는 발화하지 않는다** — 이전 키의 초기값이 «현재 키»라서다. 그래서
+   * `initialPage`가 이 조정에 지워지지 않는다.
+   */
+  const [prevFixedFilterKey, setPrevFixedFilterKey] = useState(fixedFilterKey);
+  if (fixedFilterKey !== prevFixedFilterKey) {
+    setPrevFixedFilterKey(fixedFilterKey);
+    setPage(0);
+  }
+
   const abortRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(() => {
@@ -179,9 +206,27 @@ export function useODataSource<T = Record<string, unknown>>(
       })
       .then((json) => {
         if (controller.signal.aborted) return;
+        const count = json['@odata.count'] ?? 0;
         setData(json.value ?? json);
-        setTotalCount(json['@odata.count'] ?? 0);
+        setTotalCount(count);
         setError(null);
+
+        /*
+         * 🔴**응답이 돌려준 개수가 지금 페이지를 담지 못하면 마지막 유효 페이지로 되돌린다.**
+         * 결과 집합은 우리 요청 없이도 줄 수 있다(다른 사용자가 지웠거나, `refresh` 사이에
+         * 서버 상태가 바뀌었거나). 그때 `$skip` 이 그대로면 **행은 0인데 `totalCount` 는
+         * 0이 아닌** 화면이 나오고, 페이저는 **존재하지 않는 페이지를 강조**한다.
+         *
+         * ⚠**렌더 중 조정이 아니라 여기서 한다** — 렌더 중에 하면 `totalCount` 초기값이
+         * 0이라 **첫 응답이 오기 전에** `initialPage` 를 0으로 지워 버린다. 응답 핸들러는
+         * 실제 개수를 아는 유일한 자리다.
+         *
+         * ⚠**루프하지 않는다** — 조정은 페이지를 항상 낮추기만 하고(`page > lastPage` 일
+         * 때만), 다음 응답의 개수가 같으면 조건이 거짓이 되어 멈춘다. 대가는 이 드문
+         * 경우에 **요청 한 번**이 더 나가는 것뿐이다.
+         */
+        const lastPage = count === 0 ? 0 : Math.ceil(count / pageSize) - 1;
+        if (page > lastPage) setPage(lastPage);
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
