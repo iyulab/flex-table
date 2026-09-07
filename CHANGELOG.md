@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.32.0] - 2026-09-08
+
+### Added
+
+- **Both source hooks accept their initial page, search term and sort.**
+  `useODataSource` and `useArraySource` now take `initialPage` (zero-based, the same
+  axis as the returned `page`/`setPage`), `initialSearch` and `initialSort`. They are
+  read on the first render only — the same contract `defaultOrderBy` has always had —
+  and every default matches today's behaviour exactly, so existing callers are
+  unaffected.
+
+  Restoring a list the way the user left it — returning from a detail screen, or
+  restoring from a URL — was previously only expressible as a mount effect calling
+  `setPage()` after the hook had already fetched page 0. That shape carries two problems
+  a caller cannot solve from outside: the first request is issued and then discarded,
+  and `setSearch()` resets the page by design, so "restore the page, then set the search
+  term" has no ordering that works.
+
+  `initialSort` takes precedence over `defaultOrderBy` — the two express the same thing
+  in different notations, and the array form is the shape `onSortChange` hands back, so a
+  stored sort round-trips without being re-serialized. An empty `initialSort: []` means
+  *no sort* and does not fall back to `defaultOrderBy`.
+
+### Internal
+
+- Both hooks now resolve their initial state through one shared function rather than two
+  copies, so the two sources cannot drift apart on the shape the README declares they
+  share.
+
 ## [0.31.5] - 2026-09-04
 
 ### Fixed
