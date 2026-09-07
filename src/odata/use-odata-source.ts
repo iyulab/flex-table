@@ -29,6 +29,43 @@ export function buildSearchExpression(term: string): string | undefined {
   return tokens.map(token => `"${token}"`).join(' AND ');
 }
 
+/** `resolveInitialState`가 읽는 옵션 — 두 소스 훅의 옵션 타입이 공통으로 갖는 부분. */
+export interface InitialSourceStateOptions {
+  defaultOrderBy?: string;
+  initialPage?: number;
+  initialSearch?: string;
+  initialSort?: SortCriteria[];
+}
+
+/**
+ * 옵션에서 `page`/`search`/`sortCriteria`의 **초기값**을 뽑는다.
+ *
+ * ★**두 훅이 이 함수 하나를 공유하는 것이 요점이다.** README가 *"same shape … so the same
+ * binding code works with either source"*를 계약으로 선언하는데, 초기값 해석을 양쪽에
+ * 복제하면 그 계약이 **문장으로만** 유지된다 — 이 리포가 반복 기록한 실패 형태다.
+ * 구현이 하나면 드리프트가 없다.
+ *
+ * ⚠**`initialSort`가 `defaultOrderBy`를 이긴다.** 둘은 같은 것을 서로 다른 표기로
+ * 말하고(`SortCriteria[]` ↔ `$orderby` 문자열), 더 구체적인 쪽을 우선한다.
+ * `initialSort`는 `onSortChange`가 주는 모양 그대로라 저장해 둔 정렬을 파싱 없이 되돌린다.
+ *
+ * ⚠**React가 useState 초기값을 첫 렌더에서만 읽는다는 사실이 계약의 일부다** — 이후의
+ * 옵션 변경은 무시되고, 이동은 `setPage`/`setSearch`로 한다. `defaultOrderBy`가 이미
+ * 그렇게 동작해 왔으므로 새 규칙이 아니다.
+ */
+export function resolveInitialState(options: InitialSourceStateOptions): {
+  page: number;
+  search: string;
+  sortCriteria: SortCriteria[];
+} {
+  const { defaultOrderBy, initialPage = 0, initialSearch = '', initialSort } = options;
+  return {
+    page: initialPage,
+    search: initialSearch,
+    sortCriteria: initialSort ?? (defaultOrderBy ? parseOrderBy(defaultOrderBy) : []),
+  };
+}
+
 /**
  * OData v4 서버 사이드 데이터소스 React 훅.
  * flex-table의 dataMode="server"와 함께 사용한다.
@@ -37,7 +74,17 @@ export function useODataSource<T = Record<string, unknown>>(
   url: string,
   options: UseODataSourceOptions = {}
 ): UseODataSourceResult<T> {
-  const { pageSize = 20, defaultOrderBy, fixedFilter, baseUrl, fetcher = fetch, onUnauthorized } = options;
+  const {
+    pageSize = 20,
+    defaultOrderBy,
+    initialPage = 0,
+    initialSearch = '',
+    initialSort,
+    fixedFilter,
+    baseUrl,
+    fetcher = fetch,
+    onUnauthorized,
+  } = options;
 
   /*
    * fixedFilter는 호출자가 매 render마다 새 객체 리터럴로 넘기는 경우가 흔하다
@@ -50,12 +97,17 @@ export function useODataSource<T = Record<string, unknown>>(
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>(() => {
-    if (!defaultOrderBy) return [];
-    return parseOrderBy(defaultOrderBy);
-  });
-  const [search, setSearch] = useState('');
+  /*
+   * 초기 상태를 «옵션으로» 받는 이유: 이것들이 없으면 「목록 → 상세 → 뒤로가기」에서
+   * 위치를 되살리려는 소비자가 마운트 effect + setPage 로 우회할 수밖에 없고, 그 우회는
+   * ⑴버려지는 첫 요청과 ⑵`setSearch` 의 `setPage(0)` 부수효과와의 순서 경합을 낳는다.
+   * useState 초기값으로 흘리면 그 두 문제가 «표현 불가능» 해진다 — defaultOrderBy 가
+   * 이미 정렬 축에서 하고 있던 것과 같은 방식이다.
+   */
+  const initial = resolveInitialState({ defaultOrderBy, initialPage, initialSearch, initialSort });
+  const [page, setPage] = useState(initial.page);
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>(initial.sortCriteria);
+  const [search, setSearch] = useState(initial.search);
   const [refreshToken, setRefreshToken] = useState(0);
 
   const abortRef = useRef<AbortController | null>(null);

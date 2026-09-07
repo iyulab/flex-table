@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import buildQuery from 'odata-query';
-import { buildSearchExpression, parseOrderBy } from './use-odata-source.js';
+import { buildSearchExpression, parseOrderBy, resolveInitialState } from './use-odata-source.js';
 
 describe('buildSearchExpression', () => {
   it('단일 단어를 phrase로 감싼다', () => {
@@ -93,5 +93,72 @@ describe('$search 쿼리 문자열', () => {
       search: buildSearchExpression('ZT-E2E-A'),
     });
     expect(query).toBe('?$count=true&$top=20&$skip=0&$search=%22ZT-E2E-A%22');
+  });
+});
+
+/**
+ * 초기 상태 옵션 (docket #198).
+ *
+ * ★**두 소스 훅이 이 함수 하나를 공유한다** — README가 *"same shape … so the same binding
+ * code works with either source"*를 계약으로 선언하므로, 초기값 해석이 양쪽에 복제되면
+ * 그 계약은 문장으로만 유지된다. 여기를 재는 것이 곧 양쪽을 재는 것이다.
+ *
+ * ★**NEGATIVE가 절반이다.** 이 변경의 진짜 위험은 «못 읽는 것»이 아니라 ***기본값이
+ * 달라져 기존 소비자의 동작이 조용히 바뀌는 것***이다.
+ */
+describe('resolveInitialState (초기 상태 옵션)', () => {
+  it('🔴NEGATIVE — 옵션이 없으면 종전 동작 그대로다 (page 0 · search 빈 문자열 · 정렬 없음)', () => {
+    expect(resolveInitialState({})).toEqual({ page: 0, search: '', sortCriteria: [] });
+  });
+
+  it('🔴NEGATIVE — `defaultOrderBy`만 있던 종전 소비자의 해석이 바뀌지 않는다', () => {
+    expect(resolveInitialState({ defaultOrderBy: 'CreatedAt desc' })).toEqual({
+      page: 0,
+      search: '',
+      sortCriteria: [{ key: 'CreatedAt', direction: 'desc' }],
+    });
+  });
+
+  it('초기 페이지를 그대로 흘린다 (0-based — `skip = page * pageSize`와 같은 축)', () => {
+    expect(resolveInitialState({ initialPage: 1 }).page).toBe(1);
+  });
+
+  it('초기 검색어를 그대로 흘린다', () => {
+    expect(resolveInitialState({ initialSearch: '주문번호' }).search).toBe('주문번호');
+  });
+
+  it('🔴`initialPage: 0`을 «주지 않은 것»으로 취급하지 않는다 (falsy 함정)', () => {
+    // `initialPage || 0`으로 쓰면 이 테스트는 통과하지만 아래 `initialSort: []`가 죽는다 —
+    // 두 케이스를 함께 두는 이유다.
+    expect(resolveInitialState({ initialPage: 0 }).page).toBe(0);
+  });
+
+  it('🔴빈 `initialSort: []`는 «정렬 없음»이라는 «선언»이라 `defaultOrderBy`로 되돌아가지 않는다', () => {
+    // `initialSort || parse(...)`로 쓰면 빈 배열이 falsy가 아님에도 의미가 흐려진다.
+    // `??`여야 «주지 않음»과 «비어 있게 달라»가 갈린다.
+    expect(
+      resolveInitialState({ initialSort: [], defaultOrderBy: 'CreatedAt desc' }).sortCriteria,
+    ).toEqual([]);
+  });
+
+  it('`initialSort`가 `defaultOrderBy`를 이긴다 — 저장해 둔 정렬을 파싱 없이 되돌린다', () => {
+    const restored = [{ key: 'OrderDate', direction: 'desc' as const }];
+    expect(
+      resolveInitialState({ initialSort: restored, defaultOrderBy: 'CreatedAt asc' }).sortCriteria,
+    ).toEqual(restored);
+  });
+
+  it('셋을 한 번에 받는다 — 「목록 → 상세 → 뒤로가기」 복원이 한 번의 렌더로 끝난다', () => {
+    expect(
+      resolveInitialState({
+        initialPage: 1,
+        initialSearch: 'ZT-E2E-A',
+        initialSort: [{ key: 'OrderDate', direction: 'desc' }],
+      }),
+    ).toEqual({
+      page: 1,
+      search: 'ZT-E2E-A',
+      sortCriteria: [{ key: 'OrderDate', direction: 'desc' }],
+    });
   });
 });

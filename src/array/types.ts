@@ -6,6 +6,16 @@ export interface UseArraySourceOptions<T> {
   /** 초기 정렬(`'a asc, b desc'` 형식, `useODataSource`와 동일 문법). */
   defaultOrderBy?: string;
   /**
+   * 초기 페이지. **0-based** — `useODataSource`와 같은 축이다. 기본값 `0`.
+   *
+   * ⚠`useState`의 초기값이라 **첫 렌더에서만** 읽힌다. 이후 이동은 `setPage`.
+   */
+  initialPage?: number;
+  /** 초기 검색어. 기본값 `''`. `initialPage`와 같은 「첫 렌더에서만」 계약이다. */
+  initialSearch?: string;
+  /** 초기 정렬. 주면 `defaultOrderBy` 파싱보다 **우선**한다(`useODataSource`와 동일). */
+  initialSort?: SortCriteria[];
+  /**
    * 타입 인지 정렬 비교(숫자/불리언/날짜/텍스트)에 쓸 컬럼 정의. 생략하면 전부
    * 텍스트로 비교한다(숫자 컬럼도 문자열 정렬 순서를 따름) — 그리드에 이미 넘기는
    * `columns`를 그대로 전달하면 된다.

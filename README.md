@@ -584,12 +584,36 @@ const source = useODataSource('/api/orders', {
 |---|---|---|
 | `pageSize` | `20` | Rows per page |
 | `defaultOrderBy` | — | Initial `$orderby` (e.g. `'name asc'`) |
+| `initialPage` | `0` | Initial page, **zero-based** — the same axis as the returned `page`/`setPage`, and `$skip` is `page * pageSize` |
+| `initialSearch` | `''` | Initial search term |
+| `initialSort` | — | Initial sort as `SortCriteria[]`. Takes precedence over `defaultOrderBy` — it is the shape `onSortChange` hands you, so a stored sort round-trips without re-serializing it |
 | `fixedFilter` | — | Filter always applied in addition to search |
 | `baseUrl` | `window.location.origin` | Override the request origin (proxy/BFF setups) |
 | `fetcher` | global `fetch` | Custom transport — pass a wrapper that injects auth headers |
 | `onUnauthorized` | — | Called on `401`/`403` responses, before the generic error is set |
 
 `fetcher`/`onUnauthorized` should be stable references (e.g. wrap in `useCallback`) — they are intentionally excluded from the hook's internal effect dependencies to avoid refetch loops on every render.
+
+The three `initial*` options are read **on the first render only** (the same contract
+`defaultOrderBy` has always had); use `setPage`/`setSearch` to move afterwards. Reach for
+them when a list has to come back the way the user left it — going to a detail screen and
+returning, or restoring from a URL:
+
+```tsx
+const source = useODataSource('/api/orders', {
+  pageSize: 20,
+  initialPage: restored.page,       // no mount effect, no discarded first request
+  initialSearch: restored.search,
+  initialSort: restored.sort,
+});
+```
+
+Setting them up front rather than calling `setPage(...)` from a mount effect matters for
+two reasons that are otherwise hard to work around: the effect version issues a request for
+page 0 that is thrown away as soon as the second one lands, and `setSearch` resets the page
+to 0 by design — so "restore the page, then set the search term" is not expressible from
+outside the hook. Passing an empty `initialSort: []` means *no sort*, and does not fall
+back to `defaultOrderBy`.
 
 The hook returns:
 
@@ -648,6 +672,7 @@ const source = useArraySource(joined, {
 |---|---|---|
 | `pageSize` | `20` | Rows per page |
 | `defaultOrderBy` | — | Initial sort (e.g. `'name asc'`), same syntax as `useODataSource` |
+| `initialPage` / `initialSearch` / `initialSort` | `0` / `''` / — | Same names, same meanings, same first-render-only contract as `useODataSource` — the shared shape covers initial state too, so swapping sources needs no other change |
 | `columns` | — | `ColumnDefinition[]` — enables value-aware sort (numbers/dates/booleans compared by value, not as text). Omit and every column sorts as text. |
 | `searchFields` | all values | `(row) => value[]` — narrows or widens what free-text search matches; the default searches every property on the row, including client-joined ones |
 

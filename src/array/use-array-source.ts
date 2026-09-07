@@ -3,7 +3,7 @@ import { computeSortedIndices } from '../core/sorting.js';
 import type { SortCriteria } from '../core/sorting.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import type { UseArraySourceOptions, UseArraySourceResult } from './types.js';
-import { parseOrderBy } from '../odata/use-odata-source.js';
+import { resolveInitialState } from '../odata/use-odata-source.js';
 
 export interface ComputeArrayViewOptions<T> {
   search: string;
@@ -67,13 +67,25 @@ export function useArraySource<T extends DataRow = DataRow>(
   data: T[],
   options: UseArraySourceOptions<T> = {}
 ): UseArraySourceResult<T> {
-  const { pageSize = 20, defaultOrderBy, columns, searchFields } = options;
+  const {
+    pageSize = 20,
+    defaultOrderBy,
+    initialPage = 0,
+    initialSearch = '',
+    initialSort,
+    columns,
+    searchFields,
+  } = options;
 
-  const [page, setPage] = useState(0);
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>(() =>
-    defaultOrderBy ? parseOrderBy(defaultOrderBy) : []
-  );
-  const [search, setSearchState] = useState('');
+  /*
+   * 초기 상태 옵션은 `useODataSource` 와 **같은 이름·같은 의미**여야 한다 — 이 훅의 존재
+   * 이유가 *"same shape … so the same binding code works with either source"*(README)라,
+   * 한쪽에만 있으면 소스를 바꿔 끼우는 순간 그 계약이 조용히 깨진다.
+   */
+  const initial = resolveInitialState({ defaultOrderBy, initialPage, initialSearch, initialSort });
+  const [page, setPage] = useState(initial.page);
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>(initial.sortCriteria);
+  const [search, setSearchState] = useState(initial.search);
 
   const setSearch = useCallback((term: string) => {
     setSearchState(term);
