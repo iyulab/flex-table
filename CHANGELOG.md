@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.33.0] - 2026-09-08
+
+### Fixed
+
+- **A page could outlive the result set that holds it, leaving an empty table next
+  to a non-zero total and a pager pointing at a page that no longer exists.**
+  Three axes change the size of a result set, and only two of them moved the page.
+
+  - **`useODataSource`: changing `fixedFilter` now resets the page to `0`**, the
+    same way `setSearch` and `onSortChange` already did. Narrowing a filter while
+    on page 5 previously kept the old `$skip` and asked for a range the new set
+    does not have. Comparison is by value, so passing a fresh object literal on
+    every render does not reset anything on its own, and the reset does not run on
+    mount, so it never overrides `initialPage`.
+  - **`useODataSource`: a response reporting fewer rows than the current page needs
+    falls back to the last page that exists.** A result set can shrink without
+    being asked. Reaching that state costs one extra request, only in that case;
+    the page only ever moves down, so it cannot loop.
+  - **`useArraySource`: paging is clamped to the array passed in.** Shrinking the
+    array — the in-memory equivalent of narrowing a filter — falls back to the last
+    page that exists instead of rendering nothing.
+
+  Shrinking clamps rather than resets on purpose: an array or a total can change on
+  a routine refresh, and resetting there would move the page out from under the
+  reader. The dividing question is whether the change was asked for.
+
+### Changed
+
+- **`computeArrayView` returns the last page that exists when given a page past the
+  end**, instead of an empty array. It is exported, so a direct caller had the same
+  defect; returning nothing for an out-of-range page was never the intended
+  contract.
+
+### Internal
+
+- First hook tests for this package — everything here was pure functions until now,
+  so contracts the README states had no executed evidence behind them. They cover
+  the reset and clamp on both hooks, request abort on re-request and on unmount,
+  `onUnauthorized` firing on `401`/`403` but not on `500`, initial state being read
+  on first render only, and `refresh` being a no-op on the array source.
+
 ## [0.32.0] - 2026-09-08
 
 ### Added
