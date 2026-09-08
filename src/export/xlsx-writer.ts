@@ -34,7 +34,7 @@ const ENC = new TextEncoder();
 
 interface ZipFile { name: string; data: Uint8Array }
 
-function buildZip(files: ZipFile[]): Uint8Array {
+function buildZip(files: ZipFile[]): Uint8Array<ArrayBuffer> {
   const parts: Uint8Array[] = [];
   const centralDir: Uint8Array[] = [];
   let offset = 0;
@@ -105,7 +105,7 @@ function buildZip(files: ZipFile[]): Uint8Array {
   return concat([...parts, cdData, new Uint8Array(eocd)]);
 }
 
-function concat(arrays: Uint8Array[]): Uint8Array {
+function concat(arrays: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const total = arrays.reduce((s, a) => s + a.length, 0);
   const out = new Uint8Array(total);
   let i = 0;
@@ -240,7 +240,7 @@ function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
 /**
  * Build an XLSX file as a Uint8Array.
  */
-export function buildXlsx(data: DataRow[], columns: ColumnDefinition[]): Uint8Array {
+export function buildXlsx(data: DataRow[], columns: ColumnDefinition[]): Uint8Array<ArrayBuffer> {
   const sheet = buildWorksheet(data, columns);
   const files: ZipFile[] = [
     { name: '[Content_Types].xml', data: ENC.encode(CONTENT_TYPES) },

@@ -1,6 +1,6 @@
 {
   "name": "@iyulab/flex-table",
-  "version": "0.33.0",
+  "version": "0.34.0",
   "description": "A minimalist, input-centric data grid web component",
   "type": "module",
   "main": "./dist/flex-table.js",
@@ -98,7 +98,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.8",
     "strip-literal": "^3.1.0",
-    "typescript": "~5.7.0",
+    "typescript": "^5.9.3",
     "vite": "^8.1.4",
     "vitest": "^4.1.10"
   }

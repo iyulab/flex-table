@@ -11,7 +11,7 @@ export function exportData(
   data: DataRow[],
   columns: ColumnDefinition[],
   format: ExportFormat
-): string | Uint8Array {
+): string | Uint8Array<ArrayBuffer> {
   switch (format) {
     case 'csv':
       return exportDelimited(data, columns, ',');
@@ -74,7 +74,11 @@ function exportJson(data: DataRow[], columns: ColumnDefinition[]): string {
 /**
  * Trigger a file download in the browser.
  */
-export function downloadFile(content: string | Uint8Array, filename: string, mimeType: string): void {
+export function downloadFile(
+  content: string | Uint8Array<ArrayBuffer>,
+  filename: string,
+  mimeType: string
+): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

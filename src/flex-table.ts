@@ -849,7 +849,10 @@ export class FlexTable extends LitElement {
    * Export table data to string in the specified format.
    * @param options.selectionOnly - Export only the currently selected range
    */
-  exportToString(format: ExportFormat, options?: { selectionOnly?: boolean }): string | Uint8Array {
+  exportToString(
+    format: ExportFormat,
+    options?: { selectionOnly?: boolean }
+  ): string | Uint8Array<ArrayBuffer> {
     if (options?.selectionOnly) {
       const range = this._selection.getEffectiveRange();
       if (!range) return '';

@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.34.0] - 2026-09-08
+
+### Fixed
+
+- **Three type errors in the export/import path that the toolchain was hiding.** This package
+  pinned TypeScript at `~5.7.0` — a value carried over from its initial commit and never
+  revisited — while every sibling package compiled with `^5.9.3`. Aligning the pin surfaced
+  errors that had been present but unreported: `Uint8Array` widens to
+  `Uint8Array<ArrayBufferLike>`, which the DOM lib rejects wherever an `ArrayBuffer` is
+  required (`BlobPart`, `BufferSource`). The XLSX writer/reader and the download helper now
+  carry the concrete `Uint8Array<ArrayBuffer>` through, so a `Blob`/`File` built from an export
+  typechecks. Runtime behaviour is unchanged — the values were always backed by a real
+  `ArrayBuffer`.
+
+### Changed
+
+- **`exportToString()` and `downloadFile()` now declare `Uint8Array<ArrayBuffer>`** instead of
+  the wider `Uint8Array`. Callers that pass the result straight to `Blob`/`File` — the
+  documented use — are unaffected and now typecheck without a cast. Only a caller that
+  deliberately supplied a `SharedArrayBuffer`-backed view is affected, and such a value could
+  never have reached `Blob` at runtime anyway.
+
+- **`typescript` devDependency `~5.7.0` → `^5.9.3`**, matching every sibling package.
+
 ## [0.33.0] - 2026-09-08
 
 ### Fixed

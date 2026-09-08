@@ -63,7 +63,7 @@ function readCentralDirectory(view: DataView): CdEntry[] {
   return entries;
 }
 
-async function decompressDeflateRaw(data: Uint8Array): Promise<Uint8Array> {
+async function decompressDeflateRaw(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   const ds = new DecompressionStream('deflate-raw');
   const writer = ds.writable.getWriter();
   const reader = ds.readable.getReader();
@@ -85,7 +85,7 @@ async function decompressDeflateRaw(data: Uint8Array): Promise<Uint8Array> {
   return out;
 }
 
-async function extractEntry(view: DataView, entry: CdEntry): Promise<Uint8Array> {
+async function extractEntry(view: DataView<ArrayBuffer>, entry: CdEntry): Promise<Uint8Array<ArrayBuffer>> {
   const lhOffset = entry.localHeaderOffset;
   const nameLen = view.getUint16(lhOffset + 26, true);
   const extraLen = view.getUint16(lhOffset + 28, true);
@@ -101,10 +101,10 @@ async function extractEntry(view: DataView, entry: CdEntry): Promise<Uint8Array>
   throw new Error(`XLSX: Unsupported compression method ${entry.compressionMethod}`);
 }
 
-async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
+async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, Uint8Array<ArrayBuffer>>> {
   const view = new DataView(buffer);
   const entries = readCentralDirectory(view);
-  const result = new Map<string, Uint8Array>();
+  const result = new Map<string, Uint8Array<ArrayBuffer>>();
   for (const entry of entries) {
     if (entry.compressedSize === 0 && entry.name.endsWith('/')) continue; // directory
     result.set(entry.name, await extractEntry(view, entry));
