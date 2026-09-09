@@ -1,0 +1,16 @@
+{
+  // 빌드용 `tsconfig.json` 은 `rootDir: "./src"` 로 산출물 배치를 고정하므로 `tests/` 를
+  // include 에 넣을 수 없다(TS6059). 형제 패키지들은 rootDir 없이 한 설정으로 둘 다 덮지만
+  // 이 패키지는 선언 파일 배치가 그 rootDir 에 걸려 있어 설정을 나눈다.
+  //
+  // ⚠**나누지 않으면 `tests/` 가 타입 게이트의 시야 밖에 남는다** — 브라우저 테스트는
+  // 소스만큼이나 쉽게 낡고, 그때 아무것도 실패하지 않는 것이 이 리포가 반복 기록한 형태다.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationDir": null,
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "tests/**/*"]
+}

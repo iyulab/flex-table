@@ -2304,6 +2304,30 @@ export class FlexTable extends LitElement {
     return right;
   }
 
+  /**
+   * X offset for a right-pinned column, in the same content coordinate space the
+   * left-pinned branch uses (origin = the row/header box, prefix columns included).
+   *
+   * A CSS `right` cannot express this. Cells are absolutely positioned inside a box
+   * whose width is the full row width, so a fixed `right` rides the content instead of
+   * the viewport, and a scroll-compensating negative `right` pushes the cell past that
+   * box — which extends the scrollable area, so every scroll widens it again.
+   *
+   * Sticking is therefore expressed as a `left` clamped to the column's natural offset:
+   * the column tracks the viewport's right edge while the content is scrolled past it,
+   * and rests in place once the viewport reaches it.
+   */
+  private _getPinnedRightLeft(colIndex: number): number {
+    const cols = this.visibleColumns;
+    const natural = this._colLeftOffsets[colIndex] ?? 0;
+    // Before the first measurement the viewport width is unknown, not zero — falling
+    // through to the clamp would slam the column to the far left for one frame.
+    if (this._viewportWidth <= 0) return natural;
+    const width = this._getColWidth(cols[colIndex]);
+    const stuck = this._scrollLeft + this._viewportWidth - this._getPinnedRight(colIndex) - width;
+    return Math.min(natural, stuck);
+  }
+
   private _renderHeaderCell(col: ColumnDefinition, colIndex: number) {
     const sortable = col.sortable !== false;
     const criterion = this._sortCriteria.find(c => c.key === col.key);
@@ -2338,7 +2362,7 @@ export class FlexTable extends LitElement {
     if (isPinnedLeft) {
       cellStyle = `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`;
     } else if (isPinnedRight) {
-      cellStyle = `position: absolute; top: 0; right: ${-this._scrollLeft + this._getPinnedRight(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`;
+      cellStyle = `position: absolute; top: 0; left: ${this._getPinnedRightLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`;
     } else {
       cellStyle = `left: ${left}px; width: ${width}px; height: ${hdrH}px;`;
     }
@@ -3692,7 +3716,9 @@ export class FlexTable extends LitElement {
 
     const fillHandle = this._renderFillHandle();
     const rowDropIndicator = this._rowDragIndicatorY != null
-      ? html`<div class="ft-row-drop-indicator" style="top:${this._rowDragIndicatorY}px;width:${tw + this._prefixWidth}px;"></div>`
+      // `tw` (_totalRowWidth) already starts at _prefixWidth — adding it again drew the
+      // indicator past the last column by the width of the checkbox/row-number gutter.
+      ? html`<div class="ft-row-drop-indicator" style="top:${this._rowDragIndicatorY}px;width:${tw}px;"></div>`
       : '';
 
     return html`
@@ -3792,7 +3818,7 @@ export class FlexTable extends LitElement {
       const col = cols[pi];
       const width = this._getColWidth(col);
       const pStyle = col.pinned === 'right'
-        ? `position: absolute; top: 0; right: ${-sl + this._getPinnedRight(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
+        ? `position: absolute; top: 0; left: ${this._getPinnedRightLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
         : `position: absolute; top: 0; left: ${sl + this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
       footerCells.push(html`
         <div class="ft-footer-cell ft-pinned" style=${pStyle}>
@@ -3895,7 +3921,7 @@ export class FlexTable extends LitElement {
     if (isPinnedLeft) {
       cellStyle = `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
     } else if (isPinnedRight) {
-      cellStyle = `position: absolute; top: 0; right: ${-this._scrollLeft + this._getPinnedRight(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
+      cellStyle = `position: absolute; top: 0; left: ${this._getPinnedRightLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
     } else {
       cellStyle = `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
     }

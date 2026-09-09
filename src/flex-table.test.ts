@@ -1229,6 +1229,116 @@ describe('FlexTable', () => {
     expect(cell.style.left).toBe('0px');
   });
 
+  describe('right-pinned columns track the viewport, not the content', () => {
+    // Regression: a right pin was emitted as `right: ${-scrollLeft + offset}`. Cells are
+    // absolutely positioned inside a box as wide as the whole row, so that `right` rode the
+    // content — the column sat past the viewport's right edge at scrollLeft 0 (exactly when a
+    // pin is needed) and the negative value pushed the cell beyond the row box, extending the
+    // scrollable width on every scroll. Measured in Chromium: scrollWidth 968 -> 1160 -> 1543
+    // across three scroll steps, and the column was never visible.
+    function mount(viewportWidth: number, scrollLeft = 0) {
+      const el = createElement();
+      el.columns = [
+        { key: 'a', header: 'A', width: 200 },
+        { key: 'b', header: 'B', width: 200 },
+        { key: 'act', header: 'Act', width: 80, pinned: 'right' },
+      ];
+      el.data = [{ a: 'a', b: 'b', act: 'x' }];
+      const internals = el as unknown as { _viewportWidth: number; _scrollLeft: number };
+      internals._viewportWidth = viewportWidth;
+      internals._scrollLeft = scrollLeft;
+      return el;
+    }
+
+    it('emits a left offset, never a right one', async () => {
+      const el = mount(300);
+      await el.updateComplete;
+      const header = el.shadowRoot!.querySelector('.ft-header-cell.ft-pinned') as HTMLElement;
+      expect(header.style.position).toBe('absolute');
+      expect(header.style.right).toBe('');
+      // viewport right edge (0 + 300) minus the column's own width
+      expect(header.style.left).toBe('220px');
+    });
+
+    it('follows the viewport as the content scrolls', async () => {
+      const el = mount(300, 120);
+      await el.updateComplete;
+      const header = el.shadowRoot!.querySelector('.ft-header-cell.ft-pinned') as HTMLElement;
+      // 120 + 300 - 80 — moves with scrollLeft, so it stays at the same screen position
+      expect(header.style.left).toBe('340px');
+    });
+
+    it('rests at its natural offset when the content does not overflow', async () => {
+      const el = createElement();
+      el.columns = [
+        { key: 'a', header: 'A', width: 120 },
+        { key: 'act', header: 'Act', width: 80, pinned: 'right' },
+      ];
+      el.data = [{ a: 'a', act: 'x' }];
+      (el as unknown as { _viewportWidth: number })._viewportWidth = 600;
+      await el.updateComplete;
+      const header = el.shadowRoot!.querySelector('.ft-header-cell.ft-pinned') as HTMLElement;
+      // clamped to the natural offset (120) instead of 520 — pinning must not invent overflow
+      expect(header.style.left).toBe('120px');
+    });
+
+    it('stacks multiple right-pinned columns in order', async () => {
+      const el = createElement();
+      el.columns = [
+        { key: 'a', header: 'A', width: 400 },
+        { key: 'edit', header: 'Edit', width: 60, pinned: 'right' },
+        { key: 'del', header: 'Del', width: 80, pinned: 'right' },
+      ];
+      el.data = [{ a: 'a', edit: 'e', del: 'd' }];
+      (el as unknown as { _viewportWidth: number })._viewportWidth = 300;
+      await el.updateComplete;
+      const pinned = [...el.shadowRoot!.querySelectorAll('.ft-header-cell.ft-pinned')] as HTMLElement[];
+      // last one hugs the edge (300 - 80), the one before it sits directly to its left
+      expect(pinned.map(p => p.style.left)).toEqual(['160px', '220px']);
+    });
+
+    it('falls back to the natural offset before the viewport has been measured', async () => {
+      // jsdom reports clientWidth 0; an unmeasured viewport is unknown, not zero-width —
+      // clamping against 0 would slam the column to the far left for a frame.
+      const el = mount(0);
+      await el.updateComplete;
+      const header = el.shadowRoot!.querySelector('.ft-header-cell.ft-pinned') as HTMLElement;
+      expect(header.style.left).toBe('400px');
+    });
+
+    it('applies the same offset to body cells', async () => {
+      const el = mount(300);
+      await el.updateComplete;
+      const cell = el.shadowRoot!.querySelector('.ft-cell.ft-pinned') as HTMLElement;
+      expect(cell.style.right).toBe('');
+      expect(cell.style.left).toBe('220px');
+    });
+  });
+
+  it('spans the row drop indicator over the row, gutter included but not doubled', async () => {
+    // Regression: the width was `_totalRowWidth + _prefixWidth`, but _totalRowWidth already
+    // starts at _prefixWidth — so with a checkbox or row-number gutter the indicator ran past
+    // the last column by that gutter's width. Invisible without a gutter, which is why it stood.
+    const el = createElement();
+    el.selectable = true;
+    el.showRowNumbers = true;
+    el.columns = [
+      { key: 'a', header: 'A', width: 100 },
+      { key: 'b', header: 'B', width: 200 },
+    ];
+    el.data = [{ a: 'a', b: 'b' }, { a: 'c', b: 'd' }];
+    await el.updateComplete;
+
+    (el as unknown as { _rowDragIndicatorY: number })._rowDragIndicatorY = 40;
+    el.requestUpdate();
+    await el.updateComplete;
+
+    const indicator = el.shadowRoot!.querySelector('.ft-row-drop-indicator') as HTMLElement;
+    expect(indicator).toBeTruthy();
+    // 36 (checkbox) + 48 (row numbers) + 100 + 200
+    expect(indicator.style.width).toBe('384px');
+  });
+
   it('should calculate cumulative left for multiple pinned columns', async () => {
     const el = createElement();
     el.columns = [
@@ -1815,7 +1925,10 @@ describe('FlexTable', () => {
 
   // --- Pinned Right ---
 
-  it('should render pinned right column with right positioning', async () => {
+  // These two once asserted the emitted `right:` property — the very mechanism that made a
+  // right pin ride the content instead of the viewport. They stayed green through a feature
+  // that never worked, so they now assert the placement instead of the CSS property used.
+  it('should render pinned right column as an absolutely placed pinned cell', async () => {
     const el = createElement();
     el.columns = [
       { key: 'name', header: 'Name' },
@@ -1828,10 +1941,11 @@ describe('FlexTable', () => {
     const headerCells = el.shadowRoot!.querySelectorAll('.ft-header-cell');
     const pinnedHeader = headerCells[2];
     expect(pinnedHeader.classList.contains('ft-pinned')).toBe(true);
-    expect(pinnedHeader.getAttribute('style')).toContain('right:');
+    expect((pinnedHeader as HTMLElement).style.position).toBe('absolute');
+    expect((pinnedHeader as HTMLElement).style.left).not.toBe('');
   });
 
-  it('should render pinned right body cell with right positioning', async () => {
+  it('should render pinned right body cell as an absolutely placed pinned cell', async () => {
     const el = createElement();
     el.columns = [
       { key: 'name', header: 'Name' },
@@ -1843,7 +1957,8 @@ describe('FlexTable', () => {
     const cells = el.shadowRoot!.querySelectorAll('.ft-cell');
     const pinnedCell = cells[1]; // second cell (pinned right)
     expect(pinnedCell.classList.contains('ft-pinned')).toBe(true);
-    expect(pinnedCell.getAttribute('style')).toContain('right:');
+    expect((pinnedCell as HTMLElement).style.position).toBe('absolute');
+    expect((pinnedCell as HTMLElement).style.left).not.toBe('');
   });
 
   // --- Keyboard Column Resize ---

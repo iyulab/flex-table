@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.34.1] - 2026-09-10
+
+### Fixed
+
+- **A column pinned to the right was placed against the scrolled content instead of the
+  viewport, so it sat outside the visible area exactly when a pin is needed.** Cells are
+  positioned absolutely inside a box as wide as the whole row, so the emitted
+  `right: ${-scrollLeft + offset}` measured from the content's right edge rather than the
+  viewport's: at `scrollLeft: 0` the column rendered past the right border of the scroll area
+  and never came into view. The negative offset also pushed the cell beyond that box, which
+  extended the scrollable width — measured in Chromium, `scrollWidth` grew 968 -> 1160 -> 1543
+  across three scroll steps, so the horizontal scrollbar could not reach its own end.
+
+  Right pins are now expressed the same way left pins already were, as a `left` offset that
+  tracks the viewport, clamped to the column's natural position. A right-pinned column stays
+  against the right edge of the scroll area at every scroll offset, several of them stack in
+  column order, and a table whose columns fit without overflowing leaves the column where it
+  naturally sits rather than inventing a scrollable area. Header, body and footer cells all
+  take the same path.
+
+  `position: sticky` — the usual way to build a pinned column — is not available in this
+  layout: every cell is absolutely positioned for horizontal virtualization, and a sticky box
+  needs a flow position to stick relative to.
+
 ## [0.34.0] - 2026-09-08
 
 ### Fixed
