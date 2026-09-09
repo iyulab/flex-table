@@ -8,9 +8,11 @@
 #       여러 릴리스를 지나 살아남았다(`vite build` 도 `vite-plugin-dts` 도 막지 않는다)
 #   ⇒ 재발 방지의 논리적 완결은 **머지 전에** 도는 게이트다.
 #
-# ★왜 12개 리포에 **같은 파일**인가: 패키지마다 스크립트 구성이 다르지만(린트 6/12 ·
-#   테스트 11/12 · 브라우저 프로젝트 2/12), 그 차이를 파일에 새기면 12벌이 갈라진다.
-#   대신 **런타임 탐지**로 하나의 파일을 유지한다 — 이 리포가 반복해서 값을 본 형태다.
+# ★왜 12개 리포에 **같은 파일**인가: 패키지마다 스크립트 구성이 다르지만(2026-09-09 실측 —
+#   린트 6/12 · 테스트 11/12 · vitest 브라우저 프로젝트 5/12 · playwright e2e 1/12),
+#   그 차이를 파일에 새기면 12벌이 갈라진다. 대신 **런타임 탐지**로 하나의 파일을 유지한다 —
+#   이 리포가 반복해서 값을 본 형태다. ⚠구성 수치는 낡는다: 이 파일이 의존하는 것은 숫자가
+#   아니라 탐지이므로, 낡아도 동작은 틀어지지 않는다(서술만 정정하면 된다).
 #
 # ⚠**`--if-present` 는 조용히 건너뛴다.** 그것이 이 파일의 가장 큰 위험이므로 "무엇이
 #   돌았는가"를 먼저 출력한다 — 로그를 보면 그 패키지에서 실제로 무엇이 검증됐는지 안다.
@@ -55,13 +57,16 @@ jobs:
             const p = require('./package.json');
             const s = p.scripts || {};
             const d = { ...p.devDependencies, ...p.dependencies };
-            const browser = ('@vitest/browser-playwright' in d) || ('playwright' in d);
+            // ⚠'@playwright/test' 를 빠뜨리면 e2e 를 가진 패키지가 **크로미움 없이** 돈다.
+            //   실측(cycle-495): 이 이름만 갖고 있어 browser=false 인 패키지가 있었다.
+            const browser = ('@vitest/browser-playwright' in d) || ('playwright' in d) || ('@playwright/test' in d);
             const fs = require('fs');
             const out = [
               'lint=' + !!s.lint,
               'test=' + !!s.test,
               'build=' + !!s.build,
               'browser=' + browser,
+              'e2e=' + !!s['test:e2e'],
               'types=' + fs.existsSync('tsconfig.json'),
             ];
             fs.appendFileSync(process.env.GITHUB_OUTPUT, out.join('\n') + '\n');
@@ -96,3 +101,12 @@ jobs:
       - name: Test
         if: steps.probe.outputs.test == 'true'
         run: npm test
+
+      # ★`test:e2e` 는 `npm test` 와 **다른 명령**이라 여기 걸지 않으면 어디서도 돌지 않는다.
+      #   실측(cycle-495): 한 패키지의 WCAG 타깃 크기 게이트가 정확히 그 상태였다 —
+      #   사람이 손으로 `npm run test:e2e` 를 칠 때만 도는 «불변식이 아니라 문장»이었다.
+      #   ⚠`npm test` 에 합치지 않는 이유: 크로미움이 없는 로컬이 전부 빨개진다. 검증이
+      #   도는 자리는 CI 이고, 로컬 개발 루프는 vitest 로 빠르게 유지한다.
+      - name: E2E
+        if: steps.probe.outputs.e2e == 'true'
+        run: npm run test:e2e
