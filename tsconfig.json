@@ -17,7 +17,11 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    // ⚠TypeScript 6 은 typeRoots 의 `@types/*` 를 «전부» 자동 포함하지 않는다(5.9 는 했다).
+    // 이 패키지는 `src/styles/*.test.ts` 가 `fs`·`path`·`__dirname` 을 쓰므로 명시해야 한다
+    // — 빼면 TS2591/TS2304 8건(cycle-475 네거티브 컨트롤로 확인).
+    "types": ["node"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "demo"]
