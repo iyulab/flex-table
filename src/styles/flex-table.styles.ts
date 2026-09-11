@@ -39,12 +39,12 @@ export const flexTableStyles = css`
     --ft-active-color: var(--u-primary-color, #1976D2);
     --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
     --ft-bool-color: var(--u-primary-color, #1976D2);
-    --ft-sort-indicator-color: var(--u-txt-color-weak, #757575);
+    --ft-sort-indicator-color: var(--u-txt-color-weak, #616161);
     --ft-editor-bg: var(--u-input-bg-color, #FFFFFF);
     /* #999 was 2.85 against --ft-bg (#fff); AA needs 4.5. The dark value (#9aa0a6 on
        #1e1e2e = 6.31) was already fine, so this was a light-only defect. #5f6368 is the
        same grey the sort indicator uses, which keeps the palette to one family. */
-    --ft-empty-color: var(--u-txt-color-weak, #757575);
+    --ft-empty-color: var(--u-txt-color-weak, #616161);
 
     /* 상태 색 — 종전에는 규칙 안에 리터럴로 박혀 있어 소비자가 덮을 경로가 없었고
        테마도 따라오지 않았다(다크에서 라이트용 값 그대로).
@@ -83,9 +83,9 @@ export const flexTableStyles = css`
       --ft-active-color: var(--u-primary-color, #1976D2);
       --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
       --ft-bool-color: var(--u-primary-color, #1976D2);
-      --ft-sort-indicator-color: var(--u-txt-color-weak, #757575);
+      --ft-sort-indicator-color: var(--u-txt-color-weak, #616161);
       --ft-editor-bg: var(--u-input-bg-color, #FFFFFF);
-      --ft-empty-color: var(--u-txt-color-weak, #757575);
+      --ft-empty-color: var(--u-txt-color-weak, #616161);
     }
   }
 
@@ -104,9 +104,9 @@ export const flexTableStyles = css`
     --ft-active-color: var(--u-primary-color, #1976D2);
     --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
     --ft-bool-color: var(--u-primary-color, #1976D2);
-    --ft-sort-indicator-color: var(--u-txt-color-weak, #757575);
+    --ft-sort-indicator-color: var(--u-txt-color-weak, #616161);
     --ft-editor-bg: var(--u-input-bg-color, #FFFFFF);
-    --ft-empty-color: var(--u-txt-color-weak, #757575);
+    --ft-empty-color: var(--u-txt-color-weak, #616161);
   }
 
   /* --- Layout --- */

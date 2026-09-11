@@ -2,6 +2,11 @@
 
 ## [0.34.1] - 2026-09-10
 
+### Changed
+
+- **Fallback literals for `--u-txt-color-weak` follow `@iyulab/components` 1.40.0.** They are
+  only used when that stylesheet is not loaded; with it, nothing changes here.
+
 ### Fixed
 
 - **A column pinned to the right was placed against the scrolled content instead of the
