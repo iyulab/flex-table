@@ -46,6 +46,13 @@ jobs:
       - run: npm run build
         if: steps.check.outputs.exists == 'false'
 
+      # `npm test` runs the browser project too (tests/browser/**, chromium) — without the
+      # browser installed vitest fails at launch, which is exactly how the first tag after the
+      # browser project landed died here while `ci.yml` (which installs it) stayed green.
+      - name: Install Chromium
+        if: steps.check.outputs.exists == 'false'
+        run: npx playwright install --with-deps chromium
+
       - run: npm test
         if: steps.check.outputs.exists == 'false'
 
