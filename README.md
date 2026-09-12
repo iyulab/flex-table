@@ -19,7 +19,8 @@ npm install @iyulab/flex-table
 ## Quick Start
 
 ```html
-<flex-table id="table" row-height="32" show-row-numbers></flex-table>
+<!-- The table is its own scroll container, so give it a height — see Sizing below. -->
+<flex-table id="table" style="height: 400px" row-height="32" show-row-numbers></flex-table>
 
 <script type="module">
   import '@iyulab/flex-table';
@@ -66,6 +67,31 @@ npm install @iyulab/flex-table
 - **Context Menu** — `context-menu` event for custom right-click menus
 - **React Wrapper** — `@iyulab/flex-table/react` subpath for idiomatic React usage
 - **ARIA** — `role="grid"`, `aria-sort`, `aria-selected`, `aria-readonly`, `aria-invalid`, `aria-rowcount`, `aria-colcount`
+
+## Sizing
+
+The table is its own scroll container (`overflow: auto` on the host) and it measures the viewport
+from the host's own height. **Give it a height** — directly, or through a constrained parent:
+
+```css
+flex-table { height: 400px; }
+```
+
+```css
+/* or let a flex parent constrain it */
+.page      { height: 100%; display: flex; flex-direction: column; }
+.page flex-table { flex: 1 1 auto; min-height: 0; }
+```
+
+⚠ **Without a height constraint the virtual scroll has nothing to virtualise against.** The body
+carries the full content height, so an unconstrained host grows to match it and the viewport
+measurement ends up equal to the content — every row is rendered. Measured with 1,000 rows and no
+height: the element becomes ~32,000px tall and all 1,000 rows are in the DOM. The same data in a
+300px-tall host renders only the visible window (well under a fifth of the rows). That is the
+difference between the "100,000+ rows" claim in Features and a page that stalls.
+
+Small fixed data sets are fine unconstrained — the point is that the virtual-scroll guarantee is a
+guarantee about a *constrained* host. `height-model.browser.test.ts` pins both sides of this.
 
 ## Properties
 
