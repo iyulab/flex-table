@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.34.2] - 2026-09-13
+
+### Added
+
+- **Development-mode warning when virtual scrolling is silently off.** With 200 or more rows and no
+  height constraint the host grows to fit every row, nothing scrolls, and every row is rendered —
+  the state the README's "100,000+ rows" premise does not cover. The grid now says so once
+  (`[@iyulab/flex-table]`, development builds only) and tells you to size the host so it becomes
+  the scroll container.
+
 ## [0.34.1] - 2026-09-10
 
 ### Changed

@@ -32,6 +32,13 @@ const DEFAULT_COL_WIDTH = 120;
 const MIN_COL_WIDTH = 40;
 const DEFAULT_ROW_HEIGHT = 32;
 const OVERSCAN = 5;
+/**
+ * 이 행 수부터는 «높이 제약 없음» 을 개발 모드에서 경고한다 — 규칙이라 손으로 쓴다. 제약이 없으면
+ * 호스트가 전 행 높이만큼 자라 가상화가 조용히 꺼진다(tests/browser/height-model 이 그 상태를 계약으로
+ * 고정한다). 작은 표는 그래도 무방하고, 큰 표는 README 가 내세우는 «100,000+ rows» 의 전제가
+ * 깨진 채 통째로 렌더된다 — 그 순간이 소비자가 «탭이 멈춘다» 로 만나는 자리다(docket #178).
+ */
+const UNCONSTRAINED_WARN_ROWS = 200;
 
 @customElement('flex-table')
 export class FlexTable extends LitElement {
@@ -1334,6 +1341,26 @@ export class FlexTable extends LitElement {
     const w = this.clientWidth;
     if (h !== this._viewportHeight) this._viewportHeight = h;
     if (w !== this._viewportWidth) this._viewportWidth = w;
+    this._warnIfUnconstrained();
+  }
+
+  private _warnedUnconstrained = false;
+
+  /**
+   * 개발 모드 사용 안내(HD-61 ⒝): 행이 많은데 호스트가 스크롤 컨테이너가 아니면 — 호스트가 내용
+   * 높이만큼 자라 스크롤할 것이 없으면 — 가상화가 꺼진 것이다. 오류가 없어 아무도 모른다.
+   * 한 번만, 개발 모드에서만. ResizeObserver 경로에서 불리지만 판정은 프로퍼티 둘을 읽는 것뿐이다.
+   */
+  private _warnIfUnconstrained(): void {
+    if (this._warnedUnconstrained || !import.meta.env?.DEV) return;
+    if (this._visibleRowCount < UNCONSTRAINED_WARN_ROWS) return;
+    if (this.scrollHeight > this.clientHeight + 1) return; // 스크롤 컨테이너다 — 가상화가 살아 있다
+    this._warnedUnconstrained = true;
+    console.warn(
+      `[@iyulab/flex-table] ${this._visibleRowCount} rows but the host has no height constraint — it grew to fit every row, ` +
+      'so virtual scrolling is off and all rows are rendered. Give the host a height (e.g. height: 400px, ' +
+      'or flex: 1 1 auto with min-height: 0 inside a sized parent) so it becomes the scroll container.',
+    );
   }
 
   private _onScroll(): void {

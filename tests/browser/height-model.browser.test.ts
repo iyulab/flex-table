@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '../../src/index.js';
 import type { FlexTable } from '../../src/flex-table.js';
 
@@ -137,5 +137,38 @@ describe('flex-table — 호스트 높이 계약(가상 스크롤의 전제)', (
     expect(el.scrollTop, '제약이 걸린 호스트가 실제로 스크롤되어야 한다').toBeGreaterThan(0);
     const n = renderedRows(el);
     expect(n, `창만 렌더해야 한다 — 실측 ${n}행 / 전체 ${ROWS}행`).toBeLessThan(ROWS / 5);
+  });
+
+  /**
+   * HD-61 ⒝ — «가상화가 조용히 꺼진» 상태를 개발 모드에서 한 번 알린다. 위 두 계약(제약 있음/없음)이
+   * 그대로인 채 신호만 더한 것이라, NEGATIVE(제약이 있으면 침묵)가 계약의 절반이다.
+   */
+  it('🔴높이 제약이 없고 행이 많으면 개발 모드 경고를 정확히 한 번 낸다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const el = make();
+      wrap.appendChild(el);
+      await settle(el);
+      el.style.width = '650px'; // ResizeObserver 를 한 번 더 돌린다 — 두 번째는 늘지 않아야 한다
+      await settle(el);
+      const ours = warn.mock.calls.filter((c) => String(c[0]).startsWith('[@iyulab/flex-table]'));
+      expect(ours).toHaveLength(1);
+      expect(String(ours[0][0])).toContain('virtual scrolling is off');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('NEGATIVE: 높이를 주면 침묵한다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const el = make();
+      el.style.height = '300px';
+      wrap.appendChild(el);
+      await settle(el);
+      expect(warn.mock.calls.filter((c) => String(c[0]).startsWith('[@iyulab/flex-table]'))).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
