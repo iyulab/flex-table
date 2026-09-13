@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.34.3] - 2026-09-13
+
+### Fixed
+
+- **The "host has no height constraint" dev-mode warning was a complete no-op in every published
+  release** — the guard used `import.meta.env.DEV`, which Vite resolves statically at this
+  package's own build time, so the published dist always shipped with the check baked to `false`
+  and the warning body removed entirely by dead-code elimination. Replaced with
+  `process.env.NODE_ENV !== 'production'`, which survives this package's own build and is resolved
+  by each consumer's own bundler against its own dev/production build (see `@iyulab/components`
+  1.40.3, which had the identical defect in its shared dev-warning helper).
+
 ## [0.34.2] - 2026-09-13
 
 ### Added

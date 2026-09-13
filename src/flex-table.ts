@@ -1352,7 +1352,7 @@ export class FlexTable extends LitElement {
    * 한 번만, 개발 모드에서만. ResizeObserver 경로에서 불리지만 판정은 프로퍼티 둘을 읽는 것뿐이다.
    */
   private _warnIfUnconstrained(): void {
-    if (this._warnedUnconstrained || !import.meta.env?.DEV) return;
+    if (this._warnedUnconstrained || process.env.NODE_ENV === 'production') return;
     if (this._visibleRowCount < UNCONSTRAINED_WARN_ROWS) return;
     if (this.scrollHeight > this.clientHeight + 1) return; // 스크롤 컨테이너다 — 가상화가 살아 있다
     this._warnedUnconstrained = true;
