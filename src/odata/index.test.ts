@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildSearchExpression, parseOrderBy, useODataSource } from './index.js';
 
 describe('./odata public barrel', () => {
-  it('re-exports buildSearchExpression (docket #129)', () => {
+  it('re-exports buildSearchExpression', () => {
     expect(typeof buildSearchExpression).toBe('function');
     expect(buildSearchExpression('ZT-E2E-A')).toBe('"ZT-E2E-A"');
   });

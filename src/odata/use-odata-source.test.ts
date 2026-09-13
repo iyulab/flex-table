@@ -97,7 +97,7 @@ describe('$search 쿼리 문자열', () => {
 });
 
 /**
- * 초기 상태 옵션 (docket #198).
+ * 초기 상태 옵션.
  *
  * ★**두 소스 훅이 이 함수 하나를 공유한다** — README가 *"same shape … so the same binding
  * code works with either source"*를 계약으로 선언하므로, 초기값 해석이 양쪽에 복제되면

@@ -161,7 +161,7 @@ describe('useODataSource — 페이지 리셋', () => {
       initialPage: 4,
     });
 
-    // cycle-447 이 더한 initialPage 와의 상호작용 — 리셋이 마운트에서도 돌면
+    // initialPage 와의 상호작용 — 리셋이 마운트에서도 돌면
     // 이 옵션이 조용히 무의미해진다.
     expect(view.current.page).toBe(4);
     expect(skipOf(urls[0])).toBe(80);
@@ -180,7 +180,7 @@ describe('useODataSource — 페이지 리셋', () => {
 
 /**
  * README 가 **계약으로 선언한** 나머지 동작들. 넷 다 문서에는 있는데 실행 증거가 0이었다
- * (cycle-454 가 하네스를 만들기 전까지는 만들 방법도 없었다).
+ * (이 하네스가 생기기 전까지는 만들 방법도 없었다).
  */
 describe('useODataSource — 선언된 계약', () => {
   let container: HTMLDivElement;

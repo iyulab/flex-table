@@ -90,7 +90,7 @@ describe('useArraySource — 페이지 범위 초과', () => {
 
 
 /**
- * README 가 «same shape» 계약으로 선언한 나머지 동작들. cycle-456 이 `useODataSource`
+ * README 가 «same shape» 계약으로 선언한 나머지 동작들. `useODataSource`
  * 쪽에서 한 것의 형제 축이다 — 이 훅은 `resolveInitialState` 를 공유하지만 **훅을 지나는
  * 경로**는 별도라, 순수 함수 테스트가 이쪽을 증명하지 않는다.
  */

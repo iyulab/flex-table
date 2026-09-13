@@ -4,7 +4,7 @@ export const flexTableStyles = css`
   /* --- Theme Variables (Light defaults) --- */
   :host {
     --ft-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    /* 밀도 스위치 진입점 — components 의 --u-density 를 그대로 읽는다(묶음 결정 DL-253-1). */
+    /* 밀도 스위치 진입점 — components 의 --u-density 를 그대로 읽는다. */
     --ft-font-size: var(--u-density, 14px);
 
     /* --- 치수·위계 축 (기본값 = 종전 렌더값) ---
@@ -31,7 +31,7 @@ export const flexTableStyles = css`
     --ft-row-hover-bg: var(--u-bg-color-hover, #F5F5F5);
     /* ★홀수 행은 --ft-row-odd-bg(=raised) 위에 앉는다 — 짝수 행과 같은
        --ft-row-hover-bg(=전역 hover) 를 쓰면 다크에서 raised==hover 라 «올려도 아무
-       일도 안 일어난다»(§D-14, L2-11-1). --u-bg-color-raised-hover 는 다크에서
+       일도 안 일어난다»(소비자 실측). --u-bg-color-raised-hover 는 다크에서
        color-mix 로 새로 계산되고, 라이트에서는 기존 hover 에 별칭된다(components
        light.css) — 두 테마 다 늘 선언돼 있으므로 폴백 리터럴은 시트 미로드 시에만
        쓰인다(다른 토큰들과 같은 관례). */
