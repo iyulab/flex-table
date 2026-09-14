@@ -32,10 +32,10 @@ export default defineConfig({
             enabled: true,
             provider: playwright(),
             instances: [{ browser: 'chromium' }],
-            // 고정 포트 이유는 packages/components/vitest.config.ts 참조.
-            // 41501~41505 는 형제 패키지가 쓰고 있다.
-            api: { host: '127.0.0.1', port: 41506 },
           },
+          // 고정 포트 이유는 packages/components/vitest.config.ts 참조.
+          // 41501~41505 는 형제 패키지가 쓰고 있다.
+          api: { host: '127.0.0.1', port: 41506 },
           isolate: true,
         },
       },
