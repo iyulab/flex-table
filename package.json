@@ -93,11 +93,9 @@
     "@vitest/browser-playwright": "^5.0.0",
     "eslint": "^10.1.0",
     "eslint-plugin-lit": "^2.3.1",
-    "jsdom": "^29.1.1",
-    "loupe": "^3.2.1",
+    "jsdom": "^30.0.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.8",
-    "strip-literal": "^3.1.0",
     "typescript": "^6.0.2",
     "vite": "^8.1.4",
     "vitest": "^5.0.0"
