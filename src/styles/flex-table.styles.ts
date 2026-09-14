@@ -445,20 +445,39 @@ export const flexTableStyles = css`
 
   /* --- Filter UI --- */
 
-  .ft-filter-btn {
+  /* 열 메뉴 버튼 — 필터·숨기기·폭 조절이 모두 여기서 열린다. 24px 은 WCAG 2.2 SC 2.5.8 하한이고,
+     6px 리사이즈 핸들의 «등가 수단» 이 이 버튼의 메뉴다. */
+  .ft-column-menu-btn {
     all: unset;
-    cursor: pointer;
-    font-size: 10px;
-    color: var(--ft-sort-indicator-color);
-    padding: 0 2px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: 24px;
+    block-size: 24px;
     margin-left: auto;
-    opacity: 0.7;
     flex-shrink: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--ft-sort-indicator-color);
+    opacity: 0.7;
   }
 
-  .ft-filter-btn:hover { opacity: 1; }
+  .ft-column-menu-btn:hover,
+  .ft-column-menu-btn[aria-expanded="true"] {
+    opacity: 1;
+    background: var(--ft-header-hover-bg);
+  }
 
-  .ft-filter-btn.ft-filter-active {
+  .ft-column-menu-btn:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--ft-active-color);
+    outline-offset: -2px;
+  }
+
+  .ft-column-menu-btn.ft-filter-active {
     color: var(--ft-active-color);
     opacity: 1;
   }
@@ -637,19 +656,34 @@ export const flexTableStyles = css`
     min-width: 160px;
     border-radius: 4px;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-block: 4px;
   }
 
   .ft-header-menu-item {
+    all: unset;
+    box-sizing: border-box;
+    display: block;
+    min-block-size: 28px;
     padding: 6px 12px;
     cursor: pointer;
     font-size: var(--ft-font-size, 14px);
     color: var(--ft-text-color);
     white-space: nowrap;
+    text-align: start;
   }
 
-  .ft-header-menu-item:hover {
+  .ft-header-menu-item:hover,
+  .ft-header-menu-item:focus-visible {
     background: var(--ft-selection-bg);
     color: var(--ft-active-color);
+  }
+
+  .ft-header-menu-separator {
+    block-size: 1px;
+    margin-block: 4px;
+    background: var(--ft-border-color);
   }
 
   /* Hidden column indicator in header */

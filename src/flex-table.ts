@@ -30,6 +30,8 @@ const NUM_OP_LABELS: Record<NumericOp, string> = {
 
 const DEFAULT_COL_WIDTH = 120;
 const MIN_COL_WIDTH = 40;
+/** One keyboard (Alt+Arrow) or column-menu (Wider / Narrower) resize step, in px. */
+const COLUMN_RESIZE_STEP = 20;
 const DEFAULT_ROW_HEIGHT = 32;
 const OVERSCAN = 5;
 /**
@@ -1267,6 +1269,7 @@ export class FlexTable extends LitElement {
     // 크기 변화는 ResizeObserver가 비동기로 처리한다.
     this._focusEditor();
     this._adjustFilterDropdown();
+    if (changedProps.has('_headerMenu')) this._adjustHeaderMenu();
     if (changedProps.has('stylesheets')) this._syncStylesheets();
     // Update ARIA live attributes — guard against no-op setAttribute calls that
     // can trigger MutationObserver → requestUpdate() in Lit dev mode.
@@ -1890,18 +1893,25 @@ export class FlexTable extends LitElement {
     const col = cols[this._activeCell.col];
     if (!col) return true;
 
+    this._resizeColumnBy(col.key, e.key === 'ArrowRight' ? COLUMN_RESIZE_STEP : -COLUMN_RESIZE_STEP);
+    return true;
+  }
+
+  /** Widen (positive) or narrow (negative) a visible column by `delta` px, never below its minimum. */
+  private _resizeColumnBy(key: string, delta: number): void {
+    const colIndex = this.visibleColumns.findIndex(c => c.key === key);
+    const col = this.visibleColumns[colIndex];
+    if (!col) return;
     const currentWidth = this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
-    const delta = e.key === 'ArrowRight' ? 20 : -20;
     const minW = col.minWidth ?? MIN_COL_WIDTH;
     const newWidth = Math.max(minW, currentWidth + delta);
     this._columnWidths.set(col.key, newWidth);
     this.requestUpdate();
     this.dispatchEvent(new CustomEvent('column-resize', {
-      detail: { key: col.key, width: newWidth, colIndex: this._activeCell.col },
+      detail: { key: col.key, width: newWidth, colIndex },
       bubbles: true,
       composed: true,
     }));
-    return true;
   }
 
   private _handleNavigation(e: KeyboardEvent): boolean {
@@ -2429,29 +2439,29 @@ export class FlexTable extends LitElement {
         <span>${col.header}</span>
         ${criterion ? html`<span class="ft-sort-indicator">${criterion.direction === 'asc' ? '\u25B2' : '\u25BC'}</span>` : ''}
         ${sortIndex >= 0 ? html`<span class="ft-sort-order">${sortIndex + 1}</span>` : ''}
-        ${this.showFilters ? html`
-          <button class="ft-filter-btn ${hasFilter ? 'ft-filter-active' : ''}"
-            title="Filter"
-            aria-label=${`Filter ${col.header}`}
-            aria-expanded=${this._openFilterKey === col.key ? 'true' : 'false'}
-            @click=${(e: MouseEvent) => this._onFilterBtnClick(e, col)}>
-            \u25BD
-          </button>
-        ` : ''}
+        <button class="ft-column-menu-btn ${hasFilter ? 'ft-filter-active' : ''}"
+          type="button"
+          title="Column menu"
+          aria-label=${`Column menu: ${col.header}`}
+          aria-haspopup="menu"
+          aria-expanded=${this._headerMenu?.key === col.key ? 'true' : 'false'}
+          @mousedown=${(e: MouseEvent) => e.stopPropagation()}
+          @click=${(e: MouseEvent) => this._onColumnMenuBtnClick(e, col)}>
+          \u22EE
+        </button>
         <div class="ft-resize-handle"
           @mousedown=${(e: MouseEvent) => { e.stopPropagation(); this._wasHeaderDrag = true; this._onResizeStart(e, colIndex); }}
-          @dblclick=${(e: MouseEvent) => this._onResizeAutoFit(e, colIndex)}></div>
+          @dblclick=${(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); this._autoFitColumn(col.key); }}></div>
       </div>
       ${this._openFilterKey === col.key ? this._renderFilterDropdown(col) : ''}
     `;
   }
 
-  private _onHeaderContextMenu(e: MouseEvent, col: ColumnDefinition): void {
-    e.preventDefault();
+  /** Hidden columns directly adjacent to `col` (before and after) — the ones its menu can show again. */
+  private _hiddenNeighbors(col: ColumnDefinition): ColumnDefinition[] {
     const allCols = this.columns;
     const thisIdx = allCols.findIndex(c => c.key === col.key);
     const hiddenNeighbors: ColumnDefinition[] = [];
-    // Collect adjacent hidden columns (before and after)
     for (let i = thisIdx - 1; i >= 0; i--) {
       if (allCols[i].hidden) hiddenNeighbors.push(allCols[i]);
       else break;
@@ -2460,8 +2470,13 @@ export class FlexTable extends LitElement {
       if (allCols[i].hidden) hiddenNeighbors.push(allCols[i]);
       else break;
     }
+    return hiddenNeighbors;
+  }
 
-    this._headerMenu = { key: col.key, x: e.clientX, y: e.clientY, hiddenNeighbors };
+  private _onHeaderContextMenu(e: MouseEvent, col: ColumnDefinition): void {
+    e.preventDefault();
+    this._openFilterKey = null;
+    this._headerMenu = { key: col.key, x: e.clientX, y: e.clientY, hiddenNeighbors: this._hiddenNeighbors(col) };
     this.dispatchEvent(new CustomEvent('header-context-menu', {
       detail: { key: col.key, header: col.header, x: e.clientX, y: e.clientY },
       bubbles: true,
@@ -2469,6 +2484,81 @@ export class FlexTable extends LitElement {
     }));
     requestAnimationFrame(() => {
       document.addEventListener('click', this._onDocumentClick, { once: true });
+    });
+  }
+
+  /**
+   * The header's column menu button — the same menu a right-click opens, anchored under the button.
+   * It is the pointer-sized, keyboard-reachable way to every per-column action: filtering, hiding,
+   * and resizing without dragging the 6px handle (WCAG 2.2 SC 2.5.7 / 2.5.8).
+   */
+  private _onColumnMenuBtnClick(e: MouseEvent, col: ColumnDefinition): void {
+    e.preventDefault();
+    e.stopPropagation();
+    if (this._headerMenu?.key === col.key) {
+      this._headerMenu = null;
+      return;
+    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    this._openFilterKey = null;
+    this._headerMenu = { key: col.key, x: rect.left, y: rect.bottom, hiddenNeighbors: this._hiddenNeighbors(col) };
+    requestAnimationFrame(() => {
+      document.addEventListener('click', this._onDocumentClick, { once: true });
+    });
+    void this.updateComplete.then(() => this._menuItems()[0]?.focus());
+  }
+
+  private _menuItems(): HTMLElement[] {
+    return Array.from(this.shadowRoot?.querySelectorAll<HTMLElement>('.ft-header-menu [role="menuitem"]') ?? []);
+  }
+
+  private _columnMenuButton(key: string): HTMLElement | null {
+    const colIndex = this.visibleColumns.findIndex(c => c.key === key);
+    return this.shadowRoot?.querySelector<HTMLElement>(
+      `.ft-header-cell[data-col-index="${colIndex}"] .ft-column-menu-btn`,
+    ) ?? null;
+  }
+
+  private _closeHeaderMenu(returnFocus: boolean): void {
+    const key = this._headerMenu?.key;
+    this._headerMenu = null;
+    if (returnFocus && key) this._columnMenuButton(key)?.focus();
+  }
+
+  private _onHeaderMenuKeydown(e: KeyboardEvent): void {
+    const items = this._menuItems();
+    const current = items.indexOf(e.target as HTMLElement);
+    let next = -1;
+    switch (e.key) {
+      case 'ArrowDown': next = current < 0 ? 0 : (current + 1) % items.length; break;
+      case 'ArrowUp': next = current <= 0 ? items.length - 1 : current - 1; break;
+      case 'Home': next = 0; break;
+      case 'End': next = items.length - 1; break;
+      case 'Escape':
+        e.preventDefault();
+        e.stopPropagation();
+        this._closeHeaderMenu(true);
+        return;
+      case 'Tab':
+        this._closeHeaderMenu(false);
+        return;
+      default:
+        return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    items[next]?.focus();
+  }
+
+  /** Open the filter dropdown for `key` from its column menu, focusing its first control. */
+  private _openFilterFromMenu(key: string): void {
+    this._headerMenu = null;
+    this._openFilterKey = key;
+    requestAnimationFrame(() => {
+      document.addEventListener('click', this._onDocumentClick, { once: true });
+    });
+    void this.updateComplete.then(() => {
+      this.shadowRoot?.querySelector<HTMLElement>('.ft-filter-dropdown input, .ft-filter-dropdown select')?.focus();
     });
   }
 
@@ -2487,19 +2577,34 @@ export class FlexTable extends LitElement {
     const col = this.columns.find(c => c.key === key);
     if (!col) return nothing;
 
+    const hasFilter = this._filters.some(f => f.key === key);
+    // 🔴항목 클릭은 문서까지 올라가지 않게 한다 — 문서 클릭은 «열린 것을 전부 닫기» 라, 메뉴에서 연 필터
+    //   드롭다운을 같은 클릭이 곧바로 닫는다. 폭 조절 둘은 연달아 누르도록 메뉴를 열어 둔다.
+    const item = (action: string, label: unknown, run: () => void, keepOpen = false) => html`
+      <button type="button" role="menuitem" class="ft-header-menu-item" data-action=${action}
+        @click=${(e: MouseEvent) => {
+          e.stopPropagation();
+          if (!keepOpen) this._headerMenu = null;
+          run();
+        }}>${label}</button>
+    `;
+
     return html`
-      <div class="ft-header-menu" style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
-        @mousedown=${(e: MouseEvent) => e.stopPropagation()}>
-        <div class="ft-header-menu-item"
-          @click=${() => { this._setColumnHidden(key, true); this._headerMenu = null; }}>
-          Hide column
-        </div>
-        ${hiddenNeighbors.map(h => html`
-          <div class="ft-header-menu-item"
-            @click=${() => { this._setColumnHidden(h.key, false); this._headerMenu = null; }}>
-            Show: ${h.header}
-          </div>
-        `)}
+      <div class="ft-header-menu" role="menu" aria-label=${`${col.header} column`}
+        style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
+        @mousedown=${(e: MouseEvent) => e.stopPropagation()}
+        @keydown=${(e: KeyboardEvent) => this._onHeaderMenuKeydown(e)}>
+        ${this.showFilters ? html`
+          ${item('filter', 'Filter…', () => this._openFilterFromMenu(key))}
+          ${hasFilter ? item('clear-filter', 'Clear filter', () => this._clearColumnFilter(key)) : nothing}
+          <div class="ft-header-menu-separator" role="separator"></div>
+        ` : nothing}
+        ${item('hide', 'Hide column', () => this._setColumnHidden(key, true))}
+        ${hiddenNeighbors.map(h => item('show', html`Show: ${h.header}`, () => this._setColumnHidden(h.key, false)))}
+        <div class="ft-header-menu-separator" role="separator"></div>
+        ${item('autofit', 'Auto-fit width', () => this._autoFitColumn(key))}
+        ${item('wider', 'Wider', () => this._resizeColumnBy(key, COLUMN_RESIZE_STEP), true)}
+        ${item('narrower', 'Narrower', () => this._resizeColumnBy(key, -COLUMN_RESIZE_STEP), true)}
       </div>
     `;
   }
@@ -2653,6 +2758,20 @@ export class FlexTable extends LitElement {
 
   // --- Filter UI ---
 
+  /** Keep the fixed-position column menu inside the viewport — a right-hand column's menu would open off-screen. */
+  private _adjustHeaderMenu(): void {
+    const menu = this.shadowRoot?.querySelector<HTMLElement>('.ft-header-menu');
+    if (!menu) return;
+    const margin = 4;
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth - margin) {
+      menu.style.left = `${Math.max(margin, window.innerWidth - rect.width - margin)}px`;
+    }
+    if (rect.bottom > window.innerHeight - margin) {
+      menu.style.top = `${Math.max(margin, window.innerHeight - rect.height - margin)}px`;
+    }
+  }
+
   private _adjustFilterDropdown(): void {
     if (!this._openFilterKey) return;
     const dropdown = this.shadowRoot?.querySelector('.ft-filter-dropdown') as HTMLElement | null;
@@ -2669,20 +2788,6 @@ export class FlexTable extends LitElement {
     if (rect.bottom > viewportHeight) {
       dropdown.style.top = 'auto';
       dropdown.style.bottom = '100%';
-    }
-  }
-
-  private _onFilterBtnClick(e: MouseEvent, col: ColumnDefinition): void {
-    e.preventDefault();
-    e.stopPropagation();
-    const newKey = this._openFilterKey === col.key ? null : col.key;
-    this._openFilterKey = newKey;
-
-    if (newKey) {
-      // Delay to avoid immediate close from current click
-      requestAnimationFrame(() => {
-        document.addEventListener('click', this._onDocumentClick, { once: true });
-      });
     }
   }
 
@@ -3029,10 +3134,9 @@ export class FlexTable extends LitElement {
 
   // --- Column Resize ---
 
-  private _onResizeAutoFit(e: MouseEvent, colIndex: number): void {
-    e.preventDefault();
-    e.stopPropagation();
-
+  /** Size a column to its widest rendered content — the resize handle's double-click and the column menu. */
+  private _autoFitColumn(key: string): void {
+    const colIndex = this.visibleColumns.findIndex(c => c.key === key);
     const col = this.visibleColumns[colIndex];
     if (!col) return;
 

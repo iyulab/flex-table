@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.35.0] - 2026-09-15
+
+### Changed
+
+- **Every header now has a 24×24 column menu button (`⋮`), which replaces the 14px filter button.**
+  The menu — the same one a header right-click opens — gathers the per-column actions: **Filter…**
+  and **Clear filter** (with `show-filters`), **Hide column** / **Show: …**, **Auto-fit width**,
+  **Wider** and **Narrower** (±20px, the menu stays open for repeated steps). Opening a filter is now
+  two clicks. The button is highlighted while its column is filtered, as the filter button was.
+  The old filter button was below the WCAG 2.2 SC 2.5.8 minimum and sat right next to the resize handle;
+  the handle keeps its 6px width and the column menu is its equivalent, which also means resizing
+  no longer requires a drag (SC 2.5.7).
+
+### Fixed
+
+- **The header context menu could not be used from the keyboard and could open off-screen.** Its
+  items are now buttons in a `role="menu"` with arrow-key, Home/End and Escape handling (focus returns
+  to the column menu button), and the menu is moved back inside the viewport when a right-hand
+  column's menu would overflow.
+
 ## [0.34.3] - 2026-09-13
 
 ### Fixed

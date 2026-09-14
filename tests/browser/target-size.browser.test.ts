@@ -9,9 +9,9 @@ import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
  * ## ⚠ 태그는 하나, 표면은 여럿이다
  *
  * 이 패키지가 등록하는 태그는 `flex-table` 하나뿐이다. 그래서 «태그마다 픽스처 하나» 로는 아무것도 가르지 못한다 —
- * 격자 머리의 정렬 헤더 · 필터 버튼 · 열 리사이즈 핸들 · 행 선택 체크박스는 **서로 다른 치수 결정**이다. ⇒ 표면마다
- * **상태**(픽스처)를 따로 둔다. 붙어 있는 작은 타깃끼리(필터 버튼 ↔ 리사이즈 핸들, 위아래 행의 체크박스)는 한 픽스처에
- * 넣고 간격을 이 컴포넌트가 소유한다고 본다 — 간격 예외가 실제로 일하는 자리다.
+ * 격자 머리의 정렬 헤더 · 열 메뉴 버튼 · 열린 열 메뉴 · 열 리사이즈 핸들 · 행 선택 체크박스는 **서로 다른 치수 결정**이다.
+ * ⇒ 표면마다 **상태**(픽스처)를 따로 둔다. 붙어 있는 작은 타깃끼리(위아래 행의 체크박스)는 한 픽스처에 넣고 간격을 이
+ * 컴포넌트가 소유한다고 본다 — 간격 예외가 실제로 일하는 자리다. 리사이즈 핸들은 치수를 올리지 않고 «등가» 예외를 쓴다.
  *
  * ## ⚠ 형제 걸러내기가 필요 없다
  *
@@ -187,11 +187,9 @@ const NEEDS_FIXTURE = new Set<string>([]);
  * 빨개진다 — 그때 이 집합에서 빼는 것이 완료 신호다. 태그 전체(`u-x`) 또는 한 상태(`u-x [상태]`)에 건다.
  */
 const UNDERSIZED_PINS = new Set<string>([
-  // 게이트 첫 실행 실측: 필터 버튼 **14×14** · 열 리사이즈 핸들 **6×38**(셋 다 hit-test 는 통과 — 보이고 눌린다).
-  // 🔴배치를 움직이지 않는 «패딩 + 음수 여백» 기법(components 접미 아이콘과 같은 것)으로는 해소되지 않는다 — 넓힌 누를 면이
-  //   필터 버튼 쪽은 **머리 셀의 정렬 클릭 영역**을, 리사이즈 핸들 쪽은 **이웃 열 머리**를 덮는다. 즉 치수가 아니라
-  //   «머리 안에서 어느 동작이 어느 면을 갖는가» 가 바뀌는 결정이라 사람 판단이다.
-  'flex-table [필터 버튼 · 리사이즈 핸들]',
+  // ✅비어 있다 — 첫 실행의 핀(필터 버튼 14×14 · 리사이즈 핸들 6×38)은 사람 결정으로 해소됐다: 필터 버튼을 24×24 «열 메뉴»
+  //   버튼이 흡수했고, 핸들은 치수를 그대로 둔 채 그 메뉴를 «등가 수단» 으로 삼는다(아래 `equivalentIn`).
+  //   ⚠넓히는 길은 둘 다 막혀 있었다 — 경계에 걸치면 이웃 머리의 숨긴 열 버튼과, 안쪽으로 넓히면 자기 메뉴 버튼과 면이 겹친다.
 ]);
 
 /**
@@ -212,6 +210,17 @@ interface Fixture {
   spacingIsOurs?: true;
   /** 렌더가 비동기인 것을 위한 추가 대기(ms). */
   settle?: number;
+  /**
+   * 🔴**SC 2.5.8 「등가」 예외** — 같은 동작을 같은 페이지의 다른 컨트롤이 24px 이상으로 제공한다. 값은 그 컨트롤을 재는
+   * **같은 태그의 상태 이름**이다. 이 상태의 타깃은 크기를 면제하되 «눌린다» 는 전제는 면제하지 않고, 가리킨 상태가
+   * 실재하며 핀이 아니어야 한다 — 등가 수단 자신이 미달이면 면제 근거가 없다.
+   */
+  equivalentIn?: string;
+  /**
+   * 판정하지 않지만 **간격 계산에는 넣는** 이웃 타깃. 🔴이것 없이는 열 메뉴 버튼을 14px 로 줄여도 통과했다(네거티브 컨트롤) —
+   * 같은 상태의 버튼끼리는 열 폭만큼 떨어져 «간격 예외» 가 되고, 바로 옆 리사이즈 핸들은 다른 상태라 보이지 않았다.
+   */
+  spacingNeighbors?: (tag: string) => Element[];
 }
 
 type Table = HTMLElement & {
@@ -236,7 +245,7 @@ const prepareGrid = async (host: Element): Promise<void> => {
   await t.updateComplete;
   await new Promise((r) => setTimeout(r, 120));
   await t.updateComplete;
-  if (inShadow(t, '.ft-filter-btn').length !== 3) throw new Error('필터 버튼 셋이 렌더되지 않았다 — showFilters 가 걸리지 않았다');
+  if (inShadow(t, '.ft-column-menu-btn').length !== 3) throw new Error('열 메뉴 버튼 셋이 렌더되지 않았다');
   if (inShadow(t, '.ft-checkbox-cell input[type=checkbox]').length === 0) throw new Error('행 선택 체크박스가 렌더되지 않았다');
 };
 
@@ -254,12 +263,36 @@ const FIXTURES: Record<string, Fixture | Fixture[]> = {
       spacingIsOurs: true,
     },
     {
-      state: '필터 버튼 · 리사이즈 핸들',
-      // 머리 셀 안에서 서로 붙어 있는 작은 타깃 둘 — 같은 픽스처에 넣어 간격을 함께 잰다.
+      state: '열 메뉴 버튼',
       html: grid,
       prepare: prepareGrid,
-      targets: () => inShadow(table(), '.ft-filter-btn, .ft-resize-handle'),
+      targets: () => inShadow(table(), '.ft-column-menu-btn'),
       spacingIsOurs: true,
+      spacingNeighbors: () => inShadow(table(), '.ft-resize-handle'),
+    },
+    {
+      state: '열 메뉴',
+      // 열린 상태 — 첫 열의 메뉴. 항목이 곧 리사이즈 핸들의 등가 수단이므로, 폭 항목이 없으면 던진다.
+      html: grid,
+      prepare: async (host) => {
+        await prepareGrid(host);
+        const t = host as Table;
+        inShadow(t, '.ft-column-menu-btn')[0].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        await t.updateComplete;
+        const actions = inShadow(t, '.ft-header-menu [role="menuitem"]').map((i) => i.getAttribute('data-action'));
+        for (const a of ['filter', 'hide', 'autofit', 'wider', 'narrower']) {
+          if (!actions.includes(a)) throw new Error(`열 메뉴에 «${a}» 항목이 없다 — 실측 ${actions.join(' ')}`);
+        }
+      },
+      targets: () => inShadow(table(), '.ft-header-menu [role="menuitem"]'),
+      spacingIsOurs: true,
+    },
+    {
+      state: '리사이즈 핸들',
+      html: grid,
+      prepare: prepareGrid,
+      targets: () => inShadow(table(), '.ft-resize-handle'),
+      equivalentIn: '열 메뉴',
     },
     {
       state: '행 선택',
@@ -416,10 +449,11 @@ describe('WCAG 2.2 SC 2.5.8 — 타깃 크기(최소) 게이트', () => {
       //   줄을 함께 고치는 것이 그 작업의 완료 신호다.
       // 🔴«판정» 은 태그 수와 **상태 수**를 함께 말한다 — 태그만 세면 열린 상태를 빠뜨려도 이 줄이 변하지 않는다.
       const states = Object.values(FIXTURES).flat().length;
+      const equivalents = Object.values(FIXTURES).flat().filter((f) => f.equivalentIn).length;
       expect(
         `판정 ${Object.keys(FIXTURES).length}(${states}상태) · 미판정 ${unjudged.length}(${unjudged.join(' ')})` +
-        ` · 대상아님 ${NOT_A_TARGET.size} · 인라인예외 ${INLINE_PROSE.size}`,
-      ).toBe('판정 1(3상태) · 미판정 0() · 대상아님 0 · 인라인예외 0');
+        ` · 대상아님 ${NOT_A_TARGET.size} · 인라인예외 ${INLINE_PROSE.size} · 등가예외 ${equivalents}`,
+      ).toBe('판정 1(5상태) · 미판정 0() · 대상아님 0 · 인라인예외 0 · 등가예외 1');
     });
 
     it('규칙 표에 «등록되지 않은» 이름이 남아 있지 않다 (표가 낡지 않게)', () => {
@@ -437,11 +471,14 @@ describe('WCAG 2.2 SC 2.5.8 — 타깃 크기(최소) 게이트', () => {
       const name = `${tag}${fixture.state ? ` [${fixture.state}]` : ''}`;
       const pinned = UNDERSIZED_PINS.has(tag) || UNDERSIZED_PINS.has(name);
       const inline = INLINE_PROSE.has(tag);
+      const equivalent = fixture.equivalentIn;
       const label = pinned
         ? '📌미달로 «핀»돼 있다 (사람 판단 대기)'
         : inline
           ? '「인라인」 예외 — 크기 하한을 적용하지 않되 실측은 보고한다'
-          : 'SC 2.5.8 을 만족한다';
+          : equivalent
+            ? `「등가」 예외 — 같은 동작을 [${equivalent}] 이 24px 이상으로 제공한다`
+            : 'SC 2.5.8 을 만족한다';
       it(`${name}: ${label}`, async () => {
         await mount(fixture.html, fixture.settle);
         if (fixture.prepare) await fixture.prepare(document.querySelector(tag)!);
@@ -456,13 +493,20 @@ describe('WCAG 2.2 SC 2.5.8 — 타깃 크기(최소) 게이트', () => {
           .filter(({ misses }) => misses.length > 0)
           .map(({ el, misses }) => `${describeEl(el)} — ${misses.map((m) => `${m.point}→${m.hit}`).join(' · ')}`);
         expect(unreachable, '누르면 다른 요소가 받는 타깃 — 잘렸거나 가려졌거나 닫혀 있다').toEqual([]);
+        const neighbors = (fixture.spacingNeighbors ? fixture.spacingNeighbors(tag) : []).map(measure);
         const verdicts = targets.map((t, i) =>
-          fixture.spacingIsOurs ? judge(t, targets.filter((_, j) => j !== i)) : judge(t, [t]),
+          fixture.spacingIsOurs ? judge(t, [...targets.filter((_, j) => j !== i), ...neighbors]) : judge(t, [t]),
         );
         const detail = `실측 ${targets.map((t) => `${Math.round(t.w)}x${Math.round(t.h)}`).join(' ')} · 판정 ${verdicts.join(' ')}`;
 
         if (pinned) {
           expect(verdicts.some((v) => v === 'undersized'), detail).toBe(true);
+        } else if (equivalent) {
+          const siblings = [FIXTURES[tag]].flat();
+          const via = siblings.find((f) => f.state === equivalent);
+          expect(via, `${detail} · 등가 수단 상태 [${equivalent}] 가 없다`).toBeTruthy();
+          expect(via!.equivalentIn, '등가 수단이 다시 등가 예외면 근거가 순환한다').toBeUndefined();
+          expect(UNDERSIZED_PINS.has(`${tag} [${equivalent}]`), '등가 수단 자신이 미달로 핀돼 있다').toBe(false);
         } else if (inline) {
           const host = document.querySelector(tag)!;
           expect(getComputedStyle(host).display, `${detail} · 인라인이 아니면 면제 근거가 없다`)

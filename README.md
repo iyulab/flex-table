@@ -52,7 +52,8 @@ npm install @iyulab/flex-table
 - **Row Selection** — Checkbox-based row selection (`selectable`, single/multi mode)
 - **Clipboard** — Ctrl+C/X/V with TSV format (Excel/Google Sheets compatible, RFC 4180)
 - **Sorting** — Click header to sort (asc/desc/none), Shift+click for multi-sort
-- **Column Resize** — Drag header border, double-click to auto-fit, Alt+Arrow keyboard resize
+- **Column Menu** — A 24×24 button in every header opens the column's menu: filter, hide/show, auto-fit, wider/narrower (also opens on header right-click)
+- **Column Resize** — Drag header border, double-click to auto-fit, Alt+Arrow keyboard resize, or the column menu
 - **Column Operations** — `addColumn()`, `deleteColumn()`, `moveColumn()` with undo
 - **Pinned Columns** — Freeze columns to left or right (`pinned: 'left' | 'right'`)
 - **Filtering** — Programmatic API + built-in header filter UI (`show-filters`)
@@ -103,7 +104,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `showRowNumbers` | `show-row-numbers` | `boolean` | `false` | Show row number column |
 | `theme` | `theme` | `'light' \| 'dark'` | auto | Force theme; auto-detects `prefers-color-scheme` |
 | `editable` | `editable` | `boolean` | `true` | Global read-only mode when `false`. Defaults to `true` — a purely read-only grid should set this explicitly rather than relying on per-column `editable: false` alone, since it's also what makes Enter fire `row-activate` (see [Events](#events)) instead of entering edit mode |
-| `showFilters` | `show-filters` | `boolean` | `false` | Show built-in header filter dropdowns |
+| `showFilters` | `show-filters` | `boolean` | `false` | Offer the built-in filter dropdowns through each column menu («Filter…») |
 | `maxRows` | `max-rows` | `number` | `0` | Max row count (0 = unlimited); blocks `addRow()` and paste expansion |
 | `maxUndoSize` | `max-undo-size` | `number` | `100` | Max undo history stack size |
 | `selectable` | `selectable` | `boolean` | `false` | Enable row-level checkbox selection |
@@ -404,6 +405,22 @@ package dependency; CSS custom properties are resolved at render time, not impor
 | Ctrl+Shift+Z / Ctrl+Y | Redo |
 | Alt+ArrowLeft / Alt+ArrowRight | Resize current column (±20px) |
 | Ctrl+Click header | Select entire column |
+| Enter / Space on a column menu button | Open the column menu |
+| ArrowUp / ArrowDown / Home / End (column menu) | Move between menu items |
+| Escape (column menu) | Close the menu and return focus to its button |
+
+## Accessibility
+
+The baseline is **WCAG 2.2**. The table lists what this package **measures in tests** — it is not a
+conformance claim for the success criteria it does not list.
+
+| Success criterion | Guarantee | Measured by |
+|---|---|---|
+| SC 2.5.8 Target Size (Minimum) | Sortable headers, column menu buttons, the open column menu's items and row selection checkboxes are at least 24×24 CSS px or meet the spacing exception (24px between centers, counting the neighbouring resize handles), and are actually hit at that position. The 6px column resize handle uses the equivalent-control exception: every resize it offers is also in the column menu | `tests/browser/target-size.browser.test.ts` (real Chromium) |
+| SC 2.5.7 Dragging Movements | Resizing never requires a drag — the column menu's **Auto-fit width**, **Wider** and **Narrower** are single clicks | `tests/browser/column-menu.browser.test.ts` |
+
+Not yet measured: the open filter dropdown, find/replace bar and body context menu. Color contrast
+comes from the `@iyulab/components` tokens this package reads.
 
 ## Usage Guide
 
@@ -569,7 +586,9 @@ Use `updateRows()` for programmatic edits — it provides undo/redo and dispatch
 
 ### Built-in Filter UI
 
-Enable with `show-filters` attribute. Filter dropdowns appear in column headers:
+Enable with `show-filters` attribute. Each column menu (the `⋮` button in the header) then offers **Filter…**,
+which opens that column's filter dropdown, and **Clear filter** while the column is filtered. The menu
+button is highlighted while its column has an active filter.
 
 - **text**: case-insensitive substring search
 - **number**: min/max range inputs

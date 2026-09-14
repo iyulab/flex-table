@@ -11,6 +11,14 @@ function createElement(): FlexTable {
   return el;
 }
 
+/** Open the filter dropdown of column `index` the way a user does — its column menu, then «Filter…». */
+async function openFilter(el: FlexTable, index = 0): Promise<void> {
+  el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-column-menu-btn')[index].click();
+  await el.updateComplete;
+  el.shadowRoot!.querySelector<HTMLElement>('.ft-header-menu [data-action="filter"]')!.click();
+  await el.updateComplete;
+}
+
 // jsdom's ShadowRoot doesn't implement `adoptedStyleSheets` (it's `undefined`, not an empty
 // array) — real browsers (Chrome/Firefox/Safari 16.4+) do. Skip rather than fake a pass; the
 // merge logic itself was verified manually in a real browser (see flex-table.ts `_syncStylesheets`).
@@ -1468,7 +1476,7 @@ describe('FlexTable', () => {
 
   // --- Filter UI ---
 
-  it('should show filter buttons when show-filters is enabled', async () => {
+  it('should offer «Filter…» in every column menu when show-filters is enabled', async () => {
     const el = createElement();
     el.showFilters = true;
     el.columns = [
@@ -1478,30 +1486,34 @@ describe('FlexTable', () => {
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
 
-    const filterBtns = el.shadowRoot!.querySelectorAll('.ft-filter-btn');
-    expect(filterBtns.length).toBe(2);
+    const menuBtns = el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-column-menu-btn');
+    expect(menuBtns.length).toBe(2);
+    menuBtns[1].click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.ft-header-menu [data-action="filter"]')).toBeTruthy();
   });
 
-  it('should not show filter buttons by default', async () => {
+  it('should not offer filtering by default — the column menu still resizes and hides', async () => {
     const el = createElement();
     el.columns = [{ key: 'name', header: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
-    const filterBtns = el.shadowRoot!.querySelectorAll('.ft-filter-btn');
-    expect(filterBtns.length).toBe(0);
+    el.shadowRoot!.querySelector<HTMLElement>('.ft-column-menu-btn')!.click();
+    await el.updateComplete;
+    const actions = [...el.shadowRoot!.querySelectorAll('.ft-header-menu [role="menuitem"]')]
+      .map((i) => i.getAttribute('data-action'));
+    expect(actions).toEqual(['hide', 'autofit', 'wider', 'narrower']);
   });
 
-  it('should open filter dropdown on filter button click', async () => {
+  it('should open filter dropdown from the column menu', async () => {
     const el = createElement();
     el.showFilters = true;
     el.columns = [{ key: 'name', header: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
-    const filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
-    filterBtn.click();
-    await el.updateComplete;
+    await openFilter(el);
 
     const dropdown = el.shadowRoot!.querySelector('.ft-filter-dropdown');
     expect(dropdown).toBeTruthy();
@@ -1514,9 +1526,7 @@ describe('FlexTable', () => {
     el.data = [{ name: 'Alice' }, { name: 'Bob' }];
     await el.updateComplete;
 
-    const filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
-    filterBtn.click();
-    await el.updateComplete;
+    await openFilter(el);
 
     const input = el.shadowRoot!.querySelector('.ft-filter-input') as HTMLInputElement;
     expect(input).toBeTruthy();
@@ -1531,9 +1541,7 @@ describe('FlexTable', () => {
     el.data = [{ age: 30 }];
     await el.updateComplete;
 
-    const filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
-    filterBtn.click();
-    await el.updateComplete;
+    await openFilter(el);
 
     // Two numeric condition inputs (cond1, cond2) and two op selects
     const numInputs = el.shadowRoot!.querySelectorAll('.ft-num-cond-input');
@@ -1550,9 +1558,7 @@ describe('FlexTable', () => {
     el.data = [{ active: true }];
     await el.updateComplete;
 
-    const filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
-    filterBtn.click();
-    await el.updateComplete;
+    await openFilter(el);
 
     const select = el.shadowRoot!.querySelector('.ft-filter-input') as HTMLSelectElement;
     expect(select).toBeTruthy();
@@ -1560,7 +1566,7 @@ describe('FlexTable', () => {
     expect(select.options.length).toBe(3);
   });
 
-  it('should highlight filter button when filter is active', async () => {
+  it('should highlight the column menu button when its column is filtered', async () => {
     const el = createElement();
     el.showFilters = true;
     el.columns = [{ key: 'name', header: 'Name' }];
@@ -1568,15 +1574,15 @@ describe('FlexTable', () => {
     await el.updateComplete;
 
     // No active filter initially
-    let filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
-    expect(filterBtn.classList.contains('ft-filter-active')).toBe(false);
+    let menuBtn = el.shadowRoot!.querySelector('.ft-column-menu-btn') as HTMLElement;
+    expect(menuBtn.classList.contains('ft-filter-active')).toBe(false);
 
     // Set a filter
     el.setFilter('name', (v) => v === 'Alice');
     await el.updateComplete;
 
-    filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
-    expect(filterBtn.classList.contains('ft-filter-active')).toBe(true);
+    menuBtn = el.shadowRoot!.querySelector('.ft-column-menu-btn') as HTMLElement;
+    expect(menuBtn.classList.contains('ft-filter-active')).toBe(true);
   });
 
   it('should ignore deleteColumn for non-existent key', async () => {
@@ -1727,9 +1733,9 @@ describe('FlexTable', () => {
     expect(selectedCells.length).toBe(4); // 2x2 range
   });
 
-  // --- Filter button accessibility ---
+  // --- Column menu accessibility ---
 
-  it('should have aria-label on filter buttons', async () => {
+  it('should name the column menu buttons and expose the popup state', async () => {
     const el = createElement();
     el.showFilters = true;
     el.columns = [
@@ -1739,16 +1745,107 @@ describe('FlexTable', () => {
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
 
-    const filterBtns = el.shadowRoot!.querySelectorAll('.ft-filter-btn');
-    expect(filterBtns.length).toBe(2);
-    expect(filterBtns[0].getAttribute('aria-label')).toBe('Filter Name');
-    expect(filterBtns[1].getAttribute('aria-label')).toBe('Filter Age');
-    expect(filterBtns[0].getAttribute('aria-expanded')).toBe('false');
+    const menuBtns = el.shadowRoot!.querySelectorAll('.ft-column-menu-btn');
+    expect(menuBtns.length).toBe(2);
+    expect(menuBtns[0].getAttribute('aria-label')).toBe('Column menu: Name');
+    expect(menuBtns[1].getAttribute('aria-label')).toBe('Column menu: Age');
+    expect(menuBtns[0].getAttribute('aria-haspopup')).toBe('menu');
+    expect(menuBtns[0].getAttribute('aria-expanded')).toBe('false');
 
-    // Click filter button to open dropdown
-    (filterBtns[0] as HTMLElement).click();
+    (menuBtns[0] as HTMLElement).click();
     await el.updateComplete;
-    expect(filterBtns[0].getAttribute('aria-expanded')).toBe('true');
+    expect(menuBtns[0].getAttribute('aria-expanded')).toBe('true');
+    expect(el.shadowRoot!.querySelector('.ft-header-menu')?.getAttribute('role')).toBe('menu');
+
+    (menuBtns[0] as HTMLElement).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.ft-header-menu')).toBeNull();
+  });
+
+  it('column menu: the button click neither sorts nor starts a column drag', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name', sortable: true }];
+    el.data = [{ name: 'B' }, { name: 'A' }];
+    await el.updateComplete;
+
+    const btn = el.shadowRoot!.querySelector<HTMLElement>('.ft-column-menu-btn')!;
+    btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, composed: true }));
+    btn.click();
+    await el.updateComplete;
+    expect(el.sortCriteria ?? []).toEqual([]);
+  });
+
+  it('column menu: Wider and Narrower resize by one step and keep the menu open', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name', width: 150, minWidth: 140 }];
+    el.data = [{ name: 'A' }];
+    await el.updateComplete;
+    const widths: number[] = [];
+    el.addEventListener('column-resize', (e) => widths.push((e as CustomEvent).detail.width));
+
+    el.shadowRoot!.querySelector<HTMLElement>('.ft-column-menu-btn')!.click();
+    await el.updateComplete;
+    const click = async (action: string) => {
+      el.shadowRoot!.querySelector<HTMLElement>(`.ft-header-menu [data-action="${action}"]`)!.click();
+      await el.updateComplete;
+    };
+    await click('wider');
+    await click('narrower');
+    await click('narrower');
+
+    expect(widths).toEqual([170, 150, 140]); // never below minWidth
+    expect(el.shadowRoot!.querySelector('.ft-header-menu')).toBeTruthy();
+  });
+
+  it('column menu: «Clear filter» appears only for a filtered column and removes the filter', async () => {
+    const el = createElement();
+    el.showFilters = true;
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }, { name: 'Bob' }];
+    await el.updateComplete;
+
+    const open = async () => {
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-column-menu-btn')!.click();
+      await el.updateComplete;
+    };
+    await open();
+    expect(el.shadowRoot!.querySelector('[data-action="clear-filter"]')).toBeNull();
+    el.shadowRoot!.querySelector<HTMLElement>('.ft-column-menu-btn')!.click(); // close
+    await el.updateComplete;
+
+    el.setFilter('name', (v) => v === 'Alice');
+    await el.updateComplete;
+    await open();
+    el.shadowRoot!.querySelector<HTMLElement>('[data-action="clear-filter"]')!.click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelectorAll('.ft-row').length).toBe(2);
+    expect(el.shadowRoot!.querySelector('.ft-header-menu')).toBeNull();
+  });
+
+  it('column menu: arrow keys move between items and Escape returns focus to the button', async () => {
+    const el = createElement();
+    el.showFilters = true;
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'Alice' }];
+    await el.updateComplete;
+
+    const btn = el.shadowRoot!.querySelector<HTMLElement>('.ft-column-menu-btn')!;
+    btn.click();
+    await el.updateComplete;
+    await el.updateComplete;
+    const items = [...el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-header-menu [role="menuitem"]')];
+    expect(el.shadowRoot!.activeElement).toBe(items[0]);
+
+    items[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true }));
+    expect(el.shadowRoot!.activeElement).toBe(items[1]);
+    items[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, composed: true }));
+    items[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, composed: true }));
+    expect(el.shadowRoot!.activeElement).toBe(items[items.length - 1]);
+
+    items[items.length - 1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.ft-header-menu')).toBeNull();
+    expect(el.shadowRoot!.activeElement).toBe(btn);
   });
 
   // --- aria-readonly ---
@@ -1999,9 +2096,7 @@ describe('FlexTable', () => {
     el.data = [{ created: '2025-01-15' }];
     await el.updateComplete;
 
-    const filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
-    filterBtn.click();
-    await el.updateComplete;
+    await openFilter(el);
 
     const inputs = el.shadowRoot!.querySelectorAll('.ft-filter-dropdown input');
     expect(inputs.length).toBe(2);
@@ -2016,9 +2111,7 @@ describe('FlexTable', () => {
     el.data = [{ ts: '2025-01-15T10:30:00' }];
     await el.updateComplete;
 
-    const filterBtn = el.shadowRoot!.querySelector('.ft-filter-btn') as HTMLElement;
-    filterBtn.click();
-    await el.updateComplete;
+    await openFilter(el);
 
     const inputs = el.shadowRoot!.querySelectorAll('.ft-filter-dropdown input');
     expect(inputs.length).toBe(2);
@@ -3191,8 +3284,7 @@ describe('FlexTable', () => {
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       const modeSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-mode-select');
       expect(modeSelect).toBeTruthy();
@@ -3210,8 +3302,7 @@ describe('FlexTable', () => {
       el.data = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Alicia' }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       // Change mode to 'starts'
       const modeSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-mode-select')!;
@@ -3235,8 +3326,7 @@ describe('FlexTable', () => {
       el.data = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Malice' }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       const modeSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-mode-select')!;
       modeSelect.value = 'ends';
@@ -3258,8 +3348,7 @@ describe('FlexTable', () => {
       el.data = [{ code: 'A001' }, { code: 'B002' }, { code: 'A099' }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       const modeSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-mode-select')!;
       modeSelect.value = 'wildcard';
@@ -3283,8 +3372,7 @@ describe('FlexTable', () => {
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       const emptySection = el.shadowRoot!.querySelector('.ft-filter-empty-row');
       expect(emptySection).toBeTruthy();
@@ -3297,8 +3385,7 @@ describe('FlexTable', () => {
       el.data = [{ name: 'Alice' }, { name: '' }, { name: null }, { name: 'Bob' }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       const emptySelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-empty-row select')!;
       emptySelect.value = 'empty';
@@ -3315,8 +3402,7 @@ describe('FlexTable', () => {
       el.data = [{ name: 'Alice' }, { name: '' }, { name: null }, { name: 'Bob' }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       const emptySelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-empty-row select')!;
       emptySelect.value = 'non-empty';
@@ -3333,8 +3419,7 @@ describe('FlexTable', () => {
       el.data = [{ name: 'Alice' }, { name: '' }, { name: 'Bob' }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       // Set empty filter first
       const emptySelect = el.shadowRoot!.querySelector<HTMLSelectElement>('.ft-filter-empty-row select')!;
@@ -3361,8 +3446,7 @@ describe('FlexTable', () => {
       el.data = [{ age: 10 }, { age: 25 }, { age: 35 }, { age: 50 }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       // cond1: >= 20, cond2: <= 40 (defaults), join: AND (default)
       const inputs = el.shadowRoot!.querySelectorAll<HTMLInputElement>('.ft-num-cond-input');
@@ -3384,8 +3468,7 @@ describe('FlexTable', () => {
       el.data = [{ age: 10 }, { age: 25 }, { age: 35 }, { age: 50 }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       // Set cond1 op to '<', value 15
       const opSelects = el.shadowRoot!.querySelectorAll<HTMLSelectElement>('.ft-num-op-select');
@@ -3423,8 +3506,7 @@ describe('FlexTable', () => {
       el.data = [{ score: 5 }, { score: 15 }, { score: 25 }];
       await el.updateComplete;
 
-      el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-btn')!.click();
-      await el.updateComplete;
+      await openFilter(el);
 
       // Only set cond1 (>= 10)
       const inputs = el.shadowRoot!.querySelectorAll<HTMLInputElement>('.ft-num-cond-input');
