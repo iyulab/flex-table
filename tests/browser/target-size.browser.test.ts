@@ -150,6 +150,57 @@ function revealPoint(el: Element, point: () => [number, number]): () => void {
   };
 }
 
+/**
+ * 🔴**포인터 고아** — 포인터 커서를 보이는데 상호작용 요소가 아닌 것(클릭 핸들러만 가진 `div` 따위). 이 게이트의 대상 도출은
+ * 픽스처의 `targets` 선택자에 기대므로 **선택자 밖의 클릭 대상은 크기 판정 전에 시야에서 사라진다** — 그리고 그런 요소는 대개
+ * 키보드로도 닿지 않는다(SC 2.1.1). u-widgets e2e 게이트가 인용 링크 `div` 로 실측한 부류다.
+ *
+ * - 가장 바깥 요소만 센다(자식은 커서를 상속한다). 섀도 루트 안까지 내려간다. `display: none` 인 가지는 건너뛴다 —
+ *   숨긴 요소도 계산된 커서를 돌려주므로, 거르지 않으면 보이지 않는 라벨에 발화한다(`u-radio` 의 빈 필드 머리 실측).
+ * - **상호작용으로 치는 것**: 네이티브 컨트롤 · 링크 · `summary` · `tabindex` 를 가진 것(로빙 그룹의 `-1` 조각 포함) · 위젯 역할 ·
+ *   `label`(누르면 컨트롤을 활성화·포커스하는 대리자 — 키보드는 컨트롤 자신으로 간다) ·
+ *   **섀도 안에(몇 겹이든) 상호작용 요소를 가진 커스텀 엘리먼트 호스트** · **컨트롤을 품은 래퍼**(누를 면 확장).
+ * - 🔴**면제는 컨트롤 «안쪽» 으로만 물려준다** — `tabindex` 만 가진 컨테이너(격자 호스트)는 자기만 면제되고 자손은 따로 잰다.
+ * - ⚠원리적 한계 둘: 키 처리가 실제로 있는지는 재지 못한다(역할·탭인덱스의 «존재» 만 본다) · 컨트롤을 품었지만 **다른 동작**을
+ *   하는 래퍼(정렬하는 머리 칸이 메뉴 버튼을 품는 경우)는 래퍼 면제에 가려진다.
+ * - 지목됐지만 아직 고치지 않은 것은 게이트마다 `POINTER_ORPHAN_PINS` 에 이유와 함께 둔다(크기 핀과 같은 규율).
+ */
+const POINTER_INTERACTIVE =
+  'button, a[href], input, select, textarea, summary, [tabindex], [contenteditable=""], [contenteditable="true"], ' +
+  '[role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"], ' +
+  '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="option"], [role="slider"], ' +
+  '[role="treeitem"], [role="gridcell"], [role="spinbutton"], [role="combobox"]';
+
+function pointerOrphans(root: Element): string[] {
+  const found = new Set<string>();
+  // 섀도 안의 섀도까지 본다 — 링크를 감싼 래퍼(`<u-sidebar-link>` → `<u-link>` → `<a>`)는 컨트롤이 두 겹 아래에 있다.
+  const interactiveHost = (el: Element): boolean => {
+    const sr = (el as HTMLElement & { shadowRoot?: ShadowRoot }).shadowRoot;
+    if (!sr) return false;
+    if (sr.querySelector(POINTER_INTERACTIVE)) return true;
+    return Array.from(sr.querySelectorAll('*')).some((d) => d.localName.includes('-') && interactiveHost(d));
+  };
+  const visit = (el: Element, parentPointer: boolean, insideInteractive: boolean): void => {
+    const style = getComputedStyle(el);
+    if (style.display === 'none') return;
+    const pointer = style.cursor === 'pointer';
+    const control = el.matches(POINTER_INTERACTIVE.replace('[tabindex], ', '')) || el.localName === 'label';
+    // 컨트롤을 품은 «누를 면 확장» 래퍼(별점 기호 줄 · 슬라이더 트랙)는 고아가 아니다 — 키보드는 안의 컨트롤로 간다.
+    //   ⚠그래서 «컨트롤을 품었지만 다른 동작을 하는» 래퍼(머리 칸이 정렬하면서 메뉴 버튼을 품는 경우)는 원리적으로 못 잡는다.
+    const wrapsControl = !!el.querySelector(POINTER_INTERACTIVE);
+    const interactive = insideInteractive || control || el.matches('[tabindex]') || interactiveHost(el) || wrapsControl;
+    if (pointer && !parentPointer && !interactive) found.add(describeEl(el));
+    // 🔴면제는 «컨트롤 안쪽» 에만 물려준다 — 포커스를 받는 «컨테이너»(`tabindex` 를 가진 격자 호스트 따위) 아래를 통째로
+    //   면제하면 그 안의 클릭 전용 조각이 전부 가려진다(flex-table 정렬 헤더가 호스트의 `tabindex=0` 뒤에 숨었다).
+    const sr = (el as HTMLElement & { shadowRoot?: ShadowRoot }).shadowRoot;
+    for (const child of Array.from(sr ? [...sr.children, ...el.children] : el.children)) {
+      visit(child, pointer, insideInteractive || control);
+    }
+  };
+  visit(root, false, false);
+  return [...found].sort();
+}
+
 /** 타깃 안 `<slot>` 에 꽂힌 라이트 DOM 내용 중 그 점을 덮는 것이 있는가. */
 function slottedContentAt(el: Element, x: number, y: number): boolean {
   for (const slot of Array.from(el.querySelectorAll('slot'))) {
@@ -197,6 +248,13 @@ const UNDERSIZED_PINS = new Set<string>([
  * ⚠**면제는 이름으로 좁게 준다** — 넓은 면제는 조용한 미탐이 된다.
  */
 const INLINE_PROSE = new Set<string>([]);
+
+/**
+ * 🔴**포인터 고아 핀** — `pointerOrphans` 가 지목했지만 아직 고치지 않은 것(`요소.첫클래스`). 여기 있는 동안 실측 단언이 그것을 건너뛴다.
+ * 고치면 빼는 것이 완료 신호다. 새로 넣을 때는 왜 지금 고치지 않는지를 함께 적는다. ✅비어 있다.
+ * ⚠검사가 원리적으로 못 보는 자리가 이 패키지에 있다 — 정렬하는 머리 칸이 열 메뉴 버튼을 «품고» 있어 컨트롤 래퍼로 면제된다.
+ */
+const POINTER_ORPHAN_PINS = new Set<string>([]);
 
 interface Fixture {
   html: string;
@@ -528,6 +586,34 @@ describe('WCAG 2.2 SC 2.5.8 — 타깃 크기(최소) 게이트', () => {
         '<button id="b" style="width:40px;height:30px;position:relative">b</button></div>');
       expect(pointsOf(document.getElementById('a')!)).toEqual(['오른']);
     });
+
+    it('🔴포인터 고아 — 클릭만 되는 div 는 가장 바깥 한 번만 지목된다', async () => {
+      await mount('<div class="card" style="cursor:pointer"><span>inherits</span></div>');
+      expect(pointerOrphans(document.body)).toEqual(['div.card']);
+    });
+
+    it('⚪NEGATIVE — 포인터 고아: 버튼·탭인덱스·라벨·숨긴 요소·섀도에 컨트롤을 가진 호스트는 고아가 아니다', async () => {
+      const name = 'zz-orphan-host';
+      if (!customElements.get(name)) {
+        customElements.define(name, class extends HTMLElement {
+          constructor() {
+            super();
+            this.attachShadow({ mode: 'open' }).innerHTML = '<button>in</button>';
+          }
+        });
+      }
+      await mount('<button style="cursor:pointer">b</button>' +
+        '<div tabindex="-1" style="cursor:pointer">roving</div>' +
+        '<label style="cursor:pointer">name</label>' +
+        '<div style="display:none;cursor:pointer">hidden</div>' +
+        `<${name} style="cursor:pointer;display:block"></${name}>`);
+      expect(pointerOrphans(document.body)).toEqual([]);
+    });
+
+    it('🔴포인터 고아 — 포커스를 받는 컨테이너 안의 클릭 전용 조각은 가려지지 않는다', async () => {
+      await mount('<div tabindex="0"><div class="cell"><div class="sort" style="cursor:pointer">A</div></div></div>');
+      expect(pointerOrphans(document.body)).toEqual(['div.sort']);
+    });
   });
 
   describe('🔴 대상 도출 — 등록된 태그가 규칙 표를 벗어나지 않는다', () => {
@@ -589,6 +675,8 @@ describe('WCAG 2.2 SC 2.5.8 — 타깃 크기(최소) 게이트', () => {
 
         // 🔴크기보다 먼저 — 그 타깃이 실제로 눌리는가. 잘렸거나 가려졌거나 닫혀 있으면 크기 판정은 의미가 없다.
         //   (세 게이트 공통 · 인라인 예외도 «눌린다» 는 전제는 면제하지 않는다.)
+        const orphans = pointerOrphans(document.body).filter((o) => !POINTER_ORPHAN_PINS.has(o));
+        expect(orphans.join(' · '), '포인터 커서인데 상호작용 요소가 아니다 — 키보드로 닿지 않는 클릭 대상').toBe('');
         const unreachable = els
           .map((el) => ({ el, misses: unreachablePoints(el) }))
           .filter(({ misses }) => misses.length > 0)

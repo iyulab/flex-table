@@ -417,6 +417,7 @@ conformance claim for the success criteria it does not list.
 | Success criterion | Guarantee | Measured by |
 |---|---|---|
 | SC 2.5.8 Target Size (Minimum) | Sortable headers, column menu buttons, the open column menu, the open filter dropdown (text and number), the find/replace bar, the cell context menu and row selection checkboxes are at least 24×24 CSS px or meet the spacing exception (24px between centers, counting the neighbouring resize handles), and are actually hit at that position. Two small targets use the equivalent-control exception: the 6px column resize handle (every resize is also in the column menu) and the hidden-column marker (its column menu offers **Show: …**) | `tests/browser/target-size.browser.test.ts` (real Chromium) |
+| SC 2.1.1 Keyboard (pointer-cursor check) | Nothing the grid renders shows a pointer cursor without being an interactive element. Known gap the check cannot see: sorting by clicking a header has no keyboard path yet | `tests/browser/target-size.browser.test.ts` |
 | SC 2.5.7 Dragging Movements | Resizing never requires a drag — the column menu's **Auto-fit width**, **Wider** and **Narrower** are single clicks | `tests/browser/column-menu.browser.test.ts` |
 
 Not yet measured: the boolean and date filter dropdowns and the comment popup. Color contrast comes
