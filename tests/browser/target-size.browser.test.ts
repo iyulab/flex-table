@@ -372,7 +372,7 @@ const FIXTURES: Record<string, Fixture | Fixture[]> = {
         inShadow(t, '.ft-column-menu-btn')[0].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
         await t.updateComplete;
         const actions = inShadow(t, '.ft-header-menu [role="menuitem"]').map((i) => i.getAttribute('data-action'));
-        for (const a of ['filter', 'hide', 'autofit', 'wider', 'narrower']) {
+        for (const a of ['sort-asc', 'sort-desc', 'filter', 'hide', 'autofit', 'wider', 'narrower']) {
           if (!actions.includes(a)) throw new Error(`열 메뉴에 «${a}» 항목이 없다 — 실측 ${actions.join(' ')}`);
         }
       },

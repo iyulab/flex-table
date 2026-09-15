@@ -1503,7 +1503,49 @@ describe('FlexTable', () => {
     await el.updateComplete;
     const actions = [...el.shadowRoot!.querySelectorAll('.ft-header-menu [role="menuitem"]')]
       .map((i) => i.getAttribute('data-action'));
-    expect(actions).toEqual(['hide', 'autofit', 'wider', 'narrower']);
+    expect(actions).toEqual(['sort-asc', 'sort-desc', 'hide', 'autofit', 'wider', 'narrower']);
+  });
+
+  it('column menu sorts — the keyboard path to sorting — with the header click contract', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', header: 'Name' }, { key: 'n', header: 'N', sortable: false }];
+    el.data = [{ name: 'b', n: 1 }, { name: 'a', n: 2 }, { name: 'c', n: 3 }];
+    await el.updateComplete;
+    const events: unknown[] = [];
+    el.addEventListener('sort-change', (e) => events.push((e as CustomEvent).detail));
+
+    const btns = el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-column-menu-btn');
+    btns[0].click();
+    await el.updateComplete;
+    el.shadowRoot!.querySelector<HTMLElement>('[data-action="sort-desc"]')!.click();
+    await el.updateComplete;
+
+    expect(events).toEqual([{ criteria: [{ key: 'name', direction: 'desc' }] }]);
+    expect(el.sortCriteria).toEqual([{ key: 'name', direction: 'desc' }]);
+    const firstColumn = [...el.shadowRoot!.querySelectorAll('.ft-cell[data-col-index="0"]')].map((c) => c.textContent?.trim());
+    expect(firstColumn.slice(0, 3)).toEqual(['c', 'b', 'a']);
+
+    // 정렬할 수 없는 열의 메뉴에는 정렬 항목이 없다
+    btns[1].click();
+    await el.updateComplete;
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('[data-action="sort-asc"]')).toBeNull();
+  });
+
+  it('menu sort in server mode only reports — the data order is the server’s', async () => {
+    const el = createElement();
+    el.dataMode = 'server';
+    el.columns = [{ key: 'name', header: 'Name' }];
+    el.data = [{ name: 'b' }, { name: 'a' }];
+    await el.updateComplete;
+    const events: unknown[] = [];
+    el.addEventListener('sort-change', (e) => events.push((e as CustomEvent).detail));
+
+    (el as any)._applySortFromMenu('name', 'asc');
+    await el.updateComplete;
+    expect(events).toEqual([{ criteria: [{ key: 'name', direction: 'asc' }] }]);
+    const firstColumn = [...el.shadowRoot!.querySelectorAll('.ft-cell[data-col-index="0"]')].map((c) => c.textContent?.trim());
+    expect(firstColumn.slice(0, 2)).toEqual(['b', 'a']);
   });
 
   it('should open filter dropdown from the column menu', async () => {
@@ -3172,8 +3214,7 @@ describe('FlexTable', () => {
       (el as any)._headerMenu = { key: 'b', x: 100, y: 50, hiddenNeighbors: [] };
       await el.updateComplete;
 
-      const items = el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-header-menu-item');
-      items[0].click();
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-header-menu-item[data-action="hide"]')!.click();
       await el.updateComplete;
 
       expect(el.columns.find(c => c.key === 'b')!.hidden).toBe(true);

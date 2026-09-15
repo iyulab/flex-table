@@ -5,7 +5,8 @@
 ### Changed
 
 - **Every header now has a 24×24 column menu button (`⋮`), which replaces the 14px filter button.**
-  The menu — the same one a header right-click opens — gathers the per-column actions: **Filter…**
+  The menu — the same one a header right-click opens — gathers the per-column actions: **Sort
+  ascending** / **Sort descending** (for sortable columns — the keyboard path to sorting), **Filter…**
   and **Clear filter** (with `show-filters`), **Hide column** / **Show: …**, **Auto-fit width**,
   **Wider** and **Narrower** (±20px, the menu stays open for repeated steps). Opening a filter is now
   two clicks. The button is highlighted while its column is filtered, as the filter button was.
@@ -15,6 +16,9 @@
 
 ### Fixed
 
+- **Sorting from the cell context menu broke the `sort-change` contract.** It reported
+  `{ sortCriteria }` instead of `{ criteria }`, re-sorted the data locally even with
+  `data-mode="server"`, and ignored `sortable: false`. It now behaves exactly like a header click.
 - **The header and cell context menus could not be used from the keyboard, and could open
   off-screen.** Their items are now buttons in a `role="menu"`: arrow keys, Home and End move between
   them, Escape closes and returns focus (to the column menu button, or to the grid). The cell menu

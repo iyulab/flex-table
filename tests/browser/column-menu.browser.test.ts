@@ -53,13 +53,17 @@ describe('flex-table 열 메뉴', () => {
     expect(r.left).toBeGreaterThanOrEqual(0);
   });
 
-  it('키보드만으로 필터를 연다 — 버튼에서 Enter 로 메뉴, Enter 로 «Filter…», 드롭다운 입력에 포커스', async () => {
+  it('키보드만으로 필터를 연다 — 버튼에서 Enter 로 메뉴, ↓↓ 로 «Filter…», Enter 로 드롭다운 입력에 포커스', async () => {
     const el = await mount('padding:20px;width:400px');
     const button = el.shadowRoot!.querySelector<HTMLElement>('.ft-column-menu-btn')!;
     button.focus();
     await userEvent.keyboard('{Enter}');
     await el.updateComplete;
     await el.updateComplete;
+    expect(el.shadowRoot!.activeElement?.getAttribute('data-action')).toBe('sort-asc');
+
+    // 정렬 둘 다음이 «Filter…» 다 — 구분선은 포커스 대상이 아니다.
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}');
     expect(el.shadowRoot!.activeElement?.getAttribute('data-action')).toBe('filter');
 
     await userEvent.keyboard('{Enter}');

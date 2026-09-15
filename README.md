@@ -52,7 +52,7 @@ npm install @iyulab/flex-table
 - **Row Selection** — Checkbox-based row selection (`selectable`, single/multi mode)
 - **Clipboard** — Ctrl+C/X/V with TSV format (Excel/Google Sheets compatible, RFC 4180)
 - **Sorting** — Click header to sort (asc/desc/none), Shift+click for multi-sort
-- **Column Menu** — A 24×24 button in every header opens the column's menu: filter, hide/show, auto-fit, wider/narrower (also opens on header right-click)
+- **Column Menu** — A 24×24 button in every header opens the column's menu: sort, filter, hide/show, auto-fit, wider/narrower (also opens on header right-click)
 - **Column Resize** — Drag header border, double-click to auto-fit, Alt+Arrow keyboard resize, or the column menu
 - **Column Operations** — `addColumn()`, `deleteColumn()`, `moveColumn()` with undo
 - **Pinned Columns** — Freeze columns to left or right (`pinned: 'left' | 'right'`)
@@ -417,7 +417,7 @@ conformance claim for the success criteria it does not list.
 | Success criterion | Guarantee | Measured by |
 |---|---|---|
 | SC 2.5.8 Target Size (Minimum) | Sortable headers, column menu buttons, the open column menu, the open filter dropdown (text and number), the find/replace bar, the cell context menu and row selection checkboxes are at least 24×24 CSS px or meet the spacing exception (24px between centers, counting the neighbouring resize handles), and are actually hit at that position. Two small targets use the equivalent-control exception: the 6px column resize handle (every resize is also in the column menu) and the hidden-column marker (its column menu offers **Show: …**) | `tests/browser/target-size.browser.test.ts` (real Chromium) |
-| SC 2.1.1 Keyboard (pointer-cursor check) | Nothing the grid renders shows a pointer cursor without being an interactive element. Known gap the check cannot see: sorting by clicking a header has no keyboard path yet | `tests/browser/target-size.browser.test.ts` |
+| SC 2.1.1 Keyboard (pointer-cursor check) | Nothing the grid renders shows a pointer cursor without being an interactive element. Sorting by header click also has a keyboard path — the column menu's **Sort ascending** / **Sort descending** (the check alone cannot see that, because the header cell wraps the menu button) | `tests/browser/target-size.browser.test.ts` · `src/flex-table.test.ts` |
 | SC 2.5.7 Dragging Movements | Resizing never requires a drag — the column menu's **Auto-fit width**, **Wider** and **Narrower** are single clicks | `tests/browser/column-menu.browser.test.ts` |
 
 Not yet measured: the boolean and date filter dropdowns and the comment popup. Color contrast comes

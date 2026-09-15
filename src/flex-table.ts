@@ -2608,6 +2608,11 @@ export class FlexTable extends LitElement {
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}
         @keydown=${(e: KeyboardEvent) => this._onHeaderMenuKeydown(e)}>
+        ${col.sortable !== false ? html`
+          ${item('sort-asc', 'Sort ascending', () => this._applySortFromMenu(key, 'asc'))}
+          ${item('sort-desc', 'Sort descending', () => this._applySortFromMenu(key, 'desc'))}
+          <div class="ft-header-menu-separator" role="separator"></div>
+        ` : nothing}
         ${this.showFilters ? html`
           ${item('filter', 'Filter…', () => this._openFilterFromMenu(key))}
           ${hasFilter ? item('clear-filter', 'Clear filter', () => this._clearColumnFilter(key)) : nothing}
@@ -2727,17 +2732,24 @@ export class FlexTable extends LitElement {
     `;
   }
 
+  /**
+   * Sort by one column from a menu — the column menu (the keyboard path to sorting) and the cell
+   * context menu. Same contract as a header click: server mode only reports, and `sort-change`
+   * carries `{ criteria }`.
+   */
   private _applySortFromMenu(key: string, dir: 'asc' | 'desc'): void {
     const col = this.columns.find(c => c.key === key);
-    if (!col) return;
+    if (!col || col.sortable === false) return;
     this._sortCriteria = [{ key, direction: dir }];
-    this._sortedIndices = computeSortedIndices(this.data, this._sortCriteria, this.columns);
+    if (this.dataMode !== 'server') {
+      this._recomputeView();
+    }
+    this.requestUpdate();
     this.dispatchEvent(new CustomEvent('sort-change', {
-      detail: { sortCriteria: [...this._sortCriteria] },
+      detail: { criteria: [...this._sortCriteria] },
       bubbles: true,
       composed: true,
     }));
-    this.requestUpdate();
   }
 
   // --- Filter UI ---
