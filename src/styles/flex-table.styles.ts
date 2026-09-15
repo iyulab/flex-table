@@ -725,20 +725,28 @@ export const flexTableStyles = css`
   }
 
   .ft-context-menu-item {
+    all: unset;
+    box-sizing: border-box;
+    display: block;
+    inline-size: 100%;
+    min-block-size: 28px;
     padding: 6px 14px;
     cursor: pointer;
     font-size: var(--ft-font-size, 14px);
     color: var(--ft-text-color);
     white-space: nowrap;
     user-select: none;
+    text-align: start;
   }
 
-  .ft-context-menu-item:hover {
+  .ft-context-menu-item:hover,
+  .ft-context-menu-item:focus-visible {
     background: var(--ft-selection-bg);
     color: var(--ft-active-color);
   }
 
-  .ft-context-menu-item.ft-context-menu-danger:hover {
+  .ft-context-menu-item.ft-context-menu-danger:hover,
+  .ft-context-menu-item.ft-context-menu-danger:focus-visible {
     background: #fdd;
     color: #c0392b;
   }

@@ -46,8 +46,10 @@ describe('flex-table 열 메뉴', () => {
     const menu = el.shadowRoot!.querySelector<HTMLElement>('.ft-header-menu')!;
     const r = menu.getBoundingClientRect();
     expect(r.width, '메뉴가 렌더되지 않았다').toBeGreaterThan(100);
-    expect(Math.round(r.right), `메뉴 [${Math.round(r.left)}, ${Math.round(r.right)}] · 창 ${window.innerWidth}`)
-      .toBeLessThanOrEqual(window.innerWidth);
+    // 보이는 폭(스크롤바 제외) 기준 — 창 폭에 맞추면 스크롤바 밑에 깔린다(게이트의 hit-test 가 잡았다).
+    const viewWidth = document.documentElement.clientWidth;
+    expect(Math.round(r.right), `메뉴 [${Math.round(r.left)}, ${Math.round(r.right)}] · 보이는 폭 ${viewWidth}`)
+      .toBeLessThanOrEqual(viewWidth);
     expect(r.left).toBeGreaterThanOrEqual(0);
   });
 

@@ -15,10 +15,12 @@
 
 ### Fixed
 
-- **The header context menu could not be used from the keyboard and could open off-screen.** Its
-  items are now buttons in a `role="menu"` with arrow-key, Home/End and Escape handling (focus returns
-  to the column menu button), and the menu is moved back inside the viewport when a right-hand
-  column's menu would overflow.
+- **The header and cell context menus could not be used from the keyboard, and could open
+  off-screen.** Their items are now buttons in a `role="menu"`: arrow keys, Home and End move between
+  them, Escape closes and returns focus (to the column menu button, or to the grid). The cell menu
+  focuses its first item when it opens. Both menus are moved back inside the visible area once their
+  real size is known — the cell menu previously flipped on a guessed 200×280 size, and a menu fitted
+  to the window width could still sit under the vertical scrollbar.
 
 ## [0.34.3] - 2026-09-13
 

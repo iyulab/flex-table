@@ -1269,7 +1269,11 @@ export class FlexTable extends LitElement {
     // 크기 변화는 ResizeObserver가 비동기로 처리한다.
     this._focusEditor();
     this._adjustFilterDropdown();
-    if (changedProps.has('_headerMenu')) this._adjustHeaderMenu();
+    if (changedProps.has('_headerMenu')) this._keepMenuInView('.ft-header-menu');
+    if (changedProps.has('_bodyContextMenu') && this._bodyContextMenu) {
+      this._keepMenuInView('.ft-body-context-menu');
+      this.shadowRoot?.querySelector<HTMLElement>('.ft-body-context-menu [role="menuitem"]')?.focus();
+    }
     if (changedProps.has('stylesheets')) this._syncStylesheets();
     // Update ARIA live attributes — guard against no-op setAttribute calls that
     // can trigger MutationObserver → requestUpdate() in Lit dev mode.
@@ -2526,7 +2530,17 @@ export class FlexTable extends LitElement {
   }
 
   private _onHeaderMenuKeydown(e: KeyboardEvent): void {
-    const items = this._menuItems();
+    this._onMenuKeydown(e, '.ft-header-menu', (returnFocus) => this._closeHeaderMenu(returnFocus));
+  }
+
+  /**
+   * Menu keyboard pattern shared by the column menu and the cell context menu: arrows and Home/End
+   * move focus between the items (wrapping), Escape closes and returns focus, Tab closes.
+   */
+  private _onMenuKeydown(e: KeyboardEvent, menuSelector: string, close: (returnFocus: boolean) => void): void {
+    const items = Array.from(
+      this.shadowRoot?.querySelectorAll<HTMLElement>(`${menuSelector} [role="menuitem"]`) ?? [],
+    );
     const current = items.indexOf(e.target as HTMLElement);
     let next = -1;
     switch (e.key) {
@@ -2537,10 +2551,10 @@ export class FlexTable extends LitElement {
       case 'Escape':
         e.preventDefault();
         e.stopPropagation();
-        this._closeHeaderMenu(true);
+        close(true);
         return;
       case 'Tab':
-        this._closeHeaderMenu(false);
+        close(false);
         return;
       default:
         return;
@@ -2616,70 +2630,40 @@ export class FlexTable extends LitElement {
     if (!col) return nothing;
     const value = this.data[dataIndex]?.[col.key];
     const hasFilter = this._filters.some(f => f.key === col.key);
-    const close = () => { this._bodyContextMenu = null; };
+    const close = (returnFocus = false) => {
+      this._bodyContextMenu = null;
+      if (returnFocus) this.focus();
+    };
+    const hasComment = !!this.getComment(dataIndex, col.key);
+    const item = (label: string, run: () => void, danger = false) => html`
+      <button type="button" role="menuitem"
+        class="ft-context-menu-item ${danger ? 'ft-context-menu-danger' : ''}"
+        @click=${() => { run(); close(); }}>${label}</button>
+    `;
+    const separator = html`<div class="ft-context-menu-separator" role="separator"></div>`;
 
-    // Viewport boundary correction: if menu would go off-screen, flip
-    const menuW = 200;
-    const menuH = 280;
-    const adjustedX = x + menuW > window.innerWidth ? x - menuW : x;
-    const adjustedY = y + menuH > window.innerHeight ? y - menuH : y;
-
+    // Opens at the pointer; `updated()` moves it back inside the viewport once its real size is known.
     return html`
-      <div class="ft-body-context-menu" style="position: fixed; left: ${adjustedX}px; top: ${adjustedY}px; z-index: 200;"
-        @mousedown=${(e: MouseEvent) => e.stopPropagation()}>
-        <div class="ft-context-menu-item"
-          @click=${() => { this._handleCopy(false); close(); }}>
-          Copy
-        </div>
-        <div class="ft-context-menu-separator"></div>
-        <div class="ft-context-menu-item"
-          @click=${() => { this.addRow(undefined, dataIndex); close(); }}>
-          Insert row above
-        </div>
-        <div class="ft-context-menu-item"
-          @click=${() => { this.addRow(undefined, dataIndex + 1); close(); }}>
-          Insert row below
-        </div>
-        <div class="ft-context-menu-item ft-context-menu-danger"
-          @click=${() => { this.deleteRows([dataIndex]); close(); }}>
-          Delete row
-        </div>
-        <div class="ft-context-menu-separator"></div>
-        <div class="ft-context-menu-item"
-          @click=${() => { this._setColumnHidden(col.key, true); close(); }}>
-          Hide column
-        </div>
-        <div class="ft-context-menu-separator"></div>
-        <div class="ft-context-menu-item"
-          @click=${() => { this._applySortFromMenu(col.key, 'asc'); close(); }}>
-          Sort ascending ↑
-        </div>
-        <div class="ft-context-menu-item"
-          @click=${() => { this._applySortFromMenu(col.key, 'desc'); close(); }}>
-          Sort descending ↓
-        </div>
-        <div class="ft-context-menu-separator"></div>
-        <div class="ft-context-menu-item"
-          @click=${() => { this.setFilter(col.key, (v) => v === value); close(); }}>
-          Filter by this value
-        </div>
-        ${hasFilter ? html`
-          <div class="ft-context-menu-item"
-            @click=${() => { this.removeFilter(col.key); close(); }}>
-            Clear filter
-          </div>
-        ` : ''}
-        <div class="ft-context-menu-separator"></div>
-        <div class="ft-context-menu-item"
-          @click=${() => { this._openCommentPopup(dataIndex, col.key, x, y); close(); }}>
-          ${this.getComment(dataIndex, col.key) ? 'Edit Comment' : 'Add Comment'}
-        </div>
-        ${this.getComment(dataIndex, col.key) ? html`
-          <div class="ft-context-menu-item ft-context-menu-danger"
-            @click=${() => { this.setComment(dataIndex, col.key, null); close(); }}>
-            Delete Comment
-          </div>
-        ` : ''}
+      <div class="ft-body-context-menu" role="menu" aria-label="Cell actions"
+        style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
+        @mousedown=${(e: MouseEvent) => e.stopPropagation()}
+        @keydown=${(e: KeyboardEvent) => this._onMenuKeydown(e, '.ft-body-context-menu', close)}>
+        ${item('Copy', () => this._handleCopy(false))}
+        ${separator}
+        ${item('Insert row above', () => this.addRow(undefined, dataIndex))}
+        ${item('Insert row below', () => this.addRow(undefined, dataIndex + 1))}
+        ${item('Delete row', () => this.deleteRows([dataIndex]), true)}
+        ${separator}
+        ${item('Hide column', () => this._setColumnHidden(col.key, true))}
+        ${separator}
+        ${item('Sort ascending ↑', () => this._applySortFromMenu(col.key, 'asc'))}
+        ${item('Sort descending ↓', () => this._applySortFromMenu(col.key, 'desc'))}
+        ${separator}
+        ${item('Filter by this value', () => this.setFilter(col.key, (v) => v === value))}
+        ${hasFilter ? item('Clear filter', () => this.removeFilter(col.key)) : nothing}
+        ${separator}
+        ${item(hasComment ? 'Edit Comment' : 'Add Comment', () => this._openCommentPopup(dataIndex, col.key, x, y))}
+        ${hasComment ? item('Delete Comment', () => this.setComment(dataIndex, col.key, null), true) : nothing}
       </div>
     `;
   }
@@ -2758,17 +2742,20 @@ export class FlexTable extends LitElement {
 
   // --- Filter UI ---
 
-  /** Keep the fixed-position column menu inside the viewport — a right-hand column's menu would open off-screen. */
-  private _adjustHeaderMenu(): void {
-    const menu = this.shadowRoot?.querySelector<HTMLElement>('.ft-header-menu');
+  /** Keep a fixed-position menu inside the viewport — a menu opened near the right or bottom edge would spill off-screen. */
+  private _keepMenuInView(selector: string): void {
+    const menu = this.shadowRoot?.querySelector<HTMLElement>(selector);
     if (!menu) return;
     const margin = 4;
     const rect = menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth - margin) {
-      menu.style.left = `${Math.max(margin, window.innerWidth - rect.width - margin)}px`;
+    // 🔴창 크기가 아니라 «보이는 영역» 이다 — `innerWidth` 는 스크롤바를 포함해, 그 값에 맞추면 메뉴 끝이 스크롤바 밑에 깔린다.
+    const viewWidth = document.documentElement.clientWidth;
+    const viewHeight = document.documentElement.clientHeight;
+    if (rect.right > viewWidth - margin) {
+      menu.style.left = `${Math.max(margin, viewWidth - rect.width - margin)}px`;
     }
-    if (rect.bottom > window.innerHeight - margin) {
-      menu.style.top = `${Math.max(margin, window.innerHeight - rect.height - margin)}px`;
+    if (rect.bottom > viewHeight - margin) {
+      menu.style.top = `${Math.max(margin, viewHeight - rect.height - margin)}px`;
     }
   }
 

@@ -3002,6 +3002,28 @@ describe('FlexTable', () => {
       expect(items.length).toBeGreaterThan(3);
     });
 
+    it('is a keyboard menu — buttons in role=menu, first item focused, arrows move, Escape returns focus to the grid', async () => {
+      const el = makeCM();
+      await el.updateComplete;
+
+      (el as any)._bodyContextMenu = { rowIndex: 0, colIndex: 0, dataIndex: 0, x: 100, y: 100 };
+      await el.updateComplete;
+
+      const menu = el.shadowRoot!.querySelector('.ft-body-context-menu')!;
+      expect(menu.getAttribute('role')).toBe('menu');
+      const items = [...menu.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+      expect(items.every((i) => i.tagName === 'BUTTON')).toBe(true);
+      expect(el.shadowRoot!.activeElement).toBe(items[0]);
+
+      items[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, composed: true }));
+      expect(el.shadowRoot!.activeElement).toBe(items[items.length - 1]);
+
+      items[items.length - 1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('.ft-body-context-menu')).toBeNull();
+      expect(document.activeElement).toBe(el);
+    });
+
     it('clicking Delete row removes the row', async () => {
       const el = makeCM();
       await el.updateComplete;

@@ -252,6 +252,40 @@ const prepareGrid = async (host: Element): Promise<void> => {
 const grid = '<flex-table style="display:block;width:560px;height:260px"></flex-table>';
 const table = () => document.querySelector('flex-table')!;
 
+const settle = async (t: Table): Promise<void> => {
+  await t.updateComplete;
+  await new Promise((r) => setTimeout(r, 60));
+  await t.updateComplete;
+};
+
+/** 열 `index` 의 열 메뉴를 사용자가 여는 방식으로 연다. */
+const openColumnMenu = async (t: Table, index: number): Promise<void> => {
+  inShadow(t, '.ft-column-menu-btn')[index].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+  await settle(t);
+  if (inShadow(t, '.ft-header-menu').length !== 1) throw new Error(`열 ${index} 의 메뉴가 열리지 않았다`);
+};
+
+/** 열 `index` 의 필터 드롭다운을 메뉴 → «Filter…» 로 연다. */
+const openFilter = async (t: Table, index: number): Promise<void> => {
+  await openColumnMenu(t, index);
+  inShadow(t, '.ft-header-menu [data-action="filter"]')[0].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+  await settle(t);
+  if (inShadow(t, '.ft-filter-dropdown').length !== 1) throw new Error(`열 ${index} 의 필터 드롭다운이 열리지 않았다`);
+};
+
+/** 숨긴 열이 사이에 있는 격자 — 표시 버튼은 숨긴 열 «다음» 머리에 그려진다. */
+const prepareHiddenColumn = async (host: Element): Promise<void> => {
+  await prepareGrid(host);
+  const t = host as Table;
+  t.columns = [
+    { key: 'name', header: 'Name', type: 'text', width: 160 },
+    { key: 'qty', header: 'Qty', type: 'number', width: 120, hidden: true },
+    { key: 'city', header: 'City', type: 'text', width: 160 },
+  ];
+  await settle(t);
+  if (inShadow(t, '.ft-hidden-col-indicator').length !== 1) throw new Error('숨긴 열 표시 버튼이 렌더되지 않았다');
+};
+
 /** 실제로 재는 것 — 대표 픽스처와 그 안의 타깃. 상태가 여럿이면 배열. */
 const FIXTURES: Record<string, Fixture | Fixture[]> = {
   'flex-table': [
@@ -293,6 +327,73 @@ const FIXTURES: Record<string, Fixture | Fixture[]> = {
       prepare: prepareGrid,
       targets: () => inShadow(table(), '.ft-resize-handle'),
       equivalentIn: '열 메뉴',
+    },
+    {
+      state: '필터 드롭다운 · 텍스트',
+      html: grid,
+      prepare: async (host) => { await prepareGrid(host); await openFilter(host as Table, 0); },
+      targets: () => inShadow(table(), '.ft-filter-dropdown :is(input, select, button)'),
+      spacingIsOurs: true,
+    },
+    {
+      state: '필터 드롭다운 · 숫자',
+      html: grid,
+      prepare: async (host) => { await prepareGrid(host); await openFilter(host as Table, 1); },
+      targets: () => inShadow(table(), '.ft-filter-dropdown :is(input, select, button)'),
+      spacingIsOurs: true,
+    },
+    {
+      state: '찾기/바꾸기',
+      html: grid,
+      prepare: async (host) => {
+        await prepareGrid(host);
+        const t = host as Table & { _openFindPanel(mode: 'find' | 'replace'): void };
+        t._openFindPanel('replace');
+        await settle(t);
+        if (inShadow(t, '.ft-find-replace-input').length !== 1) throw new Error('바꾸기 줄이 열리지 않았다');
+      },
+      // 체크박스는 감싼 라벨이 포인터 타깃이다(라벨을 누르면 토글된다) — 입력 자체가 아니라 라벨을 잰다.
+      targets: () => inShadow(table(), '.ft-find-panel :is(input[type=text], button, label)'),
+      spacingIsOurs: true,
+    },
+    {
+      state: '본문 컨텍스트 메뉴',
+      html: grid,
+      prepare: async (host) => {
+        await prepareGrid(host);
+        const t = host as Table & { showContextMenu: boolean };
+        t.showContextMenu = true;
+        await settle(t);
+        const cell = inShadow(t, '.ft-cell[data-col-index="0"]')[0];
+        if (!cell) throw new Error('본문 셀을 찾지 못했다');
+        const r = cell.getBoundingClientRect();
+        cell.dispatchEvent(new MouseEvent('contextmenu', {
+          bubbles: true, composed: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 5,
+        }));
+        await settle(t);
+        if (inShadow(t, '.ft-body-context-menu').length !== 1) throw new Error('본문 컨텍스트 메뉴가 열리지 않았다');
+      },
+      targets: () => inShadow(table(), '.ft-body-context-menu .ft-context-menu-item'),
+      spacingIsOurs: true,
+    },
+    {
+      state: '열 메뉴 · 숨긴 이웃',
+      // 숨긴 열 오른쪽 열의 메뉴 — «Show: …» 항목이 숨긴 열 표시 버튼의 등가 수단이다.
+      html: grid,
+      prepare: async (host) => {
+        await prepareHiddenColumn(host);
+        await openColumnMenu(host as Table, 1);
+        if (inShadow(host, '.ft-header-menu [data-action="show"]').length !== 1) throw new Error('«Show: …» 항목이 없다');
+      },
+      targets: () => inShadow(table(), '.ft-header-menu [role="menuitem"]'),
+      spacingIsOurs: true,
+    },
+    {
+      state: '숨긴 열 표시 버튼',
+      html: grid,
+      prepare: prepareHiddenColumn,
+      targets: () => inShadow(table(), '.ft-hidden-col-indicator'),
+      equivalentIn: '열 메뉴 · 숨긴 이웃',
     },
     {
       state: '행 선택',
@@ -453,7 +554,7 @@ describe('WCAG 2.2 SC 2.5.8 — 타깃 크기(최소) 게이트', () => {
       expect(
         `판정 ${Object.keys(FIXTURES).length}(${states}상태) · 미판정 ${unjudged.length}(${unjudged.join(' ')})` +
         ` · 대상아님 ${NOT_A_TARGET.size} · 인라인예외 ${INLINE_PROSE.size} · 등가예외 ${equivalents}`,
-      ).toBe('판정 1(5상태) · 미판정 0() · 대상아님 0 · 인라인예외 0 · 등가예외 1');
+      ).toBe('판정 1(11상태) · 미판정 0() · 대상아님 0 · 인라인예외 0 · 등가예외 2');
     });
 
     it('규칙 표에 «등록되지 않은» 이름이 남아 있지 않다 (표가 낡지 않게)', () => {
