@@ -191,10 +191,12 @@ export function useODataSource<T = Record<string, unknown>>(
             onUnauthorized(res);
           }
           const text = await res.text().catch(() => '');
-          // ⚠영어 리터럴이다 — 이 패키지는 로케일 레지스트리를 갖지 않는다.
-          // 한 문자열을 위해 @iyulab/components 런타임 의존을 들이는 것은 비용이 이득을
-          // 넘는다(이 패키지는 지금 lit + odata-query 둘뿐이다). 표준의 «영어 기본»은
-          // 충족하고, 서버가 메시지를 주면 그쪽이 이긴다(아래 두 줄).
+          // ⚠영어 리터럴이고, 이것은 **의도한 것이다** — 이 패키지에는 이제 로케일 묶음이
+          // 있지만(`src/locale.ts`) 그것은 **chrome 문자열** 용이다. 이 문자열은 서버 오류의
+          // 폴백이고, 서버가 메시지를 주면 그쪽이 이긴다(아래 두 줄) — 즉 화면에 남는 경우가
+          // 서버가 아무것도 말해 주지 않은 때뿐이라 진단 성격이 강하다.
+          // (종전 주석은 이 패키지가 로케일 레지스트리를 갖지 않는다는 전제 위에 서 있었다.
+          //  그 전제가 더 이상 참이 아니므로 판단 근거를 다시 적는다.)
           let msg = `Request failed (${res.status})`;
           try {
             const json = JSON.parse(text);

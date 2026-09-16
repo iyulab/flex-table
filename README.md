@@ -409,6 +409,46 @@ package dependency; CSS custom properties are resolved at render time, not impor
 | ArrowUp / ArrowDown / Home / End (column menu) | Move between menu items |
 | Escape (column menu) | Close the menu and return focus to its button |
 
+## Localization
+
+The text the table draws itself — filter menus, the find-and-replace panel, the column menu, the
+empty-state message — resolves through a locale namespace. English and Korean ship with the package
+and follow whatever locale `@iyulab/components` has active:
+
+```ts
+import { Locale } from '@iyulab/components';
+
+Locale.set('ko');   // the table's own chrome follows
+```
+
+Register another language, or reword the built-in strings, through the exported namespace. Partial
+tables are merged, so you only pass the keys you want to change:
+
+```ts
+import { flexTableLocale, type FlexTableMessageKey } from '@iyulab/flex-table';
+
+flexTableLocale.register('ja', {
+  contains: '含む',
+  startsWith: '前方一致',
+  matchCase: '大文字と小文字を区別',
+});
+
+flexTableLocale.register('en', { replaceAll: 'Replace everything' });  // reword one string
+```
+
+Keys cover the column header and menu (`showHiddenColumns`, `columnMenu`, `cellActions`,
+`noColumnsDefined`), cell comments (`addCommentPlaceholder`, `cancel`, `save`), the filter panel
+(`clear`, `blankCells`, `emptyOnly`, `nonEmptyOnly`, `blankAll`, `all`, `contains`, `startsWith`,
+`endsWith`, `wildcard`, `searchPlaceholder`, `valuePlaceholder`, `fromPlaceholder`,
+`toPlaceholder`) and find-and-replace (`findPlaceholder`, `findPrevious`, `findNext`, `matchCase`,
+`wholeCell`, `closeFind`, `replaceWithPlaceholder`, `replace`, `replaceAll`). `FlexTableMessageKey`
+is exported, so a missing or misspelled key is a type error rather than a string that silently falls
+back to its own name.
+
+The filter operators `AND` and `OR` are not in the table, and neither are the glyphs that stand in
+for icons. They read the same in every language, and translating them makes them harder to
+recognise rather than easier.
+
 ## Accessibility
 
 The baseline is **WCAG 2.2**. The table lists what this package **measures in tests** — it is not a

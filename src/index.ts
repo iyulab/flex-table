@@ -9,3 +9,5 @@ export type { UndoAction } from './core/undo.js';
 export type { ExportFormat } from './export/export.js';
 export { exportData } from './export/export.js';
 export { renderCell } from './renderers/cell-renderer.js';
+export { flexTableLocale } from './locale.js';
+export type { FlexTableMessageKey } from './locale.js';

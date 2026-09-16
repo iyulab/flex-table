@@ -2,6 +2,7 @@ import { LitElement, html, nothing, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { flexTableStyles } from './styles/flex-table.styles.js';
 import { renderCell } from './renderers/cell-renderer.js';
+import { t } from './locale.js';
 import { SelectionState } from './core/selection.js';
 import { EditingState } from './core/editing.js';
 import { RowSelectionState } from './core/row-selection.js';
@@ -2437,7 +2438,7 @@ export class FlexTable extends LitElement {
         @click=${sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined}>
         ${showHiddenIndicator ? html`
           <button class="ft-hidden-col-indicator"
-            title="Show hidden column(s)"
+            title=${t('showHiddenColumns')}
             @click=${(e: MouseEvent) => { e.stopPropagation(); this._showHiddenBefore(col); }}>&#x276F;</button>
         ` : ''}
         <span>${col.header}</span>
@@ -2445,7 +2446,7 @@ export class FlexTable extends LitElement {
         ${sortIndex >= 0 ? html`<span class="ft-sort-order">${sortIndex + 1}</span>` : ''}
         <button class="ft-column-menu-btn ${hasFilter ? 'ft-filter-active' : ''}"
           type="button"
-          title="Column menu"
+          title=${t('columnMenu')}
           aria-label=${`Column menu: ${col.header}`}
           aria-haspopup="menu"
           aria-expanded=${this._headerMenu?.key === col.key ? 'true' : 'false'}
@@ -2649,7 +2650,7 @@ export class FlexTable extends LitElement {
 
     // Opens at the pointer; `updated()` moves it back inside the viewport once its real size is known.
     return html`
-      <div class="ft-body-context-menu" role="menu" aria-label="Cell actions"
+      <div class="ft-body-context-menu" role="menu" aria-label=${t('cellActions')}
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}
         @keydown=${(e: KeyboardEvent) => this._onMenuKeydown(e, '.ft-body-context-menu', close)}>
@@ -2722,11 +2723,11 @@ export class FlexTable extends LitElement {
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}>
         <textarea class="ft-comment-popup-textarea"
           rows="4"
-          placeholder="Add a comment… (Ctrl+Enter to save)"
+          placeholder=${t('addCommentPlaceholder')}
           @keydown=${onKeyDown}></textarea>
         <div class="ft-comment-popup-buttons">
-          <button class="ft-comment-popup-cancel" @click=${() => this._cancelCommentPopup()}>Cancel</button>
-          <button class="ft-comment-popup-save" @click=${() => this._commitCommentPopup()}>Save</button>
+          <button class="ft-comment-popup-cancel" @click=${() => this._cancelCommentPopup()}>${t('cancel')}</button>
+          <button class="ft-comment-popup-save" @click=${() => this._commitCommentPopup()}>${t('save')}</button>
         </div>
       </div>
     `;
@@ -2800,7 +2801,7 @@ export class FlexTable extends LitElement {
           : type === 'date' || type === 'datetime' ? this._renderDateFilter(col)
           : this._renderTextFilter(col)}
         <div class="ft-filter-actions">
-          <button class="ft-filter-clear" @click=${() => this._clearColumnFilter(col.key)}>Clear</button>
+          <button class="ft-filter-clear" @click=${() => this._clearColumnFilter(col.key)}>${t('clear')}</button>
         </div>
       </div>
     `;
@@ -2847,7 +2848,7 @@ export class FlexTable extends LitElement {
     const current = this._emptyFilterState.get(key) ?? '';
     return html`
       <div class="ft-filter-empty-row">
-        <label>Blank cells</label>
+        <label>${t('blankCells')}</label>
         <select class="ft-filter-mode-select"
           .value=${current}
           @change=${(e: Event) => {
@@ -2863,9 +2864,9 @@ export class FlexTable extends LitElement {
             }
           }}
           @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
-          <option value="">— All —</option>
-          <option value="empty">Empty only</option>
-          <option value="non-empty">Non-empty only</option>
+          <option value="">${t('blankAll')}</option>
+          <option value="empty">${t('emptyOnly')}</option>
+          <option value="non-empty">${t('nonEmptyOnly')}</option>
         </select>
       </div>
     `;
@@ -2948,13 +2949,13 @@ export class FlexTable extends LitElement {
             this._applyTextFilter(col.key);
           }}
           @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
-          <option value="contains">Contains</option>
-          <option value="starts">Starts with</option>
-          <option value="ends">Ends with</option>
-          <option value="wildcard">Wildcard</option>
+          <option value="contains">${t('contains')}</option>
+          <option value="starts">${t('startsWith')}</option>
+          <option value="ends">${t('endsWith')}</option>
+          <option value="wildcard">${t('wildcard')}</option>
         </select>
       </div>
-      <input class="ft-filter-input" type="text" placeholder="Search..."
+      <input class="ft-filter-input" type="text" placeholder=${t('searchPlaceholder')}
         .value=${state.value}
         @input=${(e: InputEvent) => {
           const value = (e.target as HTMLInputElement).value;
@@ -2998,7 +2999,7 @@ export class FlexTable extends LitElement {
           ${(Object.keys(NUM_OP_LABELS) as NumericOp[]).map(op =>
             html`<option value=${op}>${NUM_OP_LABELS[op]}</option>`)}
         </select>
-        <input class="ft-filter-input ft-num-cond-input" type="number" placeholder="Value"
+        <input class="ft-filter-input ft-num-cond-input" type="number" placeholder=${t('valuePlaceholder')}
           .value=${cond.value != null ? String(cond.value) : ''}
           @input=${(e: InputEvent) => {
             const raw = (e.target as HTMLInputElement).value;
@@ -3073,11 +3074,11 @@ export class FlexTable extends LitElement {
     const state = this._dateFilterState.get(col.key) ?? {};
     return html`
       <div class="ft-filter-range">
-        <input class="ft-filter-input" type=${inputType} placeholder="From"
+        <input class="ft-filter-input" type=${inputType} placeholder=${t('fromPlaceholder')}
           .value=${state.from ?? ''}
           @input=${(e: InputEvent) => this._applyDateFilter(col.key, e, 'from')}
           @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
-        <input class="ft-filter-input" type=${inputType} placeholder="To"
+        <input class="ft-filter-input" type=${inputType} placeholder=${t('toPlaceholder')}
           .value=${state.to ?? ''}
           @input=${(e: InputEvent) => this._applyDateFilter(col.key, e, 'to')}
           @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
@@ -3114,7 +3115,7 @@ export class FlexTable extends LitElement {
           }
         }}
         @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
-        <option value="all">All</option>
+        <option value="all">${t('all')}</option>
         <option value="true">\u2714 True</option>
         <option value="false">\u2718 False</option>
       </select>
@@ -3734,26 +3735,26 @@ export class FlexTable extends LitElement {
           }
         }}>
         <div class="ft-find-row">
-          <input class="ft-find-input" type="text" placeholder="Find..."
+          <input class="ft-find-input" type="text" placeholder=${t('findPlaceholder')}
             .value=${query}
             @input=${(e: Event) => {
               this._findState!.query = (e.target as HTMLInputElement).value;
               this._findSearch();
             }}>
           <span class="ft-find-count">${count > 0 ? `${current}/${count}` : query ? '0 results' : ''}</span>
-          <button @click=${() => this._findPrev()} title="Previous (Shift+Enter)">◀</button>
-          <button @click=${() => this._findNext()} title="Next (Enter)">▶</button>
-          <label title="Match case"><input type="checkbox" ?checked=${matchCase} @change=${(e: Event) => { this._findState!.matchCase = (e.target as HTMLInputElement).checked; this._findSearch(); }}> Aa</label>
-          <label title="Whole cell"><input type="checkbox" ?checked=${wholeCell} @change=${(e: Event) => { this._findState!.wholeCell = (e.target as HTMLInputElement).checked; this._findSearch(); }}> [ ]</label>
-          <button @click=${() => this._closeFindPanel()} title="Close (Escape)">✕</button>
+          <button @click=${() => this._findPrev()} title=${t('findPrevious')}>◀</button>
+          <button @click=${() => this._findNext()} title=${t('findNext')}>▶</button>
+          <label title=${t('matchCase')}><input type="checkbox" ?checked=${matchCase} @change=${(e: Event) => { this._findState!.matchCase = (e.target as HTMLInputElement).checked; this._findSearch(); }}> Aa</label>
+          <label title=${t('wholeCell')}><input type="checkbox" ?checked=${wholeCell} @change=${(e: Event) => { this._findState!.wholeCell = (e.target as HTMLInputElement).checked; this._findSearch(); }}> [ ]</label>
+          <button @click=${() => this._closeFindPanel()} title=${t('closeFind')}>✕</button>
         </div>
         ${mode === 'replace' ? html`
           <div class="ft-find-row">
-            <input class="ft-find-replace-input" type="text" placeholder="Replace with..."
+            <input class="ft-find-replace-input" type="text" placeholder=${t('replaceWithPlaceholder')}
               .value=${replaceWith}
               @input=${(e: Event) => { this._findState!.replaceWith = (e.target as HTMLInputElement).value; }}>
-            <button @click=${() => this._replaceOne()} ?disabled=${count === 0}>Replace</button>
-            <button @click=${() => this._replaceAll()} ?disabled=${count === 0}>Replace All</button>
+            <button @click=${() => this._replaceOne()} ?disabled=${count === 0}>${t('replace')}</button>
+            <button @click=${() => this._replaceAll()} ?disabled=${count === 0}>${t('replaceAll')}</button>
           </div>
         ` : ''}
       </div>
@@ -3772,7 +3773,7 @@ export class FlexTable extends LitElement {
       : nothing;
 
     if (cols.length === 0) {
-      return html`${importOverlay}${loadingOverlay}<div class="ft-empty">No columns defined</div>`;
+      return html`${importOverlay}${loadingOverlay}<div class="ft-empty">${t('noColumnsDefined')}</div>`;
     }
 
     const hdrH = this.headerHeight;

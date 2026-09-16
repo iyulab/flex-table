@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.36.0] - 2026-09-17
+
+### Added
+
+- **The table's own chrome text now goes through a locale namespace.** The filter menus, the
+  find-and-replace panel, the column menu and the empty-state message were written in English in the
+  source, so an application translated into another language showed thirty-one English strings in
+  the middle of its own UI — "Contains", "Starts with", "Match case", "Replace all" and the rest.
+  `flexTableLocale` is exported for consumers to register further languages or reword the built-in
+  ones:
+
+  ```ts
+  import { flexTableLocale } from '@iyulab/flex-table';
+  flexTableLocale.register('ja', { contains: '含む', startsWith: '前方一致' });
+  ```
+
+  English and Korean ship with the package; other languages are added the same way. The filter
+  operators `AND` and `OR`, and the glyphs standing in for icons, are deliberately left alone —
+  they read the same in every language and translating them makes them harder to recognise.
+
+### Changed
+
+- The package compiles against `ESNext` rather than `ES2021`, matching every sibling package in the
+  same family.
 ## [0.35.0] - 2026-09-15
 
 ### Changed
