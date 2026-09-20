@@ -436,18 +436,14 @@ flexTableLocale.register('ja', {
 flexTableLocale.register('en', { replaceAll: 'Replace everything' });  // reword one string
 ```
 
-Keys cover the column header and menu (`showHiddenColumns`, `columnMenu`, `columnMenuFor`,
-`columnMenuRegion`, `cellActions`, `noColumnsDefined`), the column menu's items (`sortAscending`,
-`sortDescending`, `filter`, `clearFilter`, `hideColumn`, `showColumn`, `autoFitWidth`, `wider`,
-`narrower`), the cell context menu (`copy`, `insertRowAbove`, `insertRowBelow`, `deleteRow`,
-`filterByThisValue`, `addComment`, `editComment`, `deleteComment`), cell comments
-(`addCommentPlaceholder`, `cancel`, `save`), the filter panel (`clear`, `blankCells`, `emptyOnly`,
-`nonEmptyOnly`, `blankAll`, `all`, `contains`, `startsWith`, `endsWith`, `wildcard`,
-`searchPlaceholder`, `valuePlaceholder`, `fromPlaceholder`, `toPlaceholder`), find-and-replace
-(`findPlaceholder`, `findPrevious`, `findNext`, `matchCase`, `wholeCell`, `closeFind`,
-`replaceWithPlaceholder`, `replace`, `replaceAll`) and the import drop target (`dropFileToImport`).
-`FlexTableMessageKey` is exported, so a missing or misspelled key is a type error rather than a
-string that silently falls back to its own name.
+The keys are grouped by where they appear: the column header and its menu, the items inside that
+menu, the cell context menu, cell comments, the filter panel, find-and-replace, and the import drop
+target. **`FlexTableMessageKey` is the list** — it is exported, so your editor completes it and a
+misspelled key is a type error rather than a string that silently falls back to its own name.
+
+> This paragraph used to enumerate every key by hand. It went stale once, and a hand-copied list is
+> the only thing here that can: the type cannot. If you want the full set, hover `FlexTableMessageKey`
+> or open `src/locale.ts`.
 
 Three of those keys name a column, and word order differs between languages, so they carry a
 `{header}` placeholder rather than being assembled by concatenation:

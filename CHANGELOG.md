@@ -15,6 +15,13 @@
   placeholder, so word order stays the translator's choice instead of being fixed by concatenation.
   The built-in English wording is unchanged.
 
+### Documentation
+
+- **The README no longer lists every message key by hand.** That paragraph had gone stale once
+  already, and a hand-copied list is the only part of this documentation that can: the exported
+  `FlexTableMessageKey` cannot. It now names the groups and points at the type, which your editor
+  completes and the compiler checks.
+
 ### Added
 
 - **The boolean filter's two options are translatable** (`booleanTrue` / `booleanFalse`). They read
