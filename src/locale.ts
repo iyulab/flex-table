@@ -87,6 +87,9 @@ export type FlexTableMessageKey =
   | 'addComment'
   | 'editComment'
   | 'deleteComment'
+  // 필터의 불린 선택지 — 글리프는 템플릿에 남기고 낱말만 번역한다
+  | 'booleanTrue'
+  | 'booleanFalse'
   // 가져오기 오버레이
   | 'dropFileToImport';
 
@@ -149,6 +152,9 @@ flexTableLocale.register('en', {
   editComment: 'Edit Comment',
   deleteComment: 'Delete Comment',
 
+  booleanTrue: 'True',
+  booleanFalse: 'False',
+
   dropFileToImport: 'Drop file to import (.xlsx / .csv)',
 });
 
@@ -207,6 +213,9 @@ flexTableLocale.register('ko', {
   addComment: '메모 추가',
   editComment: '메모 편집',
   deleteComment: '메모 삭제',
+
+  booleanTrue: '참',
+  booleanFalse: '거짓',
 
   dropFileToImport: '가져올 파일을 놓으세요 (.xlsx / .csv)',
 });

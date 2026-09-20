@@ -3116,8 +3116,8 @@ export class FlexTable extends LitElement {
         }}
         @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
         <option value="all">${t('all')}</option>
-        <option value="true">\u2714 True</option>
-        <option value="false">\u2718 False</option>
+        <option value="true">\u2714 ${t('booleanTrue')}</option>
+        <option value="false">\u2718 ${t('booleanFalse')}</option>
       </select>
       ${this._renderEmptyFilterRow(col.key)}
     `;

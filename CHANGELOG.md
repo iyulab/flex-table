@@ -17,6 +17,9 @@
 
 ### Added
 
+- **The boolean filter's two options are translatable** (`booleanTrue` / `booleanFalse`). They read
+  `True` and `False` in every locale before this; the check and cross glyphs stay in the template,
+  since a symbol means the same thing in every language.
 - **`t()` and the exported namespace now interpolate.** `FlexTableMessageKey` gains the menu keys
   above; registering a partial table still merges, so existing registrations keep working untouched.
 
