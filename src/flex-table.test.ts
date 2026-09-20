@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { html } from 'lit';
 import './flex-table.js';
 import type { FlexTable } from './flex-table.js';
 import { buildXlsx } from './export/xlsx-writer.js';
 import type { ColumnDefinition, DataRow } from './models/types.js';
+import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 
 function createElement(): FlexTable {
   const el = document.createElement('flex-table') as FlexTable;
@@ -4082,6 +4083,81 @@ describe('FlexTable', () => {
       expect(el.getComment(0, 'name')).toBe('new comment');
       el.undo();
       expect(el.getComment(0, 'name')).toBeNull();
+    });
+  });
+  // 0.35.0 이 넣은 열 메뉴·셀 컨텍스트 메뉴가 0.36.0 의 로캘 이관에서 빠져, 한국어 앱에서 항목이
+  // 전부 영어로 나오고 같은 버튼의 `title`(번역됨)과 `aria-label`(영어)이 **언어가 갈렸다**.
+  // ★이 스위트의 나머지 단언(`'Column menu: Name'` 등)이 en 경로의 네거티브 컨트롤이다 —
+  //   기본 로캘의 문구는 한 글자도 바뀌지 않아야 한다.
+  describe('메뉴 문자열의 로캘', () => {
+    const openHeaderMenu = async (el: FlexTable) => {
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-column-menu-btn')!.click();
+      await el.updateComplete;
+    };
+    // 기존 컨텍스트-메뉴 스위트와 같은 방식 — jsdom 은 셀의 좌표를 갖지 않아 포인터 경로가
+    // 열 인덱스를 풀지 못하므로, 그 스위트가 이미 쓰는 상태 주입으로 연다.
+    const openCellMenu = async (el: FlexTable) => {
+      (el as unknown as { _bodyContextMenu: unknown })._bodyContextMenu =
+        { rowIndex: 0, colIndex: 0, dataIndex: 0, x: 10, y: 10 };
+      await el.updateComplete;
+    };
+    const build = async () => {
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'name', header: '관리번호' }, { key: 'age', header: '나이', type: 'number' }];
+      el.data = [{ name: 'A-1', age: 30 }];
+      await el.updateComplete;
+      return el;
+    };
+    const labels = (el: FlexTable, sel: string) =>
+      [...el.shadowRoot!.querySelectorAll(sel)].map(n => n.textContent!.trim());
+
+    afterEach(() => Locale.set('en'));
+
+    it('한국어에서 열 메뉴 항목과 두 접근성 이름이 함께 번역된다', async () => {
+      Locale.set('ko');
+      const el = await build();
+
+      const btn = el.shadowRoot!.querySelector('.ft-column-menu-btn')!;
+      // 결함의 핵심 — 같은 버튼의 두 이름이 서로 다른 언어였다.
+      expect(btn.getAttribute('title')).toBe('열 메뉴');
+      expect(btn.getAttribute('aria-label')).toBe('관리번호 열 메뉴');
+
+      await openHeaderMenu(el);
+      expect(el.shadowRoot!.querySelector('.ft-header-menu')!.getAttribute('aria-label')).toBe('관리번호 열');
+      expect(labels(el, '.ft-header-menu-item')).toEqual(
+        ['오름차순 정렬', '내림차순 정렬', '필터…', '열 숨기기', '너비 자동 맞춤', '넓게', '좁게'],
+      );
+    });
+
+    it('한국어에서 셀 컨텍스트 메뉴 항목이 번역된다', async () => {
+      Locale.set('ko');
+      const el = await build();
+      await openCellMenu(el);
+      expect(labels(el, '.ft-context-menu-item')).toEqual([
+        '복사', '위에 행 삽입', '아래에 행 삽입', '행 삭제', '열 숨기기',
+        '오름차순 정렬 ↑', '내림차순 정렬 ↓', '이 값으로 필터', '메모 추가',
+      ]);
+    });
+
+    it('기본(en) 문구는 종전과 한 글자도 다르지 않다 — 네거티브 컨트롤', async () => {
+      const el = await build();
+      expect(el.shadowRoot!.querySelector('.ft-column-menu-btn')!.getAttribute('aria-label'))
+        .toBe('Column menu: 관리번호');
+      await openHeaderMenu(el);
+      expect(labels(el, '.ft-header-menu-item')).toEqual(
+        ['Sort ascending', 'Sort descending', 'Filter…', 'Hide column', 'Auto-fit width', 'Wider', 'Narrower'],
+      );
+      await openCellMenu(await build());
+    });
+
+    it('등록되지 않은 로캘은 en 으로 떨어진다 — 키 문자열이 화면에 새지 않는다', async () => {
+      Locale.set('fr');
+      const el = await build();
+      await openHeaderMenu(el);
+      const items = labels(el, '.ft-header-menu-item');
+      expect(items).toContain('Sort ascending');
+      expect(items.some(l => /^[a-z][A-Za-z]*$/.test(l))).toBe(false);
     });
   });
 });

@@ -436,14 +436,29 @@ flexTableLocale.register('ja', {
 flexTableLocale.register('en', { replaceAll: 'Replace everything' });  // reword one string
 ```
 
-Keys cover the column header and menu (`showHiddenColumns`, `columnMenu`, `cellActions`,
-`noColumnsDefined`), cell comments (`addCommentPlaceholder`, `cancel`, `save`), the filter panel
-(`clear`, `blankCells`, `emptyOnly`, `nonEmptyOnly`, `blankAll`, `all`, `contains`, `startsWith`,
-`endsWith`, `wildcard`, `searchPlaceholder`, `valuePlaceholder`, `fromPlaceholder`,
-`toPlaceholder`) and find-and-replace (`findPlaceholder`, `findPrevious`, `findNext`, `matchCase`,
-`wholeCell`, `closeFind`, `replaceWithPlaceholder`, `replace`, `replaceAll`). `FlexTableMessageKey`
-is exported, so a missing or misspelled key is a type error rather than a string that silently falls
-back to its own name.
+Keys cover the column header and menu (`showHiddenColumns`, `columnMenu`, `columnMenuFor`,
+`columnMenuRegion`, `cellActions`, `noColumnsDefined`), the column menu's items (`sortAscending`,
+`sortDescending`, `filter`, `clearFilter`, `hideColumn`, `showColumn`, `autoFitWidth`, `wider`,
+`narrower`), the cell context menu (`copy`, `insertRowAbove`, `insertRowBelow`, `deleteRow`,
+`filterByThisValue`, `addComment`, `editComment`, `deleteComment`), cell comments
+(`addCommentPlaceholder`, `cancel`, `save`), the filter panel (`clear`, `blankCells`, `emptyOnly`,
+`nonEmptyOnly`, `blankAll`, `all`, `contains`, `startsWith`, `endsWith`, `wildcard`,
+`searchPlaceholder`, `valuePlaceholder`, `fromPlaceholder`, `toPlaceholder`), find-and-replace
+(`findPlaceholder`, `findPrevious`, `findNext`, `matchCase`, `wholeCell`, `closeFind`,
+`replaceWithPlaceholder`, `replace`, `replaceAll`) and the import drop target (`dropFileToImport`).
+`FlexTableMessageKey` is exported, so a missing or misspelled key is a type error rather than a
+string that silently falls back to its own name.
+
+Three of those keys name a column, and word order differs between languages, so they carry a
+`{header}` placeholder rather than being assembled by concatenation:
+
+```ts
+flexTableLocale.register('ja', {
+  columnMenuFor: '{header} の列メニュー',  // the column menu button's accessible name
+  columnMenuRegion: '{header} 列',                    // the open menu's accessible name
+  showColumn: '{header} を表示',                  // "show this hidden neighbour again"
+});
+```
 
 The filter operators `AND` and `OR` are not in the table, and neither are the glyphs that stand in
 for icons. They read the same in every language, and translating them makes them harder to

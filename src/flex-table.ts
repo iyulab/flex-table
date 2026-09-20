@@ -2447,7 +2447,7 @@ export class FlexTable extends LitElement {
         <button class="ft-column-menu-btn ${hasFilter ? 'ft-filter-active' : ''}"
           type="button"
           title=${t('columnMenu')}
-          aria-label=${`Column menu: ${col.header}`}
+          aria-label=${t('columnMenuFor', { header: col.header })}
           aria-haspopup="menu"
           aria-expanded=${this._headerMenu?.key === col.key ? 'true' : 'false'}
           @mousedown=${(e: MouseEvent) => e.stopPropagation()}
@@ -2605,26 +2605,26 @@ export class FlexTable extends LitElement {
     `;
 
     return html`
-      <div class="ft-header-menu" role="menu" aria-label=${`${col.header} column`}
+      <div class="ft-header-menu" role="menu" aria-label=${t('columnMenuRegion', { header: col.header })}
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}
         @keydown=${(e: KeyboardEvent) => this._onHeaderMenuKeydown(e)}>
         ${col.sortable !== false ? html`
-          ${item('sort-asc', 'Sort ascending', () => this._applySortFromMenu(key, 'asc'))}
-          ${item('sort-desc', 'Sort descending', () => this._applySortFromMenu(key, 'desc'))}
+          ${item('sort-asc', t('sortAscending'), () => this._applySortFromMenu(key, 'asc'))}
+          ${item('sort-desc', t('sortDescending'), () => this._applySortFromMenu(key, 'desc'))}
           <div class="ft-header-menu-separator" role="separator"></div>
         ` : nothing}
         ${this.showFilters ? html`
-          ${item('filter', 'Filter…', () => this._openFilterFromMenu(key))}
-          ${hasFilter ? item('clear-filter', 'Clear filter', () => this._clearColumnFilter(key)) : nothing}
+          ${item('filter', t('filter'), () => this._openFilterFromMenu(key))}
+          ${hasFilter ? item('clear-filter', t('clearFilter'), () => this._clearColumnFilter(key)) : nothing}
           <div class="ft-header-menu-separator" role="separator"></div>
         ` : nothing}
-        ${item('hide', 'Hide column', () => this._setColumnHidden(key, true))}
-        ${hiddenNeighbors.map(h => item('show', html`Show: ${h.header}`, () => this._setColumnHidden(h.key, false)))}
+        ${item('hide', t('hideColumn'), () => this._setColumnHidden(key, true))}
+        ${hiddenNeighbors.map(h => item('show', t('showColumn', { header: h.header }), () => this._setColumnHidden(h.key, false)))}
         <div class="ft-header-menu-separator" role="separator"></div>
-        ${item('autofit', 'Auto-fit width', () => this._autoFitColumn(key))}
-        ${item('wider', 'Wider', () => this._resizeColumnBy(key, COLUMN_RESIZE_STEP), true)}
-        ${item('narrower', 'Narrower', () => this._resizeColumnBy(key, -COLUMN_RESIZE_STEP), true)}
+        ${item('autofit', t('autoFitWidth'), () => this._autoFitColumn(key))}
+        ${item('wider', t('wider'), () => this._resizeColumnBy(key, COLUMN_RESIZE_STEP), true)}
+        ${item('narrower', t('narrower'), () => this._resizeColumnBy(key, -COLUMN_RESIZE_STEP), true)}
       </div>
     `;
   }
@@ -2654,22 +2654,22 @@ export class FlexTable extends LitElement {
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}
         @keydown=${(e: KeyboardEvent) => this._onMenuKeydown(e, '.ft-body-context-menu', close)}>
-        ${item('Copy', () => this._handleCopy(false))}
+        ${item(t('copy'), () => this._handleCopy(false))}
         ${separator}
-        ${item('Insert row above', () => this.addRow(undefined, dataIndex))}
-        ${item('Insert row below', () => this.addRow(undefined, dataIndex + 1))}
-        ${item('Delete row', () => this.deleteRows([dataIndex]), true)}
+        ${item(t('insertRowAbove'), () => this.addRow(undefined, dataIndex))}
+        ${item(t('insertRowBelow'), () => this.addRow(undefined, dataIndex + 1))}
+        ${item(t('deleteRow'), () => this.deleteRows([dataIndex]), true)}
         ${separator}
-        ${item('Hide column', () => this._setColumnHidden(col.key, true))}
+        ${item(t('hideColumn'), () => this._setColumnHidden(col.key, true))}
         ${separator}
-        ${item('Sort ascending ↑', () => this._applySortFromMenu(col.key, 'asc'))}
-        ${item('Sort descending ↓', () => this._applySortFromMenu(col.key, 'desc'))}
+        ${item(`${t('sortAscending')} ↑`, () => this._applySortFromMenu(col.key, 'asc'))}
+        ${item(`${t('sortDescending')} ↓`, () => this._applySortFromMenu(col.key, 'desc'))}
         ${separator}
-        ${item('Filter by this value', () => this.setFilter(col.key, (v) => v === value))}
-        ${hasFilter ? item('Clear filter', () => this.removeFilter(col.key)) : nothing}
+        ${item(t('filterByThisValue'), () => this.setFilter(col.key, (v) => v === value))}
+        ${hasFilter ? item(t('clearFilter'), () => this.removeFilter(col.key)) : nothing}
         ${separator}
-        ${item(hasComment ? 'Edit Comment' : 'Add Comment', () => this._openCommentPopup(dataIndex, col.key, x, y))}
-        ${hasComment ? item('Delete Comment', () => this.setComment(dataIndex, col.key, null), true) : nothing}
+        ${item(hasComment ? t('editComment') : t('addComment'), () => this._openCommentPopup(dataIndex, col.key, x, y))}
+        ${hasComment ? item(t('deleteComment'), () => this.setComment(dataIndex, col.key, null), true) : nothing}
       </div>
     `;
   }
@@ -3766,7 +3766,7 @@ export class FlexTable extends LitElement {
   render() {
     const cols = this.visibleColumns;
     const importOverlay = this.importEnabled && this._isDragOver
-      ? html`<div class="ft-import-overlay">Drop file to import (.xlsx / .csv)</div>`
+      ? html`<div class="ft-import-overlay">${t('dropFileToImport')}</div>`
       : nothing;
     const loadingOverlay = this.loading
       ? html`<div class="ft-loading-overlay"></div>`

@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **The column menu and the cell context menu stayed in English on a translated page.** 0.36.0 moved
+  the table's chrome text into a locale namespace, but the menus added in 0.35.0 were not part of
+  that move: their items, and the accessible name of the column-menu button, were written inline. On
+  a Korean page the same button therefore announced one language in its `title` and another in its
+  `aria-label`, and a screen-reader user heard English item names in the middle of a translated
+  grid — with no way to correct it, since the strings had no keys to register over. Every one of
+  those strings now goes through the namespace, including the cell context menu, the two menu
+  accessible names and the import drop target. Three keys name a column and carry a `{header}`
+  placeholder, so word order stays the translator's choice instead of being fixed by concatenation.
+  The built-in English wording is unchanged.
+
+### Added
+
+- **`t()` and the exported namespace now interpolate.** `FlexTableMessageKey` gains the menu keys
+  above; registering a partial table still merges, so existing registrations keep working untouched.
+
 ## [0.36.0] - 2026-09-17
 
 ### Added

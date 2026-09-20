@@ -65,7 +65,30 @@ export type FlexTableMessageKey =
   | 'closeFind'
   | 'replaceWithPlaceholder'
   | 'replace'
-  | 'replaceAll';
+  | 'replaceAll'
+  // 열 메뉴 항목 — 0.35.0 이 넣고 0.36.0 이관이 빠뜨린 묶음
+  | 'sortAscending'
+  | 'sortDescending'
+  | 'filter'
+  | 'clearFilter'
+  | 'hideColumn'
+  | 'showColumn'
+  | 'autoFitWidth'
+  | 'wider'
+  | 'narrower'
+  | 'columnMenuFor'
+  | 'columnMenuRegion'
+  // 셀 컨텍스트 메뉴
+  | 'copy'
+  | 'insertRowAbove'
+  | 'insertRowBelow'
+  | 'deleteRow'
+  | 'filterByThisValue'
+  | 'addComment'
+  | 'editComment'
+  | 'deleteComment'
+  // 가져오기 오버레이
+  | 'dropFileToImport';
 
 /** 이 패키지의 chrome 문자열 묶음. 소비자가 `register()` 로 언어를 더하거나 문구를 덮을 수 있다. */
 export const flexTableLocale = Locale.namespace<FlexTableMessageKey>('flex-table');
@@ -104,6 +127,29 @@ flexTableLocale.register('en', {
   replaceWithPlaceholder: 'Replace with...',
   replace: 'Replace',
   replaceAll: 'Replace all',
+
+  sortAscending: 'Sort ascending',
+  sortDescending: 'Sort descending',
+  filter: 'Filter…',
+  clearFilter: 'Clear filter',
+  hideColumn: 'Hide column',
+  showColumn: 'Show: {header}',
+  autoFitWidth: 'Auto-fit width',
+  wider: 'Wider',
+  narrower: 'Narrower',
+  columnMenuFor: 'Column menu: {header}',
+  columnMenuRegion: '{header} column',
+
+  copy: 'Copy',
+  insertRowAbove: 'Insert row above',
+  insertRowBelow: 'Insert row below',
+  deleteRow: 'Delete row',
+  filterByThisValue: 'Filter by this value',
+  addComment: 'Add Comment',
+  editComment: 'Edit Comment',
+  deleteComment: 'Delete Comment',
+
+  dropFileToImport: 'Drop file to import (.xlsx / .csv)',
 });
 
 flexTableLocale.register('ko', {
@@ -140,7 +186,33 @@ flexTableLocale.register('ko', {
   replaceWithPlaceholder: '바꿀 내용...',
   replace: '바꾸기',
   replaceAll: '모두 바꾸기',
+
+  sortAscending: '오름차순 정렬',
+  sortDescending: '내림차순 정렬',
+  filter: '필터…',
+  clearFilter: '필터 지우기',
+  hideColumn: '열 숨기기',
+  showColumn: '{header} 보기',
+  autoFitWidth: '너비 자동 맞춤',
+  wider: '넓게',
+  narrower: '좁게',
+  columnMenuFor: '{header} 열 메뉴',
+  columnMenuRegion: '{header} 열',
+
+  copy: '복사',
+  insertRowAbove: '위에 행 삽입',
+  insertRowBelow: '아래에 행 삽입',
+  deleteRow: '행 삭제',
+  filterByThisValue: '이 값으로 필터',
+  addComment: '메모 추가',
+  editComment: '메모 편집',
+  deleteComment: '메모 삭제',
+
+  dropFileToImport: '가져올 파일을 놓으세요 (.xlsx / .csv)',
 });
 
 /** 짧은 조회 별칭 — 렌더 코드가 읽히게 유지한다. */
-export const t = (key: FlexTableMessageKey): string => flexTableLocale.text(key);
+export const t = (
+  key: FlexTableMessageKey,
+  params?: Record<string, string | number>,
+): string => flexTableLocale.text(key, params);
