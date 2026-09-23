@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.38.1] - 2026-09-23
+
+### Fixed
+
+- 🔴 **XLSX import no longer turns styled numbers into dates.** A number was read as a date whenever
+  its cell had any non-default style and its value fell between 1 and 73050 — so bold figures,
+  thousands separators, currency and percentage formats (most numbers in a real business
+  spreadsheet) came in as dates: a price of 12,450 became `1934-01-30`. Whether a number is a date
+  is now decided by the cell style's number format, read from `styles.xml`: the built-in date
+  formats, and custom formats whose code draws a day or a year (text in quotes, escaped characters
+  and bracketed sections such as `[Red]` or `[$-409]` are not counted). Time-only formats stay
+  numbers.
+- 🔴 **Imported dates are no longer one day early.** The serial-to-date conversion subtracted a day,
+  so a date exported by the table and imported back came in as the day before.
+- **Row drag and the fill handle hit the frozen row under the pointer while the table is
+  scrolled.** Frozen rows stay put as a sticky band, but both gestures added the scroll offset to
+  the pointer position everywhere, so over the band they pointed at the body row hidden behind
+  it: a row dropped onto a frozen row landed further down, and a fill dragged up into the band
+  stopped short of it. The drop indicator is drawn at the right place too.
+- **XLSX import honors the 1904 date system** (`workbookPr date1904`, used by workbooks created on
+  a Mac), which otherwise shifts every date by four years.
+
 ## [0.38.0] - 2026-09-23
 
 ### Fixed
