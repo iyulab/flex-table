@@ -729,7 +729,7 @@ The hook returns:
 
 | Field | Description |
 |---|---|
-| `data` / `totalCount` | Current page rows and the server's total (`@odata.count`) |
+| `data` / `totalCount` | Current page rows and the server's total (`@odata.count`). When the server pages its response (`@odata.nextLink`, e.g. a page size smaller than `pageSize`), the hook follows the link until the page is filled; a link outside the request's origin, or one that returns to a page already read, is reported through `error` instead of showing a short page |
 | `loading` | A request is in flight |
 | `error` | Message of the last failed request, or `null`. **Render this** — a failed request otherwise leaves the grid silently empty |
 | `page` / `setPage` | Zero-based page index |

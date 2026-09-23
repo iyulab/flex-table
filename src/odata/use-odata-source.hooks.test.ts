@@ -175,6 +175,66 @@ describe('useODataSource — 페이지 리셋', () => {
     await view.rerender({ pageSize: 20, fetcher: makeFetcher(urls), fixedFilter: { IsActive: true } });
     expect(view.current.page).toBe(0);
   });
+
+  /*
+   * 서버 주도 페이징 — 서버가 요청한 `$top` 보다 적게 주고 `@odata.nextLink` 를 붙인다. 종전에는 그 링크를
+   * 버려 `pageSize` 가 서버 페이지 크기보다 큰 표가 조용히 모자란 행을 보였다(`totalCount` 는 맞았다).
+   */
+  function pagedFetcher(pages: Record<string, unknown>, urls: string[]) {
+    return (input: string) => {
+      urls.push(input);
+      const key = Object.keys(pages).find((k) => decodeURIComponent(input).includes(k)) ?? '';
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(pages[key]),
+        text: () => Promise.resolve(''),
+      } as unknown as Response);
+    };
+  }
+  const origin = window.location.origin;
+
+  it('nextLink 를 따라가 한 표 페이지를 채운다', async () => {
+    const urls: string[] = [];
+    const fetcher = pagedFetcher({
+      'skiptoken=2': { value: [{ id: 3 }, { id: 4 }] },
+      '': { value: [{ id: 1 }, { id: 2 }], '@odata.count': 10, '@odata.nextLink': `${origin}/api/orders?$skiptoken=2` },
+    }, urls);
+    const view = await mount({ pageSize: 4, fetcher });
+    expect(view.current.data).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }]);
+    expect(view.current.totalCount).toBe(10);
+    expect(urls).toHaveLength(2);
+    expect(view.current.error).toBeNull();
+  });
+
+  it('nextLink 가 없으면 요청 하나 — 종전과 같다', async () => {
+    const urls: string[] = [];
+    const view = await mount({ pageSize: 20, fetcher: makeFetcher(urls) });
+    expect(urls).toHaveLength(1);
+    expect(view.current.data).toEqual([{ id: 1 }]);
+  });
+
+  it('🔴오리진 밖 nextLink 는 따라가지 않고 오류로 드러낸다 — 잘린 페이지를 온전하게 보이지 않는다', async () => {
+    const urls: string[] = [];
+    const fetcher = pagedFetcher({
+      '': { value: [{ id: 1 }], '@odata.count': 10, '@odata.nextLink': 'https://elsewhere.test/api/orders?$skiptoken=1' },
+    }, urls);
+    const view = await mount({ pageSize: 4, fetcher });
+    expect(urls).toHaveLength(1);
+    expect(view.current.error).toMatch(/outside the source origin/);
+    expect(view.current.data).toEqual([]);
+  });
+
+  it('🔴이미 읽은 페이지로 되돌아오는 nextLink 는 오류로 멈춘다', async () => {
+    const urls: string[] = [];
+    const fetcher = pagedFetcher({
+      'skiptoken=1': { value: [{ id: 2 }], '@odata.nextLink': `${origin}/api/orders?$skiptoken=1` },
+      '': { value: [{ id: 1 }], '@odata.count': 10, '@odata.nextLink': `${origin}/api/orders?$skiptoken=1` },
+    }, urls);
+    const view = await mount({ pageSize: 4, fetcher });
+    expect(urls).toHaveLength(2);
+    expect(view.current.error).toMatch(/repeats an already-read page/);
+  });
 });
 
 

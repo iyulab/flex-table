@@ -184,32 +184,66 @@ export function useODataSource<T = Record<string, unknown>>(
     const queryString = buildQuery(queryParams);
     const fullUrl = `${baseUrl ?? window.location.origin}${url}${queryString}`;
 
-    fetcher(fullUrl, { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) {
-          if ((res.status === 401 || res.status === 403) && onUnauthorized) {
-            onUnauthorized(res);
-          }
-          const text = await res.text().catch(() => '');
-          // ⚠영어 리터럴이고, 이것은 **의도한 것이다** — 이 패키지에는 이제 로케일 묶음이
-          // 있지만(`src/locale.ts`) 그것은 **chrome 문자열** 용이다. 이 문자열은 서버 오류의
-          // 폴백이고, 서버가 메시지를 주면 그쪽이 이긴다(아래 두 줄) — 즉 화면에 남는 경우가
-          // 서버가 아무것도 말해 주지 않은 때뿐이라 진단 성격이 강하다.
-          // (종전 주석은 이 패키지가 로케일 레지스트리를 갖지 않는다는 전제 위에 서 있었다.
-          //  그 전제가 더 이상 참이 아니므로 판단 근거를 다시 적는다.)
-          let msg = `Request failed (${res.status})`;
-          try {
-            const json = JSON.parse(text);
-            msg = json?.error?.message ?? json?.message ?? msg;
-          } catch { /* ignore parse error */ }
-          throw new Error(msg);
+    /*
+     * 한 요청 = 한 응답이 아니다 — 서버 주도 페이징(`@odata.nextLink`)이면 서버가 우리가 요청한
+     * `$top` 보다 적게 주고 이어 읽을 URL 을 붙인다. 그 링크를 버리면 `pageSize` 가 서버 페이지
+     * 크기보다 큰 표가 **조용히 모자란 행**을 보인다(`totalCount` 는 맞아서 페이저도 멀쩡해 보인다).
+     * 그래서 한 표 페이지를 채울 때까지 링크를 따라간다 — 링크는 `$top`·`$skip` 의 남은 범위를
+     * 이미 담고 있으므로 우리가 자를 필요가 없다.
+     *
+     * 🔴오리진 밖 링크·이미 읽은 링크는 따라가지 않고 **오류로** 드러낸다 — 요청에는 세션이 실리고,
+     * 조용히 멈추면 잘린 페이지가 온전한 페이지처럼 보인다.
+     */
+    const fetchPage = async (pageUrl: string) => {
+      const res = await fetcher(pageUrl, { signal: controller.signal });
+      if (!res.ok) {
+        if ((res.status === 401 || res.status === 403) && onUnauthorized) {
+          onUnauthorized(res);
         }
-        return res.json();
-      })
-      .then((json) => {
+        const text = await res.text().catch(() => '');
+        // ⚠영어 리터럴이고, 이것은 **의도한 것이다** — 이 패키지에는 이제 로케일 묶음이
+        // 있지만(`src/locale.ts`) 그것은 **chrome 문자열** 용이다. 이 문자열은 서버 오류의
+        // 폴백이고, 서버가 메시지를 주면 그쪽이 이긴다(아래 두 줄) — 즉 화면에 남는 경우가
+        // 서버가 아무것도 말해 주지 않은 때뿐이라 진단 성격이 강하다.
+        // (종전 주석은 이 패키지가 로케일 레지스트리를 갖지 않는다는 전제 위에 서 있었다.
+        //  그 전제가 더 이상 참이 아니므로 판단 근거를 다시 적는다.)
+        let msg = `Request failed (${res.status})`;
+        try {
+          const json = JSON.parse(text);
+          msg = json?.error?.message ?? json?.message ?? msg;
+        } catch { /* ignore parse error */ }
+        throw new Error(msg);
+      }
+      return res.json();
+    };
+
+    const load = async () => {
+      const first = await fetchPage(fullUrl);
+      const rows: T[] = [...(first.value ?? first)];
+      const origin = new URL(fullUrl).origin;
+      const seen = new Set([fullUrl]);
+      let current = fullUrl;
+      let next: unknown = first['@odata.nextLink'];
+      while (typeof next === 'string' && next && rows.length < pageSize) {
+        const resolved = new URL(next, current);
+        if (resolved.origin !== origin) {
+          throw new Error(`OData nextLink points outside the source origin (${resolved.origin})`);
+        }
+        current = resolved.toString();
+        if (seen.has(current)) throw new Error(`OData nextLink repeats an already-read page (${current})`);
+        seen.add(current);
+        const more = await fetchPage(current);
+        rows.push(...(more.value ?? []));
+        next = more['@odata.nextLink'];
+      }
+      return { count: first['@odata.count'], rows };
+    };
+
+    load()
+      .then(({ count: rawCount, rows }) => {
         if (controller.signal.aborted) return;
-        const count = json['@odata.count'] ?? 0;
-        setData(json.value ?? json);
+        const count = rawCount ?? 0;
+        setData(rows);
         setTotalCount(count);
         setError(null);
 
