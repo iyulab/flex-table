@@ -1095,6 +1095,23 @@ export class FlexTable extends LitElement {
     return this._frozenRowCount * this.rowHeight;
   }
 
+  /**
+   * 포인터의 뷰포트 y → 행 좌표(행 영역 맨 위 = 0, 픽셀). 고정 행 띠는 `position: sticky` 라
+   * 스크롤해도 제자리이므로, 그 띠 위에서는 스크롤 양을 더하지 않는다 — 더하면 띠 뒤에 가려진
+   * 본문 행을 가리킨다. 행 끌기·채우기 핸들이 같은 식을 쓴다.
+   */
+  private _rowSpaceY(clientY: number): number {
+    const y = clientY - this.getBoundingClientRect().top - this.headerHeight;
+    return y < this.frozenRowsHeight ? y : y + this._scrollTop;
+  }
+
+  /** 행 경계 `index`(행 `index` 의 위 선)의 뷰포트 y(호스트 기준). 고정 띠 뒤로 가려지는 본문 경계는 띠 아래 선에 붙인다. */
+  private _rowBoundaryViewportY(index: number): number {
+    const top = this.headerHeight + index * this.rowHeight;
+    if (index <= this._frozenRowCount) return top;
+    return Math.max(this.headerHeight + this.frozenRowsHeight, top - this._scrollTop);
+  }
+
   private get totalBodyHeight(): number {
     return Math.max(0, this._visibleRowCount - this._frozenRowCount) * this.rowHeight;
   }
@@ -3348,7 +3365,7 @@ export class FlexTable extends LitElement {
     if (!this._fillDrag) return;
     const rect = this.getBoundingClientRect();
     const mx = e.clientX - rect.left + this._scrollLeft - this._prefixWidth;
-    const my = e.clientY - rect.top + this._scrollTop - this.headerHeight;
+    const my = this._rowSpaceY(e.clientY);
     const cols = this.visibleColumns;
 
     let colIdx = 0;
@@ -3543,7 +3560,7 @@ export class FlexTable extends LitElement {
     }
 
     const rect = this.getBoundingClientRect();
-    const mouseY = e.clientY - rect.top + this._scrollTop - this.headerHeight;
+    const mouseY = this._rowSpaceY(e.clientY);
     const rowH = this.rowHeight;
 
     let targetIndex = Math.round(mouseY / rowH);
@@ -3551,7 +3568,7 @@ export class FlexTable extends LitElement {
     if (this._rowDrag.rowIndex < targetIndex) targetIndex--;
 
     this._rowDrag.targetIndex = targetIndex;
-    const indicatorY = this.headerHeight + targetIndex * rowH - this._scrollTop;
+    const indicatorY = this._rowBoundaryViewportY(targetIndex);
     this._rowDragIndicatorY = Math.max(this.headerHeight, Math.min(indicatorY, rect.height));
     this.requestUpdate();
   }
