@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.38.2] - 2026-09-24
+
+### Fixed
+
+- 🔴 **`useODataSource` no longer drops `@odata.nextLink`.** With server-driven paging, a server
+  returns fewer rows than the requested `$top` and a link to the rest. The hook kept only the
+  first response, so a table whose `pageSize` exceeded the server's page size showed a short page
+  while `totalCount` and the pager still looked right. It now follows the link until the page is
+  filled. A link outside the request's origin, or one that returns to a page already read, is
+  reported through `error` rather than followed or silently dropped.
+
 ## [0.38.1] - 2026-09-23
 
 ### Fixed
