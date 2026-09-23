@@ -3,6 +3,9 @@
  * Patterns follow Excel-like conventions.
  */
 
+// 숫자 구분 기호는 앱이 정한 로캘을 따른다(`Locale.get()`) — 런타임 기본 로캘이 아니라.
+import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
+
 /**
  * Apply a format string or function to a cell value.
  * Returns empty string for null/undefined.
@@ -63,9 +66,9 @@ export function formatNumberValue(value: unknown, fmt: string): string {
   let result: string;
   if (isPercent) {
     // Excel %: value 0.1235 → '12.35%'. Intl style:'percent' does the same.
-    result = new Intl.NumberFormat(undefined, { ...opts, style: 'percent' }).format(num);
+    result = new Intl.NumberFormat(Locale.get(), { ...opts, style: 'percent' }).format(num);
   } else {
-    result = new Intl.NumberFormat(undefined, opts).format(num);
+    result = new Intl.NumberFormat(Locale.get(), opts).format(num);
     if (currencyPrefix) result = currencyPrefix + result;
   }
 
