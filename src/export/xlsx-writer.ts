@@ -32,9 +32,10 @@ function crc32(buf: Uint8Array): number {
 
 const ENC = new TextEncoder();
 
-interface ZipFile { name: string; data: Uint8Array }
+export interface ZipFile { name: string; data: Uint8Array }
 
-function buildZip(files: ZipFile[]): Uint8Array<ArrayBuffer> {
+/** @internal 테스트가 실물에 가까운 통합 문서(스타일·1904 날짜 체계)를 조립하는 데 쓴다. */
+export function buildZip(files: ZipFile[]): Uint8Array<ArrayBuffer> {
   const parts: Uint8Array[] = [];
   const centralDir: Uint8Array[] = [];
   let offset = 0;
