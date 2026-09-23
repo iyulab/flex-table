@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.38.0] - 2026-09-23
+
+### Fixed
+
+- 🔴 **Cell values follow the app's locale, not the browser's.** The built-in `number`, `date` and
+  `datetime` formatting called `toLocaleString()` without a locale, so values followed the runtime
+  default while the table's own menus and labels already followed `Locale`. An app set to Korean
+  and opened in an English browser showed Korean menus over `9/9/2026, 8:16:01 AM`. Values now go
+  through `@iyulab/components`' `formatDate`/`formatNumber`, which use `Locale.get()`, and the
+  numeric `format` patterns (`#,##0.00` and friends) use the same locale for their separators.
+- **A date-only value such as `"2026-09-09"` is read as that local date.** It was parsed as UTC
+  midnight, so in timezones behind UTC a `date` column showed the previous day.
+
+### Changed
+
+- 🔴 **The `@iyulab/components` peer range is now `>=1.27.0`** (was `>=1.24.0`). The formatters come
+  from that package's `format` module, which first shipped in 1.27.0; the old range admitted
+  versions without it.
+
+⚠ **Visible change:** if your app's `Locale` differs from the browser's language, dates and numbers in
+the table now appear in the app's format. Nothing changes when the two agree.
+
 ## [0.37.0] - 2026-09-20
 
 ### Fixed
