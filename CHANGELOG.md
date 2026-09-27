@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.39.0] - 2026-09-27
+
+### Added
+
+- **`enabled` option on `useODataSource`** (default `true`). While `false` the hook makes no
+  request and reports `loading: true`; the first request goes out when it turns `true`, with that
+  render's conditions. For lists whose query depends on a value that arrives asynchronously (a
+  server-decided default filter, the current user, a selected parent): without it the first render
+  sent a wasted request with the wrong conditions — often the heaviest one, unfiltered — before the
+  real one. Turning it `false` mid-request cancels the request; `refresh()` does nothing while
+  disabled.
+
 ## [0.38.2] - 2026-09-24
 
 ### Fixed
