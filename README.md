@@ -688,6 +688,7 @@ const source = useODataSource('/api/orders', {
 | `baseUrl` | `window.location.origin` | Override the request origin (proxy/BFF setups) |
 | `fetcher` | global `fetch` | Custom transport — pass a wrapper that injects auth headers |
 | `onUnauthorized` | — | Called on `401`/`403` responses, before the generic error is set |
+| `enabled` | `true` | While `false`, no request is made and `loading` stays `true` — see below |
 
 `fetcher`/`onUnauthorized` should be stable references (e.g. wrap in `useCallback`) — they are intentionally excluded from the hook's internal effect dependencies to avoid refetch loops on every render.
 
@@ -703,6 +704,22 @@ last page that exists — a result set can shrink without you asking (another us
 rows, a `refresh` landing after a change), and holding the old `$skip` would leave an empty
 table next to a non-zero total. Reaching that state costs one extra request, only in that
 case; the page only ever moves down, so it cannot loop.
+
+Set `enabled: false` while the query depends on a value that has not arrived yet — a default
+filter the server decides, the current user, a selected parent record. Without it, the first
+render requests with the wrong conditions (often the heaviest query: no filter) and then again
+once the value arrives. The first request goes out the moment `enabled` turns `true`, with the
+conditions of that render; until then `loading` is `true`, so the table shows loading rather
+than "no data". Turning it `false` mid-request cancels that request, and `refresh()` does nothing
+while disabled.
+
+```tsx
+const season = useDefaultSeason();   // resolves asynchronously
+const source = useODataSource('/api/orders', {
+  fixedFilter: season ? { Season: season } : undefined,
+  enabled: season !== undefined,
+});
+```
 
 The three `initial*` options are read **on the first render only** (the same contract
 `defaultOrderBy` has always had); use `setPage`/`setSearch` to move afterwards. Reach for

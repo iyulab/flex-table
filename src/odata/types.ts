@@ -26,6 +26,16 @@ export interface UseODataSourceOptions {
   fetcher?: (input: string, init: RequestInit) => Promise<Response>;
   /** 응답이 401/403일 때 호출(세션 만료 리다이렉트 등). 호출 후에도 기존 에러 처리는 계속 진행된다. */
   onUnauthorized?: (response: Response) => void;
+  /**
+   * `false` 인 동안 요청하지 않는다. 기본값 `true`.
+   *
+   * 조회 조건이 다른 비동기 값(현재 사용자·기본 필터·선택된 부모 레코드)에 달린 목록에서
+   * 그 값이 오기 전에 «틀린 조건의 첫 조회» 가 나가지 않게 한다. `false → true` 가 되는 순간
+   * 첫 조회가 나가고, 그 사이 `loading` 은 `true` 다(표가 «데이터 없음» 이 아니라 «불러오는 중»
+   * 을 보인다). 조회 중에 `false` 가 되면 진행 중 요청을 취소한다. `false` 인 동안의 `refresh()` 는
+   * 아무 일도 하지 않는다 — 켜지는 순간의 조회가 이미 최신 조건이다.
+   */
+  enabled?: boolean;
 }
 
 export interface UseODataSourceResult<T> {

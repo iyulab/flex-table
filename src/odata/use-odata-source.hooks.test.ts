@@ -394,3 +394,106 @@ describe('useODataSource — 선언된 계약', () => {
     expect(latest!.page).toBe(2);
   });
 });
+
+/**
+ * `enabled` — 조회 조건이 다른 비동기 값에 달린 목록은 그 값이 오기 전에
+ * «틀린 조건의 첫 조회» 를 내보내지 않아야 한다. 데이터 훅의 표준 해법(TanStack Query `enabled`).
+ */
+describe('useODataSource — enabled', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  type Options = Parameters<typeof useODataSource>[1];
+
+  /** 응답을 손으로 풀어 주는 fetcher — 진행 중 요청의 취소를 잴 수 있게. */
+  function deferredFetcher() {
+    const calls: { url: string; signal: AbortSignal; resolve: () => void }[] = [];
+    const fetcher = (input: string, init: RequestInit) =>
+      new Promise<Response>((resolve) => {
+        calls.push({
+          url: input,
+          signal: init.signal as AbortSignal,
+          resolve: () => resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ value: [{ id: 1 }], '@odata.count': 1 }),
+            text: () => Promise.resolve(''),
+          } as unknown as Response),
+        });
+      });
+    return { calls, fetcher };
+  }
+
+  async function mount(options: Options) {
+    let latest: ReturnType<typeof useODataSource> | undefined;
+    const Probe = (props: { options: Options }) => {
+      latest = useODataSource('/api/orders', props.options);
+      return null;
+    };
+    await act(async () => {
+      root.render(createElement(Probe, { options }));
+    });
+    return {
+      get current() {
+        return latest!;
+      },
+      async rerender(next: Options) {
+        await act(async () => {
+          root.render(createElement(Probe, { options: next }));
+        });
+      },
+    };
+  }
+
+  it('🔴false 인 동안 요청하지 않고 loading 은 true 다', async () => {
+    const { calls, fetcher } = deferredFetcher();
+    const h = await mount({ fetcher, enabled: false });
+    expect(calls).toHaveLength(0);
+    expect(h.current.loading).toBe(true);
+    expect(h.current.data).toEqual([]);
+  });
+
+  it('🔴true 가 되는 순간 첫 조회가 «그때의 조건» 으로 한 번 나간다', async () => {
+    const { calls, fetcher } = deferredFetcher();
+    const h = await mount({ fetcher, enabled: false });
+    await h.rerender({ fetcher, enabled: true, fixedFilter: { Season: 2026 } });
+    expect(calls).toHaveLength(1);
+    expect(decodeURIComponent(calls[0].url)).toContain('Season eq 2026');
+    await act(async () => { calls[0].resolve(); });
+    expect(h.current.loading).toBe(false);
+    expect(h.current.data).toEqual([{ id: 1 }]);
+  });
+
+  it('false 인 동안의 refresh() 는 요청을 내지 않는다', async () => {
+    const { calls, fetcher } = deferredFetcher();
+    const h = await mount({ fetcher, enabled: false });
+    await act(async () => { h.current.refresh(); });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('조회 중에 false 가 되면 진행 중 요청을 취소한다', async () => {
+    const { calls, fetcher } = deferredFetcher();
+    const h = await mount({ fetcher, enabled: true });
+    expect(calls).toHaveLength(1);
+    await h.rerender({ fetcher, enabled: false });
+    expect(calls[0].signal.aborted).toBe(true);
+    expect(h.current.loading).toBe(true);
+  });
+
+  it('NEGATIVE 생략하면 종전처럼 마운트 즉시 조회한다', async () => {
+    const { calls, fetcher } = deferredFetcher();
+    await mount({ fetcher });
+    expect(calls).toHaveLength(1);
+  });
+});

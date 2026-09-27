@@ -84,6 +84,7 @@ export function useODataSource<T = Record<string, unknown>>(
     baseUrl,
     fetcher = fetch,
     onUnauthorized,
+    enabled = true,
   } = options;
 
   /*
@@ -158,6 +159,8 @@ export function useODataSource<T = Record<string, unknown>>(
 
   useEffect(() => {
     abortRef.current?.abort();
+    // 꺼져 있으면 요청하지 않는다 — 위 abort 가 켜져 있던 동안의 진행 중 요청도 거둔다.
+    if (!enabled) return;
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -279,10 +282,13 @@ export function useODataSource<T = Record<string, unknown>>(
   // deps는 의도적으로 부분집합이다: fixedFilter 객체 대신 직렬화 키(fixedFilterKey)로 값을 비교하고,
   // fetcher/onUnauthorized는 매 render 재생성될 수 있는 함수라 제외한다 —
   // 호출자가 useCallback 등으로 안정된 참조를 넘길 것을 전제로 한다(url과 동일한 계약).
-  }, [url, page, pageSize, sortCriteria, search, fixedFilterKey, defaultOrderBy, refreshToken, baseUrl]);
+  }, [enabled, url, page, pageSize, sortCriteria, search, fixedFilterKey, defaultOrderBy, refreshToken, baseUrl]);
 
   return {
-    data, totalCount, loading, error,
+    data, totalCount,
+    // 꺼져 있는 동안은 «아직 불러오지 않음» 이다 — 빈 목록을 «결과 없음» 으로 보이지 않게 한다.
+    loading: loading || !enabled,
+    error,
     page, setPage,
     sortCriteria, onSortChange,
     search, setSearch: handleSetSearch,
