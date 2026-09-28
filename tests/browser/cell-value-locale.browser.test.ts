@@ -7,7 +7,7 @@ import type { ColumnDefinition } from '../../src/models/types.js';
 /**
  * 셀 **값** 의 기본 포맷이 앱이 정한 로캘(`Locale`)을 따르는가 — 런타임 기본 로캘이 아니라.
  *
- * 결함(docket `#414`): 표의 chrome 문구는 `Locale` 을 탔지만 값 포매터는 `toLocaleString()` 을
+ * 결함: 표의 chrome 문구는 `Locale` 을 탔지만 값 포매터는 `toLocaleString()` 을
  * 로캘 없이 불렀다. `Locale.set('ko')` 한 앱을 영어 브라우저로 열면 같은 표의 메뉴는 한국어,
  * 날짜는 `9/9/2026, 8:16:01 AM` 이었다.
  *

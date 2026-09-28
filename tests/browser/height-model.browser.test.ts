@@ -3,7 +3,7 @@ import '../../src/index.js';
 import type { FlexTable } from '../../src/flex-table.js';
 
 /**
- * **호스트 높이 계약 — 가상 스크롤은 «제약된 호스트» 를 전제한다**(cycle-563).
+ * **호스트 높이 계약 — 가상 스크롤은 «제약된 호스트» 를 전제한다**.
  *
  * ## 왜 이 파일이 생겼는가
  *
@@ -12,7 +12,7 @@ import type { FlexTable } from '../../src/flex-table.js';
  * ⇒ 호스트에 높이 제약이 없으면 **뷰포트가 곧 전체 내용 높이**가 되어 보이는 행 수 계산이
  * 전 행을 가리킨다 — 즉 **가상화가 사실상 꺼진다.**
  *
- * 실측(cycle-563 탐침): 1000행 · 높이 없음 → 호스트 **32,040px** · 셀 **2000개**(전 행).
+ * 실측(탐침):1000행 · 높이 없음 → 호스트 **32,040px** · 셀 **2000개**(전 행).
  * 같은 데이터에 높이 300px → 셀 30개. README 가 내세우는 «100,000+ rows» 는 **제약이 있을 때만**
  * 참이고, 그 전제가 문서에 없었다(Quick Start 예제조차 높이를 주지 않았다).
  *
@@ -23,7 +23,7 @@ import type { FlexTable } from '../../src/flex-table.js';
  * `clientHeight`·`scrollHeight` 가 전부다. jsdom 은 0 을 돌려주므로 이 파일은 원리적으로
  * 브라우저 프로젝트에만 살 수 있다(형제 `pinned-columns` 와 같은 이유).
  *
- * ## ⚠왜 «실제로 스크롤되었는가» 를 따로 단언하는가 (cycle-563 네거티브 컨트롤이 침묵했다)
+ * ## ⚠왜 «실제로 스크롤되었는가» 를 따로 단언하는가 (네거티브 컨트롤이 침묵했다)
  *
  * 첫 판은 `scrollHeight - clientHeight > 0` 과 «머리행이 움직이지 않는다» 로만 판정했다.
  * 그 상태에서 `:host` 의 `overflow: auto` 를 걷는 네거티브 컨트롤이 **4건 전부 통과**했다 —
@@ -114,7 +114,7 @@ describe('flex-table — 호스트 높이 계약(가상 스크롤의 전제)', (
     await new Promise((r) => setTimeout(r, 120));
     await el.updateComplete;
     // 🔴먼저 «스크롤이 일어났다» 를 증명한다 — 스크롤이 불가능하면 머리행도 안 움직여
-    //   아래 단언이 공허하게 통과한다(cycle-563 NC 침묵의 원인).
+    //   아래 단언이 공허하게 통과한다(NC 침묵의 원인).
     expect(el.scrollTop, '스크롤이 적용되지 않아 이 사례는 아무것도 재지 못한다').toBeGreaterThan(0);
     const after = header.getBoundingClientRect().top - el.getBoundingClientRect().top;
     expect(Math.abs(after - before), `머리행이 밀려 올라갔다 — ${before} → ${after}`).toBeLessThan(4);
@@ -140,7 +140,7 @@ describe('flex-table — 호스트 높이 계약(가상 스크롤의 전제)', (
   });
 
   /**
-   * HD-61 ⒝ — «가상화가 조용히 꺼진» 상태를 개발 모드에서 한 번 알린다. 위 두 계약(제약 있음/없음)이
+   * «가상화가 조용히 꺼진» 상태를 개발 모드에서 한 번 알린다. 위 두 계약(제약 있음/없음)이
    * 그대로인 채 신호만 더한 것이라, NEGATIVE(제약이 있으면 침묵)가 계약의 절반이다.
    */
   it('🔴높이 제약이 없고 행이 많으면 개발 모드 경고를 정확히 한 번 낸다', async () => {
