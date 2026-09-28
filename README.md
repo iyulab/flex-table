@@ -28,9 +28,9 @@ npm install @iyulab/flex-table
   const table = document.getElementById('table');
 
   table.columns = [
-    { key: 'name', header: 'Name', type: 'text', width: 200 },
-    { key: 'age', header: 'Age', type: 'number', width: 100 },
-    { key: 'active', header: 'Active', type: 'boolean', width: 80 },
+    { key: 'name', label: 'Name', type: 'text', width: 200 },
+    { key: 'age', label: 'Age', type: 'number', width: 100 },
+    { key: 'active', label: 'Active', type: 'boolean', width: 80 },
   ];
 
   table.data = [
@@ -113,7 +113,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `footerData` | `footer-data` | `Record<string, string>` | `null` | Footer/summary row data (keys match column keys) |
 | `emptyMessage` | `empty-message` | `string` | `'No data'` | Shown when `data` is empty |
 | `noMatchingMessage` | `no-matching-message` | `string` | `'No matching data'` | Shown when `data` has rows but every one is hidden by an active column filter |
-| `stylesheets` | — | `CSSStyleSheet[]` | `[]` | Constructable stylesheets adopted into the shadow root alongside the grid's own styles — the escape hatch for styling content a `renderer` inserts, since document CSS doesn't cross the shadow boundary. Reassigning swaps the previous set, it doesn't accumulate |
+| `stylesheets` | — | `CSSStyleSheet[]` | `[]` | Constructable stylesheets adopted into the shadow root alongside the grid's own styles — the escape hatch for styling content a `render` function inserts, since document CSS doesn't cross the shadow boundary. Reassigning swaps the previous set, it doesn't accumulate |
 
 ### Read-only Properties
 
@@ -133,19 +133,20 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 ```typescript
 interface ColumnDefinition {
   key: string;             // Unique key matching data property names
-  header: string;          // Display header text
+  label: string;           // Column header text
   type?: ColumnType;       // 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'select' (any other string falls back to 'text')
   width?: number;          // Column width in pixels (default: auto)
   minWidth?: number;       // Minimum width in pixels (default: 40, enforced in rendering)
   hidden?: boolean;        // Hide column from view
   sortable?: boolean;      // Enable sorting (default: true)
-  headerAlign?: 'start' | 'center' | 'end'; // Header label alignment (default: 'start'), independent of cell content alignment
+  align?: 'start' | 'center' | 'end';       // Cell alignment (default from type: number → end, boolean → center, else start)
+  headerAlign?: 'start' | 'center' | 'end'; // Header alignment (default: the cell alignment above)
   editable?: boolean;      // Per-column edit control (follows global editable)
   pinned?: 'left' | 'right'; // Freeze column during horizontal scroll
   options?: string[] | SelectOption[]; // Allowed values for type: 'select' (SelectOption = { label, value })
   autocomplete?: boolean | 'strict'; // Suggest existing column values while editing; 'strict' rejects values not in the list
-  format?: string | ((value, row, col) => string); // Display format, see "format vs renderer" below
-  renderer?: CellRenderer; // Custom cell render: (value, row, col) => TemplateResult | string
+  format?: string | ((value, row, col) => string); // Display format, see "format vs render" below
+  render?: CellRenderer;   // Custom cell render: (value, row, col) => TemplateResult | string
   editor?: CellEditor;     // Custom cell editor: (value, row, col) => TemplateResult
   validator?: CellValidator; // Validate before commit: (value, row, col) => string | null
   conditionalRules?: ConditionalRule[]; // Per-cell style rules, see below
@@ -156,32 +157,32 @@ The `editor` callback must return a Lit `TemplateResult` containing an input ele
 
 The `validator` callback returns `null` if valid, or an error message string. On failure, the cell shows a red border for 3 seconds and a `validation-error` event is dispatched.
 
-### `format` vs `renderer`
+### `format` vs `render`
 
 Both control how a cell's raw value is displayed, but they differ in what they replace:
 
 - **`format`**: a plain string pattern (Excel-style, e.g. `'#,##0.00'`, `'0.00%'`, `'$#,##0'`, `'yyyy-MM-dd'`) or a `(value) => string` function. Only the *displayed text* changes — editing, sorting, filtering, and export all keep operating on the raw underlying value. Use this for number/date/currency display formatting.
-- **`renderer`**: a `(value, row, col) => TemplateResult | string` function that replaces the cell's rendered content entirely — badges, links, icons, multi-field composites. Sorting/filtering still use the raw value, but the visual output is fully custom.
+- **`render`**: a `(value, row, col) => TemplateResult | string` function that replaces the cell's rendered content entirely — badges, links, icons, multi-field composites. Sorting/filtering still use the raw value, but the visual output is fully custom.
 
 ```typescript
 const columns: ColumnDefinition<Order>[] = [
-  { key: 'total', header: 'Total', format: '#,##0.00' },                 // "1,234.50"
-  { key: 'placedAt', header: 'Placed', format: 'yyyy-MM-dd' },           // date pattern
-  { key: 'status', header: 'Status', renderer: (v) => html`<span class="badge badge-${v}">${v}</span>` },
+  { key: 'total', label: 'Total', format: '#,##0.00' },                 // "1,234.50"
+  { key: 'placedAt', label: 'Placed', format: 'yyyy-MM-dd' },           // date pattern
+  { key: 'status', label: 'Status', render: (v) => html`<span class="badge badge-${v}">${v}</span>` },
 ];
 ```
 
-If both are set on the same column, `renderer` takes precedence — `format` has no effect once a custom `renderer` fully controls the cell's output.
+If both are set on the same column, `render` takes precedence — `format` has no effect once a custom `render` fully controls the cell's output.
 
 ### Conditional Formatting
 
-`conditionalRules` applies a style to a cell when its `when` predicate matches — a declarative alternative to writing a `renderer` just to color-code status/threshold values:
+`conditionalRules` applies a style to a cell when its `when` predicate matches — a declarative alternative to writing a `render` function just to color-code status/threshold values:
 
 ```typescript
 const columns: ColumnDefinition<Order>[] = [
   {
     key: 'status',
-    header: 'Status',
+    label: 'Status',
     conditionalRules: [
       { when: (v) => v === 'overdue', style: { color: '#dc2626', fontWeight: 'bold' } },
       { when: (v) => v === 'paid', style: { color: '#16a34a' } },
@@ -489,8 +490,8 @@ import { FlexTableReact } from '@iyulab/flex-table/react';
 
 function App() {
   const columns = [
-    { key: 'name', header: 'Name', type: 'text' },
-    { key: 'age', header: 'Age', type: 'number' },
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'age', label: 'Age', type: 'number' },
   ];
 
   const data = [
@@ -547,8 +548,8 @@ interface Order {
 }
 
 const columns: ColumnDefinition<Order>[] = [
-  { key: 'id', header: 'ID' },
-  { key: 'total', header: 'Total', renderer: (_value, row) => `${row.total} ${row.currency}` },
+  { key: 'id', label: 'ID' },
+  { key: 'total', label: 'Total', render: (_value, row) => `${row.total} ${row.currency}` },
 ];
 
 <FlexTableReact<Order> data={orders} columns={columns} />
@@ -566,7 +567,7 @@ import { html } from 'lit';
 table.columns = [
   {
     key: 'color',
-    header: 'Color',
+    label: 'Color',
     type: 'text',
     editor: (value) => html`
       <input class="ft-editor" type="color" .value=${String(value ?? '#000000')}
@@ -593,7 +594,7 @@ Use the `validator` callback to validate input before committing. Returns `null`
 table.columns = [
   {
     key: 'age',
-    header: 'Age',
+    label: 'Age',
     type: 'number',
     validator: (value) => {
       const n = Number(value);
@@ -612,10 +613,10 @@ Freeze columns on either side during horizontal scroll:
 
 ```typescript
 table.columns = [
-  { key: 'id', header: 'ID', pinned: 'left' },
-  { key: 'name', header: 'Name' },
+  { key: 'id', label: 'ID', pinned: 'left' },
+  { key: 'name', label: 'Name' },
   // ... many columns ...
-  { key: 'actions', header: 'Actions', pinned: 'right' },
+  { key: 'actions', label: 'Actions', pinned: 'right' },
 ];
 ```
 

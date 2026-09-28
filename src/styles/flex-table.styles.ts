@@ -327,12 +327,11 @@ export const flexTableStyles = css`
     color: var(--ft-active-color);
   }
 
-  .ft-cell.ft-type-number {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
+  .ft-cell.ft-type-number { font-variant-numeric: tabular-nums; }
 
-  .ft-cell.ft-type-boolean { text-align: center; }
+  /* 셀 정렬은 열의 실효 정렬(align, 없으면 type 기본값)에서 온다 — 논리값이라 RTL 에서 뒤집힌다. */
+  .ft-cell.ft-align-center { text-align: center; }
+  .ft-cell.ft-align-end { text-align: end; }
   .ft-bool { color: var(--ft-bool-color); }
 
   .ft-empty {

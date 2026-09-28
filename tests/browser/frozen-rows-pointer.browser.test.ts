@@ -20,8 +20,8 @@ function mount(): FlexTable {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const any = el as any;
   any.columns = [
-    { key: 'id', header: 'ID', type: 'number', width: 80 },
-    { key: 'a', header: 'A', type: 'text', width: 160 },
+    { key: 'id', label: 'ID', type: 'number', width: 80 },
+    { key: 'a', label: 'A', type: 'text', width: 160 },
   ];
   any.data = Array.from({ length: 40 }, (_, i) => ({ id: i + 1, a: `a${i + 1}` }));
   any.frozenRows = 2;

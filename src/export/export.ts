@@ -37,7 +37,7 @@ function exportDelimited(
   columns: ColumnDefinition[],
   delimiter: string
 ): string {
-  const header = columns.map(col => escapeDelimited(col.header, delimiter)).join(delimiter);
+  const header = columns.map(col => escapeDelimited(col.label, delimiter)).join(delimiter);
   const rows = data.map(row =>
     columns.map(col => {
       const formatted = formatValueForExport(row[col.key], col);

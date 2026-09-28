@@ -4,10 +4,10 @@ import type { SortCriteria } from './sorting.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 
 const cols: ColumnDefinition[] = [
-  { key: 'name', header: 'Name', type: 'text' },
-  { key: 'age', header: 'Age', type: 'number' },
-  { key: 'active', header: 'Active', type: 'boolean' },
-  { key: 'joined', header: 'Joined', type: 'date' },
+  { key: 'name', label: 'Name', type: 'text' },
+  { key: 'age', label: 'Age', type: 'number' },
+  { key: 'active', label: 'Active', type: 'boolean' },
+  { key: 'joined', label: 'Joined', type: 'date' },
 ];
 
 const data: DataRow[] = [

@@ -6,6 +6,17 @@ import type { TemplateResult } from 'lit';
  */
 export type ColumnType = 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'select' | (string & {});
 
+/** Logical horizontal alignment — `start`/`end` follow the writing direction. */
+export type ColumnAlign = 'start' | 'center' | 'end';
+
+/** The alignment a column's cells render with: `align`, or the default derived from `type`. */
+export function effectiveAlign(col: { align?: ColumnAlign; type?: ColumnType }): ColumnAlign {
+  if (col.align) return col.align;
+  if (col.type === 'number') return 'end';
+  if (col.type === 'boolean') return 'center';
+  return 'start';
+}
+
 /** Option item for select columns */
 export interface SelectOption {
   label: string;
@@ -67,8 +78,8 @@ export type DataMode = 'client' | 'server';
 export interface ColumnDefinition<T = DataRow> {
   /** Unique key matching data property names */
   key: string;
-  /** Display header text */
-  header: string;
+  /** Column header text */
+  label: string;
   /** Data type for rendering/editing (default: 'text'). Unknown types fall back to 'text'. */
   type?: ColumnType;
   /** Column width in pixels (default: auto) */
@@ -80,14 +91,19 @@ export interface ColumnDefinition<T = DataRow> {
   /** Whether the column is sortable (default: true) */
   sortable?: boolean;
   /**
-   * Horizontal alignment of the header label (default: 'start').
-   * Independent of cell content alignment — a consumer centering cell content
-   * via a custom `renderer` (e.g. an icon-only action column) sets this to
-   * 'center' so the header visually matches.
+   * Horizontal alignment of cell content. Logical values, so right-to-left locales mirror.
+   * Default: derived from `type` — 'end' for 'number', 'center' for 'boolean', 'start' otherwise.
    */
-  headerAlign?: 'start' | 'center' | 'end';
+  align?: ColumnAlign;
+  /**
+   * Horizontal alignment of the header label.
+   * Default: the column's effective cell alignment (`align`, or the `type` default above), so a
+   * right-aligned number column gets a right-aligned header. Set it only when the header should
+   * differ from its values.
+   */
+  headerAlign?: ColumnAlign;
   /** Custom cell renderer — overrides built-in type rendering */
-  renderer?: CellRenderer<T>;
+  render?: CellRenderer<T>;
   /** Whether the column is editable (default: true — follows global editable setting) */
   editable?: boolean;
   /** Custom cell editor — overrides built-in type editing */

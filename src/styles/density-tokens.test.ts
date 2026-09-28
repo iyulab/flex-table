@@ -86,7 +86,7 @@ describe('치수·위계 축', () => {
         document.documentElement.style.setProperty('--ft-row-height', rowHeightToken);
       }
       el = document.createElement('flex-table') as FlexTable;
-      el.columns = [{ key: 'a', header: 'A' }];
+      el.columns = [{ key: 'a', label: 'A' }];
       el.data = [{ a: 1 }, { a: 2 }];
       document.body.appendChild(el);
       await el.updateComplete;

@@ -84,13 +84,13 @@
     });
 
     table.columns = [
-      { key: 'id', header: 'ID', type: 'number', width: 80, editable: false, pinned: 'left' },
-      { key: 'name', header: 'Name', type: 'text', width: 200 },
-      { key: 'email', header: 'Email', type: 'text', width: 260 },
-      { key: 'active', header: 'Active', type: 'boolean', width: 80 },
-      { key: 'created', header: 'Created', type: 'date', width: 120 },
-      { key: 'score', header: 'Score', type: 'number', width: 100 },
-      { key: 'tag', header: 'Tag', renderer: (v) => `[${v}]`, width: 100, sortable: false },
+      { key: 'id', label: 'ID', type: 'number', width: 80, editable: false, pinned: 'left' },
+      { key: 'name', label: 'Name', type: 'text', width: 200 },
+      { key: 'email', label: 'Email', type: 'text', width: 260 },
+      { key: 'active', label: 'Active', type: 'boolean', width: 80 },
+      { key: 'created', label: 'Created', type: 'date', width: 120 },
+      { key: 'score', label: 'Score', type: 'number', width: 100 },
+      { key: 'tag', label: 'Tag', render: (v) => `[${v}]`, width: 100, sortable: false },
     ];
 
     const tags = ['VIP', 'Normal', 'New', 'Inactive'];
@@ -117,20 +117,20 @@
     // --- v0.13 New Features Table ---
     const newFeaturesTable = document.getElementById('new-features-table');
     newFeaturesTable.columns = [
-      { key: 'product', header: 'Product', type: 'text', width: 200, autocomplete: true },
+      { key: 'product', label: 'Product', type: 'text', width: 200, autocomplete: true },
       {
-        key: 'price', header: 'Price', type: 'number', width: 120,
+        key: 'price', label: 'Price', type: 'number', width: 120,
         format: '$#,##0.00',
         conditionalRules: [
           { when: (v) => v > 100, style: { color: '#ef4444', fontWeight: 'bold' } },
         ],
       },
       {
-        key: 'date', header: 'Date', type: 'date', width: 140,
+        key: 'date', label: 'Date', type: 'date', width: 140,
         format: 'yyyy-MM-dd',
       },
       {
-        key: 'category', header: 'Category', type: 'select',
+        key: 'category', label: 'Category', type: 'select',
         options: ['Electronics', 'Clothing', 'Food', 'Books'],
         width: 140,
       },
@@ -149,10 +149,10 @@
     // --- XLSX Import Table ---
     const importTable = document.getElementById('import-table');
     importTable.columns = [
-      { key: 'id', header: 'ID', type: 'number', width: 80 },
-      { key: 'name', header: 'Name', type: 'text', width: 200 },
-      { key: 'score', header: 'Score', type: 'number', width: 100 },
-      { key: 'active', header: 'Active', type: 'boolean', width: 80 },
+      { key: 'id', label: 'ID', type: 'number', width: 80 },
+      { key: 'name', label: 'Name', type: 'text', width: 200 },
+      { key: 'score', label: 'Score', type: 'number', width: 100 },
+      { key: 'active', label: 'Active', type: 'boolean', width: 80 },
     ];
     importTable.data = [];
     importTable.addEventListener('data-import', (e) => {
@@ -181,11 +181,11 @@
     // --- Freeze Rows Table ---
     const freezeTable = document.getElementById('freeze-table');
     freezeTable.columns = [
-      { key: 'id', header: 'ID', type: 'number', width: 60, editable: false, pinned: 'left' },
-      { key: 'name', header: 'Name', type: 'text', width: 160 },
-      { key: 'dept', header: 'Dept', type: 'text', width: 120 },
-      { key: 'score', header: 'Score', type: 'number', width: 100 },
-      { key: 'status', header: 'Status', type: 'select', options: ['Active', 'Inactive', 'Pending'], width: 120 },
+      { key: 'id', label: 'ID', type: 'number', width: 60, editable: false, pinned: 'left' },
+      { key: 'name', label: 'Name', type: 'text', width: 160 },
+      { key: 'dept', label: 'Dept', type: 'text', width: 120 },
+      { key: 'score', label: 'Score', type: 'number', width: 100 },
+      { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive', 'Pending'], width: 120 },
     ];
     freezeTable.data = Array.from({ length: 50 }, (_, i) => ({
       id: i + 1,
@@ -204,7 +204,7 @@
 
     wideTable.columns = Array.from({ length: WIDE_COLS }, (_, i) => ({
       key: `col_${i}`,
-      header: `Column ${i}`,
+      label: `Column ${i}`,
       width: 120,
       pinned: i === 0 ? 'left' : undefined,
     }));

@@ -76,7 +76,7 @@ describe('computeArrayView — 정렬', () => {
       { id: 2, name: 'B', price: 10, category: 'x' },
       { id: 3, name: 'C', price: 2, category: 'x' },
     ];
-    const columns: ColumnDefinition<Row>[] = [{ key: 'price', header: 'Price', type: 'number' }];
+    const columns: ColumnDefinition<Row>[] = [{ key: 'price', label: 'Price', type: 'number' }];
 
     const withColumns = computeArrayView(rows, {
       ...BASE,

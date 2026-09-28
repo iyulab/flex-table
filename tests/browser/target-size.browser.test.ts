@@ -295,9 +295,9 @@ const prepareGrid = async (host: Element): Promise<void> => {
   t.showFilters = true;
   t.selectable = true;
   t.columns = [
-    { key: 'name', header: 'Name', type: 'text', width: 160 },
-    { key: 'qty', header: 'Qty', type: 'number', width: 120 },
-    { key: 'city', header: 'City', type: 'text', width: 160 },
+    { key: 'name', label: 'Name', type: 'text', width: 160 },
+    { key: 'qty', label: 'Qty', type: 'number', width: 120 },
+    { key: 'city', label: 'City', type: 'text', width: 160 },
   ];
   t.data = [1, 2, 3, 4].map((i) => ({ id: i, name: `Item ${i}`, qty: i * 10, city: `City ${i}` }));
   await t.updateComplete;
@@ -336,9 +336,9 @@ const prepareHiddenColumn = async (host: Element): Promise<void> => {
   await prepareGrid(host);
   const t = host as Table;
   t.columns = [
-    { key: 'name', header: 'Name', type: 'text', width: 160 },
-    { key: 'qty', header: 'Qty', type: 'number', width: 120, hidden: true },
-    { key: 'city', header: 'City', type: 'text', width: 160 },
+    { key: 'name', label: 'Name', type: 'text', width: 160 },
+    { key: 'qty', label: 'Qty', type: 'number', width: 120, hidden: true },
+    { key: 'city', label: 'City', type: 'text', width: 160 },
   ];
   await settle(t);
   if (inShadow(t, '.ft-hidden-col-indicator').length !== 1) throw new Error('숨긴 열 표시 버튼이 렌더되지 않았다');

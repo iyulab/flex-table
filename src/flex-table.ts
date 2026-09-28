@@ -18,6 +18,7 @@ import type { CellPosition, CellRange } from './core/selection.js';
 import type { SortCriteria } from './core/sorting.js';
 import type { ColumnFilter, FilterPredicate } from './core/filtering.js';
 import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './models/types.js';
+import { effectiveAlign } from './models/types.js';
 import type { TemplateResult } from 'lit';
 
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
@@ -203,7 +204,7 @@ export class FlexTable extends LitElement {
   /**
    * Constructable stylesheets adopted into this element's shadow root, in addition to the
    * grid's own styles. Cell renderers run inside the shadow root, so external document
-   * stylesheets (class-based utilities, design-system CSS) don't reach elements a `renderer`
+   * stylesheets (class-based utilities, design-system CSS) don't reach elements a `render` function
    * returns — this is the escape hatch for that. Not an attribute (a `CSSStyleSheet` can't be
    * serialized to one) — set it as a property.
    */
@@ -1026,10 +1027,10 @@ export class FlexTable extends LitElement {
     const map = new Map<string, string>();
     for (const hdr of headers) {
       // Exact match first
-      const exact = this.columns.find(c => c.header === hdr);
+      const exact = this.columns.find(c => c.label === hdr);
       if (exact) { map.set(hdr, exact.key); continue; }
       // Case-insensitive fallback
-      const ci = this.columns.find(c => c.header.toLowerCase() === hdr.toLowerCase());
+      const ci = this.columns.find(c => c.label.toLowerCase() === hdr.toLowerCase());
       if (ci) map.set(hdr, ci.key);
     }
     return map;
@@ -2398,13 +2399,14 @@ export class FlexTable extends LitElement {
     const isPinnedLeft = col.pinned === 'left';
     const isPinnedRight = col.pinned === 'right';
     const isPinned = isPinnedLeft || isPinnedRight;
+    const headerAlign = col.headerAlign ?? effectiveAlign(col);
 
     const classes = [
       'ft-header-cell',
       sortable ? 'ft-sortable' : '',
       isPinned ? 'ft-pinned' : '',
-      col.headerAlign === 'center' ? 'ft-header-align-center' : '',
-      col.headerAlign === 'end' ? 'ft-header-align-end' : '',
+      headerAlign === 'center' ? 'ft-header-align-center' : '',
+      headerAlign === 'end' ? 'ft-header-align-end' : '',
     ].filter(Boolean).join(' ');
 
     const ariaSortValue = sortable
@@ -2458,13 +2460,13 @@ export class FlexTable extends LitElement {
             title=${t('showHiddenColumns')}
             @click=${(e: MouseEvent) => { e.stopPropagation(); this._showHiddenBefore(col); }}>&#x276F;</button>
         ` : ''}
-        <span>${col.header}</span>
+        <span>${col.label}</span>
         ${criterion ? html`<span class="ft-sort-indicator">${criterion.direction === 'asc' ? '\u25B2' : '\u25BC'}</span>` : ''}
         ${sortIndex >= 0 ? html`<span class="ft-sort-order">${sortIndex + 1}</span>` : ''}
         <button class="ft-column-menu-btn ${hasFilter ? 'ft-filter-active' : ''}"
           type="button"
           title=${t('columnMenu')}
-          aria-label=${t('columnMenuFor', { header: col.header })}
+          aria-label=${t('columnMenuFor', { header: col.label })}
           aria-haspopup="menu"
           aria-expanded=${this._headerMenu?.key === col.key ? 'true' : 'false'}
           @mousedown=${(e: MouseEvent) => e.stopPropagation()}
@@ -2500,7 +2502,7 @@ export class FlexTable extends LitElement {
     this._openFilterKey = null;
     this._headerMenu = { key: col.key, x: e.clientX, y: e.clientY, hiddenNeighbors: this._hiddenNeighbors(col) };
     this.dispatchEvent(new CustomEvent('header-context-menu', {
-      detail: { key: col.key, header: col.header, x: e.clientX, y: e.clientY },
+      detail: { key: col.key, label: col.label, x: e.clientX, y: e.clientY },
       bubbles: true,
       composed: true,
     }));
@@ -2622,7 +2624,7 @@ export class FlexTable extends LitElement {
     `;
 
     return html`
-      <div class="ft-header-menu" role="menu" aria-label=${t('columnMenuRegion', { header: col.header })}
+      <div class="ft-header-menu" role="menu" aria-label=${t('columnMenuRegion', { header: col.label })}
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}
         @keydown=${(e: KeyboardEvent) => this._onHeaderMenuKeydown(e)}>
@@ -2637,7 +2639,7 @@ export class FlexTable extends LitElement {
           <div class="ft-header-menu-separator" role="separator"></div>
         ` : nothing}
         ${item('hide', t('hideColumn'), () => this._setColumnHidden(key, true))}
-        ${hiddenNeighbors.map(h => item('show', t('showColumn', { header: h.header }), () => this._setColumnHidden(h.key, false)))}
+        ${hiddenNeighbors.map(h => item('show', t('showColumn', { header: h.label }), () => this._setColumnHidden(h.key, false)))}
         <div class="ft-header-menu-separator" role="separator"></div>
         ${item('autofit', t('autoFitWidth'), () => this._autoFitColumn(key))}
         ${item('wider', t('wider'), () => this._resizeColumnBy(key, COLUMN_RESIZE_STEP), true)}
@@ -3272,7 +3274,7 @@ export class FlexTable extends LitElement {
 
   private _startColumnGhost(e: MouseEvent): void {
     const ghost = document.createElement('div');
-    ghost.textContent = this._colDrag!.col.header ?? this._colDrag!.col.key;
+    ghost.textContent = this._colDrag!.col.label ?? this._colDrag!.col.key;
     ghost.style.cssText = [
       'position:fixed',
       'pointer-events:none',
@@ -4113,6 +4115,7 @@ export class FlexTable extends LitElement {
     const classes = [
       'ft-cell',
       `ft-type-${col.type ?? 'text'}`,
+      `ft-align-${effectiveAlign(col)}`,
       isActive ? 'ft-active' : '',
       isSelected ? 'ft-selected' : '',
       isPinned ? 'ft-pinned' : '',

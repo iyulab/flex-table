@@ -3,9 +3,9 @@ import { exportData } from './export.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 
 const cols: ColumnDefinition[] = [
-  { key: 'name', header: 'Name', type: 'text' },
-  { key: 'age', header: 'Age', type: 'number' },
-  { key: 'active', header: 'Active', type: 'boolean' },
+  { key: 'name', label: 'Name', type: 'text' },
+  { key: 'age', label: 'Age', type: 'number' },
+  { key: 'active', label: 'Active', type: 'boolean' },
 ];
 
 const data: DataRow[] = [
@@ -85,8 +85,8 @@ describe('exportData', () => {
 
   describe('date export ISO 8601', () => {
     const dateCols: ColumnDefinition[] = [
-      { key: 'created', header: 'Created', type: 'date' },
-      { key: 'updated', header: 'Updated', type: 'datetime' },
+      { key: 'created', label: 'Created', type: 'date' },
+      { key: 'updated', label: 'Updated', type: 'datetime' },
     ];
 
     it('should export Date objects as ISO 8601 in CSV', () => {

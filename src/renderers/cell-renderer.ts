@@ -8,8 +8,8 @@ import { formatDate as formatLocaleDate, formatNumber as formatLocaleNumber } fr
  * Render a cell value using the column's custom renderer or built-in type rendering.
  */
 export function renderCell(value: unknown, row: DataRow, col: ColumnDefinition) {
-  if (col.renderer) {
-    return col.renderer(value, row, col);
+  if (col.render) {
+    return col.render(value, row, col);
   }
   if (col.format) {
     const formatted = typeof col.format === 'function'

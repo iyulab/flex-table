@@ -41,12 +41,12 @@ function mount(columns: unknown[], rowCount = 30): FlexTable {
 }
 
 const WIDE = [
-  { key: 'id', header: 'ID', type: 'number', width: 80, pinned: 'left' },
-  { key: 'a', header: 'A', type: 'text', width: 200 },
-  { key: 'b', header: 'B', type: 'text', width: 200 },
-  { key: 'c', header: 'C', type: 'text', width: 200 },
-  { key: 'd', header: 'D', type: 'text', width: 200 },
-  { key: 'act', header: 'Act', type: 'text', width: PIN_WIDTH, pinned: 'right' },
+  { key: 'id', label: 'ID', type: 'number', width: 80, pinned: 'left' },
+  { key: 'a', label: 'A', type: 'text', width: 200 },
+  { key: 'b', label: 'B', type: 'text', width: 200 },
+  { key: 'c', label: 'C', type: 'text', width: 200 },
+  { key: 'd', label: 'D', type: 'text', width: 200 },
+  { key: 'act', label: 'Act', type: 'text', width: PIN_WIDTH, pinned: 'right' },
 ];
 
 async function settle(el: FlexTable): Promise<void> {
@@ -157,9 +157,9 @@ describe('고정 열 — 실제 레이아웃', () => {
   it('넘치지 않는 표에서는 고정 열이 자연 위치에 머문다', async () => {
     // 고정이 «없던 스크롤»을 만들어내면 안 된다.
     table = mount([
-      { key: 'id', header: 'ID', type: 'number', width: 80, pinned: 'left' },
-      { key: 'a', header: 'A', type: 'text', width: 120 },
-      { key: 'act', header: 'Act', type: 'text', width: PIN_WIDTH, pinned: 'right' },
+      { key: 'id', label: 'ID', type: 'number', width: 80, pinned: 'left' },
+      { key: 'a', label: 'A', type: 'text', width: 120 },
+      { key: 'act', label: 'Act', type: 'text', width: PIN_WIDTH, pinned: 'right' },
     ]);
     await settle(table);
 
@@ -173,11 +173,11 @@ describe('고정 열 — 실제 레이아웃', () => {
 
   it('오른쪽 고정이 둘이면 열 순서대로 쌓인다', async () => {
     table = mount([
-      { key: 'a', header: 'A', type: 'text', width: 300 },
-      { key: 'b', header: 'B', type: 'text', width: 300 },
-      { key: 'c', header: 'C', type: 'text', width: 300 },
-      { key: 'd', header: 'Edit', type: 'text', width: 60, pinned: 'right' },
-      { key: 'act', header: 'Del', type: 'text', width: 80, pinned: 'right' },
+      { key: 'a', label: 'A', type: 'text', width: 300 },
+      { key: 'b', label: 'B', type: 'text', width: 300 },
+      { key: 'c', label: 'C', type: 'text', width: 300 },
+      { key: 'd', label: 'Edit', type: 'text', width: 60, pinned: 'right' },
+      { key: 'act', label: 'Del', type: 'text', width: 80, pinned: 'right' },
     ]);
     await settle(table);
     await scrollTo(table, 0);

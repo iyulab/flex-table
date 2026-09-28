@@ -14,8 +14,21 @@
   `import { useODataSource } from '@iyulab/flex-table/react'` (same for `useArraySource` from
   `./array`).
 
+- 🔴 **Breaking — column definitions use the same words as `u-rich-table`.** `header` → `label` and
+  `renderer` → `render`, so one column list reads the same in either table (`header-context-menu`'s detail likewise carries
+  `label` instead of `header`). Migration: rename the two keys
+  in your `ColumnDefinition` objects; the types reject the old names.
+- **Headers follow their values.** A header's default alignment is now the column's cell alignment,
+  so a `number` column's header is right-aligned over its right-aligned values instead of sitting
+  at the left edge (on a wide column it read as the neighbour's header). Set `headerAlign` to keep
+  a different header alignment. Cell alignment uses logical values (`text-align: end`), so
+  right-to-left locales mirror.
+
 ### Added
 
+- **`align` on `ColumnDefinition`** (`'start' | 'center' | 'end'`) — cell alignment. Default comes
+  from `type` as before (`number` → end, `boolean` → center, otherwise start); set it for a code or
+  Y/N column that is text but should center. `effectiveAlign(col)` returns what a column renders with.
 - **`buildODataQuery(state)` on `./odata`** — the step `useODataSource` runs on every request (page,
   page size, sort, search, fixed filter → OData query string), now callable without React. A Lit
   table or a non-table list doing server paging can send exactly the query the hook would, instead

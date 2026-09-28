@@ -35,8 +35,8 @@ import type { FlexTable } from '../../src/flex-table.js';
  */
 
 const COLUMNS = [
-  { key: 'id', header: 'ID', type: 'number', width: 80 },
-  { key: 'a', header: 'A', type: 'text', width: 200 },
+  { key: 'id', label: 'ID', type: 'number', width: 80 },
+  { key: 'a', label: 'A', type: 'text', width: 200 },
 ];
 const COLS = COLUMNS.length;
 const ROWS = 500;

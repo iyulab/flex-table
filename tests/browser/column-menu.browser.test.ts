@@ -21,8 +21,8 @@ async function mount(style: string): Promise<FlexTable> {
   host.appendChild(el);
   el.showFilters = true;
   el.columns = [
-    { key: 'a', header: 'A', width: 140 },
-    { key: 'b', header: 'B', width: 140 },
+    { key: 'a', label: 'A', width: 140 },
+    { key: 'b', label: 'B', width: 140 },
   ];
   el.data = [{ a: 'a1', b: 'b1' }, { a: 'a2', b: 'b2' }];
   await el.updateComplete;

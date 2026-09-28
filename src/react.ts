@@ -52,14 +52,14 @@ export type FlexTableReactProps<T = DataRow> = Omit<BaseProps, 'data' | 'columns
  * The underlying custom element (`FlexTable`) is a single registered class and cannot
  * itself be generic across instances — the DOM has no notion of `FlexTable<Order>` vs
  * `FlexTable<Consumer>`. `FlexTableReact<T>` performs one internal cast at this boundary
- * so consumers get end-to-end type safety (`data`, `columns`, `renderer`/`editor`/`validator`
+ * so consumers get end-to-end type safety (`data`, `columns`, `render`/`editor`/`validator`
  * callbacks) without casting at every call site.
  *
  * @example
  * ```tsx
  * const columns: ColumnDefinition<Order>[] = [
- *   { key: 'id', header: 'ID' },
- *   { key: 'total', header: 'Total', renderer: (v, row) => `${row.total} ${row.currency}` },
+ *   { key: 'id', label: 'ID' },
+ *   { key: 'total', label: 'Total', render: (v, row) => `${row.total} ${row.currency}` },
  * ];
  * <FlexTableReact<Order> data={orders} columns={columns} />
  * ```
@@ -69,7 +69,7 @@ export const FlexTableReact = FlexTableReactBase as unknown as <T = DataRow>(
 ) => React.ReactElement | null;
 
 export type { FlexTable };
-export type { ColumnDefinition, DataRow, ColumnType, CellRenderer, CellEditor, CellValidator, ConditionalRule, SelectionMode, DataMode } from './models/types.js';
+export type { ColumnDefinition, DataRow, ColumnType, ColumnAlign, CellRenderer, CellEditor, CellValidator, ConditionalRule, SelectionMode, DataMode } from './models/types.js';
 
 // React 훅 — 순수 함수(`buildSearchExpression`·`parseOrderBy`·`computeArrayView`)는
 // React 없이 쓰도록 `./odata`·`./array` 에 남는다.

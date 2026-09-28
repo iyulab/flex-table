@@ -195,7 +195,7 @@ function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
   // Header row (style 2 = bold)
   const headerCells = columns.map((col, ci) => {
     const ref = cellRef(0, ci);
-    return `<c r="${ref}" t="str" s="2"><v>${xmlEscape(col.header)}</v></c>`;
+    return `<c r="${ref}" t="str" s="2"><v>${xmlEscape(col.label)}</v></c>`;
   });
   rows.push(`<row r="1">${headerCells.join('')}</row>`);
 

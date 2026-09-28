@@ -4,6 +4,7 @@ import './flex-table.js';
 import type { FlexTable } from './flex-table.js';
 import { buildXlsx } from './export/xlsx-writer.js';
 import type { ColumnDefinition, DataRow } from './models/types.js';
+import { effectiveAlign } from './models/types.js';
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 
 function createElement(): FlexTable {
@@ -49,8 +50,8 @@ describe('FlexTable', () => {
   it('should render column headers', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     await el.updateComplete;
     const headers = el.shadowRoot!.querySelectorAll('.ft-header-cell');
@@ -61,7 +62,7 @@ describe('FlexTable', () => {
 
   it('should show loading overlay and aria-busy when loading is true', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     el.loading = true;
     await el.updateComplete;
@@ -73,7 +74,7 @@ describe('FlexTable', () => {
 
   it('should not show loading overlay or aria-busy when loading is false', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -84,8 +85,8 @@ describe('FlexTable', () => {
   it('should render data cells', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'value', header: 'Value', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'value', label: 'Value', type: 'number' },
     ];
     el.data = [
       { name: 'Alice', value: 42 },
@@ -101,8 +102,8 @@ describe('FlexTable', () => {
   it('should position header cells with absolute left and width', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A', width: 100 },
-      { key: 'b', header: 'B', width: 200 },
+      { key: 'a', label: 'A', width: 100 },
+      { key: 'b', label: 'B', width: 200 },
     ];
     await el.updateComplete;
     const headers = el.shadowRoot!.querySelectorAll('.ft-header-cell') as NodeListOf<HTMLElement>;
@@ -116,9 +117,9 @@ describe('FlexTable', () => {
   it('should hide columns with hidden flag', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'b', header: 'B', hidden: true },
-      { key: 'c', header: 'C' },
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B', hidden: true },
+      { key: 'c', label: 'C' },
     ];
     el.data = [{ a: '1', b: '2', c: '3' }];
     await el.updateComplete;
@@ -130,7 +131,7 @@ describe('FlexTable', () => {
 
   it('should show "No data" when columns exist but data is empty', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [];
     await el.updateComplete;
     const empty = el.shadowRoot!.querySelector('.ft-empty');
@@ -140,7 +141,7 @@ describe('FlexTable', () => {
 
   it('should show a custom emptyMessage instead of "No data"', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.emptyMessage = '데이터가 없습니다';
     el.data = [];
     await el.updateComplete;
@@ -187,7 +188,7 @@ describe('FlexTable', () => {
 
   it('should handle null/undefined values gracefully', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: null }, { name: undefined }, {}];
     await el.updateComplete;
     const cells = el.shadowRoot!.querySelectorAll('.ft-cell');
@@ -199,7 +200,7 @@ describe('FlexTable', () => {
 
   it('should apply number type class for right alignment', async () => {
     const el = createElement();
-    el.columns = [{ key: 'val', header: 'Val', type: 'number' }];
+    el.columns = [{ key: 'val', label: 'Val', type: 'number' }];
     el.data = [{ val: 123 }];
     await el.updateComplete;
     const cell = el.shadowRoot!.querySelector('.ft-cell');
@@ -208,7 +209,7 @@ describe('FlexTable', () => {
 
   it('should render boolean as checkmark', async () => {
     const el = createElement();
-    el.columns = [{ key: 'ok', header: 'OK', type: 'boolean' }];
+    el.columns = [{ key: 'ok', label: 'OK', type: 'boolean' }];
     el.data = [{ ok: true }, { ok: false }];
     await el.updateComplete;
     const cells = el.shadowRoot!.querySelectorAll('.ft-cell');
@@ -220,8 +221,8 @@ describe('FlexTable', () => {
     const el = createElement();
     el.columns = [{
       key: 'name',
-      header: 'Name',
-      renderer: (value) => `**${value}**`,
+      label: 'Name',
+      render: (value) => `**${value}**`,
     }];
     el.data = [{ name: 'Test' }];
     await el.updateComplete;
@@ -232,7 +233,7 @@ describe('FlexTable', () => {
   it('should create body with virtual scroll height', async () => {
     const el = createElement();
     el.rowHeight = 32;
-    el.columns = [{ key: 'a', header: 'A' }];
+    el.columns = [{ key: 'a', label: 'A' }];
     const rows: Record<string, unknown>[] = [];
     for (let i = 0; i < 1000; i++) {
       rows.push({ a: `row-${i}` });
@@ -247,7 +248,7 @@ describe('FlexTable', () => {
   it('should not render all rows for large datasets', async () => {
     const el = createElement();
     el.rowHeight = 32;
-    el.columns = [{ key: 'a', header: 'A' }];
+    el.columns = [{ key: 'a', label: 'A' }];
     const rows: Record<string, unknown>[] = [];
     for (let i = 0; i < 10000; i++) {
       rows.push({ a: `row-${i}` });
@@ -265,8 +266,8 @@ describe('FlexTable', () => {
   it('should render sort indicator on header click', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [{ name: 'Bob', age: 2 }, { name: 'Alice', age: 1 }];
     await el.updateComplete;
@@ -284,8 +285,8 @@ describe('FlexTable', () => {
   it('should render sortable headers with pointer cursor', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'b', header: 'B', sortable: false },
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B', sortable: false },
     ];
     el.data = [{ a: '1', b: '2' }];
     await el.updateComplete;
@@ -300,7 +301,7 @@ describe('FlexTable', () => {
   it('should show row numbers when show-row-numbers is set', async () => {
     const el = createElement();
     el.showRowNumbers = true;
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }, { name: 'Bob' }];
     await el.updateComplete;
 
@@ -312,7 +313,7 @@ describe('FlexTable', () => {
 
   it('should not show row numbers by default', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -325,8 +326,8 @@ describe('FlexTable', () => {
   it('should add a row via addRow()', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'value', header: 'Value', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'value', label: 'Value', type: 'number' },
     ];
     el.data = [{ name: 'Alice', value: 42 }];
     await el.updateComplete;
@@ -340,9 +341,9 @@ describe('FlexTable', () => {
   it('should add empty row with defaults', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name', type: 'text' },
-      { key: 'count', header: 'Count', type: 'number' },
-      { key: 'active', header: 'Active', type: 'boolean' },
+      { key: 'name', label: 'Name', type: 'text' },
+      { key: 'count', label: 'Count', type: 'number' },
+      { key: 'active', label: 'Active', type: 'boolean' },
     ];
     el.data = [];
     await el.updateComplete;
@@ -356,7 +357,7 @@ describe('FlexTable', () => {
 
   it('should delete rows via deleteRows()', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
     await el.updateComplete;
 
@@ -371,8 +372,8 @@ describe('FlexTable', () => {
   it('should export to CSV', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
@@ -385,8 +386,8 @@ describe('FlexTable', () => {
   it('should export only filtered data', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [
       { name: 'Alice', age: 30 },
@@ -406,7 +407,7 @@ describe('FlexTable', () => {
 
   it('should export to JSON', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice', extra: 'hidden' }];
     await el.updateComplete;
 
@@ -420,7 +421,7 @@ describe('FlexTable', () => {
 
   it('should have ARIA grid role', async () => {
     const el = createElement();
-    el.columns = [{ key: 'a', header: 'A' }];
+    el.columns = [{ key: 'a', label: 'A' }];
     el.data = [{ a: '1' }];
     await el.updateComplete;
 
@@ -433,7 +434,7 @@ describe('FlexTable', () => {
 
   it('should render date column with formatted date', async () => {
     const el = createElement();
-    el.columns = [{ key: 'created', header: 'Created', type: 'date' }];
+    el.columns = [{ key: 'created', label: 'Created', type: 'date' }];
     el.data = [{ created: '2024-03-15' }];
     await el.updateComplete;
     const cell = el.shadowRoot!.querySelector('.ft-cell');
@@ -446,7 +447,7 @@ describe('FlexTable', () => {
 
   it('should render datetime column with formatted datetime', async () => {
     const el = createElement();
-    el.columns = [{ key: 'updated', header: 'Updated', type: 'datetime' }];
+    el.columns = [{ key: 'updated', label: 'Updated', type: 'datetime' }];
     el.data = [{ updated: '2024-03-15T10:30:00' }];
     await el.updateComplete;
     const cell = el.shadowRoot!.querySelector('.ft-cell');
@@ -460,8 +461,8 @@ describe('FlexTable', () => {
   it('should filter data with setFilter()', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [
       { name: 'Alice', age: 30 },
@@ -485,7 +486,7 @@ describe('FlexTable', () => {
 
   it('should show "No matching data" when all filtered out', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -499,7 +500,7 @@ describe('FlexTable', () => {
 
   it('should show a custom noMatchingMessage instead of "No matching data"', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     el.noMatchingMessage = '조건에 맞는 데이터가 없습니다';
     await el.updateComplete;
@@ -513,7 +514,7 @@ describe('FlexTable', () => {
 
   it('should restore data with removeFilter()', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }, { name: 'Bob' }];
     await el.updateComplete;
 
@@ -529,8 +530,8 @@ describe('FlexTable', () => {
   it('should clear all filters with clearFilters()', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [
       { name: 'Alice', age: 30 },
@@ -551,7 +552,7 @@ describe('FlexTable', () => {
 
   it('should update ARIA rowcount after filtering', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
     await el.updateComplete;
     expect(el.getAttribute('aria-rowcount')).toBe('3');
@@ -566,8 +567,8 @@ describe('FlexTable', () => {
   it('should auto-expand rows on paste beyond data bounds', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'value', header: 'Value', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'value', label: 'Value', type: 'number' },
     ];
     el.data = [{ name: 'Alice', value: 1 }];
     await el.updateComplete;
@@ -585,7 +586,7 @@ describe('FlexTable', () => {
 
   it('should expose theme as a reflected property', async () => {
     const el = createElement();
-    el.columns = [{ key: 'a', header: 'A' }];
+    el.columns = [{ key: 'a', label: 'A' }];
     el.data = [{ a: '1' }];
     await el.updateComplete;
 
@@ -607,8 +608,8 @@ describe('FlexTable', () => {
   it('should not render aria-sort on non-sortable columns', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A', sortable: true },
-      { key: 'b', header: 'B', sortable: false },
+      { key: 'a', label: 'A', sortable: true },
+      { key: 'b', label: 'B', sortable: false },
     ];
     el.data = [{ a: '1', b: '2' }];
     await el.updateComplete;
@@ -624,7 +625,7 @@ describe('FlexTable', () => {
 
   it('should not mutate original column definition on resize', async () => {
     const el = createElement();
-    const colDef = { key: 'a', header: 'A', width: 100 };
+    const colDef = { key: 'a', label: 'A', width: 100 };
     el.columns = [colDef];
     el.data = [{ a: '1' }];
     await el.updateComplete;
@@ -643,7 +644,7 @@ describe('FlexTable', () => {
     const el = createElement();
     el.columns = [{
       key: 'color',
-      header: 'Color',
+      label: 'Color',
       editor: (value) => html`<input class="ft-editor" type="color" .value=${String(value ?? '#000000')} />`,
     }];
     el.data = [{ color: '#ff0000' }];
@@ -668,7 +669,7 @@ describe('FlexTable', () => {
 
   it('should expose canUndo/canRedo getters', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'A' }];
     await el.updateComplete;
 
@@ -682,7 +683,7 @@ describe('FlexTable', () => {
 
   it('should dispatch undo-state-change event on addRow', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [];
     await el.updateComplete;
 
@@ -707,7 +708,7 @@ describe('FlexTable', () => {
   it('should prevent editing when editable=false', async () => {
     const el = createElement();
     el.editable = false;
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -725,8 +726,8 @@ describe('FlexTable', () => {
   it('should respect per-column editable=false', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name', editable: false },
-      { key: 'age', header: 'Age', type: 'number', editable: true },
+      { key: 'name', label: 'Name', editable: false },
+      { key: 'age', label: 'Age', type: 'number', editable: true },
     ];
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
@@ -741,7 +742,7 @@ describe('FlexTable', () => {
   it('should fire row-activate on Enter when editable=false, instead of entering edit mode', async () => {
     const el = createElement();
     el.editable = false;
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -762,8 +763,8 @@ describe('FlexTable', () => {
   it('should fire row-activate on Enter for a per-column non-editable cell', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name', editable: false },
-      { key: 'age', header: 'Age', type: 'number', editable: true },
+      { key: 'name', label: 'Name', editable: false },
+      { key: 'age', label: 'Age', type: 'number', editable: true },
     ];
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
@@ -783,7 +784,7 @@ describe('FlexTable', () => {
 
   it('should NOT fire row-activate on Enter for an editable cell (starts editing instead)', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -804,7 +805,7 @@ describe('FlexTable', () => {
   it('should NOT fire row-activate on F2 for a non-editable cell', async () => {
     const el = createElement();
     el.editable = false;
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -826,7 +827,7 @@ describe('FlexTable', () => {
 
   it('should prevent addRow when maxRows is reached', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'A' }, { name: 'B' }];
     el.maxRows = 3;
     await el.updateComplete;
@@ -842,7 +843,7 @@ describe('FlexTable', () => {
 
   it('should allow unlimited rows when maxRows is 0', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [];
     el.maxRows = 0;
     await el.updateComplete;
@@ -857,13 +858,13 @@ describe('FlexTable', () => {
 
   it('should add a column via addColumn()', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
 
     expect(el.columns.length).toBe(1);
 
-    const added = el.addColumn({ key: 'age', header: 'Age', type: 'number' });
+    const added = el.addColumn({ key: 'age', label: 'Age', type: 'number' });
     expect(el.columns.length).toBe(2);
     expect(added.key).toBe('age');
     expect(el.columns[1].key).toBe('age');
@@ -872,13 +873,13 @@ describe('FlexTable', () => {
   it('should add a column at specific index', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'c', header: 'C' },
+      { key: 'a', label: 'A' },
+      { key: 'c', label: 'C' },
     ];
     el.data = [{ a: '1', b: '2', c: '3' }];
     await el.updateComplete;
 
-    el.addColumn({ key: 'b', header: 'B' }, 1);
+    el.addColumn({ key: 'b', label: 'B' }, 1);
     expect(el.columns.length).toBe(3);
     expect(el.columns[0].key).toBe('a');
     expect(el.columns[1].key).toBe('b');
@@ -896,7 +897,7 @@ describe('FlexTable', () => {
       eventDetail = e.detail;
     }) as EventListener);
 
-    el.addColumn({ key: 'name', header: 'Name' });
+    el.addColumn({ key: 'name', label: 'Name' });
     expect(eventDetail).not.toBeNull();
     expect(eventDetail.column.key).toBe('name');
     expect(eventDetail.index).toBe(0);
@@ -905,9 +906,9 @@ describe('FlexTable', () => {
   it('should delete a column via deleteColumn()', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
-      { key: 'active', header: 'Active', type: 'boolean' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
+      { key: 'active', label: 'Active', type: 'boolean' },
     ];
     el.data = [{ name: 'Alice', age: 30, active: true }];
     await el.updateComplete;
@@ -921,8 +922,8 @@ describe('FlexTable', () => {
   it('should clean up filters/sort on deleteColumn()', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [
       { name: 'Alice', age: 30 },
@@ -950,7 +951,7 @@ describe('FlexTable', () => {
 
   it('should dispatch column-delete event', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [];
     await el.updateComplete;
 
@@ -967,7 +968,7 @@ describe('FlexTable', () => {
 
   it('should undo/redo addColumn', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
 
@@ -976,7 +977,7 @@ describe('FlexTable', () => {
     cell.click();
     await el.updateComplete;
 
-    el.addColumn({ key: 'age', header: 'Age', type: 'number' });
+    el.addColumn({ key: 'age', label: 'Age', type: 'number' });
     expect(el.columns.length).toBe(2);
 
     // Undo
@@ -994,8 +995,8 @@ describe('FlexTable', () => {
   it('should undo/redo deleteColumn', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
@@ -1023,9 +1024,9 @@ describe('FlexTable', () => {
   it('should export selection only', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
-      { key: 'city', header: 'City' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
+      { key: 'city', label: 'City' },
     ];
     el.data = [
       { name: 'Alice', age: 30, city: 'Seoul' },
@@ -1055,7 +1056,7 @@ describe('FlexTable', () => {
 
   it('should return empty string when exporting selection with no selection', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1067,7 +1068,7 @@ describe('FlexTable', () => {
 
   it('should support maxUndoSize property', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [];
     el.maxUndoSize = 5;
     await el.updateComplete;
@@ -1098,8 +1099,8 @@ describe('FlexTable', () => {
   it('should batch update multiple cells via updateRows()', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [
       { name: 'Alice', age: 30 },
@@ -1119,8 +1120,8 @@ describe('FlexTable', () => {
   it('should undo batch update as single action', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [
       { name: 'Alice', age: 30 },
@@ -1154,7 +1155,7 @@ describe('FlexTable', () => {
 
   it('should dispatch batch-update event', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1172,7 +1173,7 @@ describe('FlexTable', () => {
 
   it('should skip invalid row indices in updateRows()', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1188,7 +1189,7 @@ describe('FlexTable', () => {
 
   it('should not push undo for empty updateRows', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1201,8 +1202,8 @@ describe('FlexTable', () => {
   it('should render pinned column with ft-pinned class', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'id', header: 'ID', pinned: 'left' },
-      { key: 'name', header: 'Name' },
+      { key: 'id', label: 'ID', pinned: 'left' },
+      { key: 'name', label: 'Name' },
     ];
     el.data = [{ id: 1, name: 'Alice' }];
     await el.updateComplete;
@@ -1221,8 +1222,8 @@ describe('FlexTable', () => {
   it('should set sticky position style on pinned columns', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'id', header: 'ID', width: 60, pinned: 'left' },
-      { key: 'name', header: 'Name' },
+      { key: 'id', label: 'ID', width: 60, pinned: 'left' },
+      { key: 'name', label: 'Name' },
     ];
     el.data = [{ id: 1, name: 'Alice' }];
     await el.updateComplete;
@@ -1248,9 +1249,9 @@ describe('FlexTable', () => {
     function mount(viewportWidth: number, scrollLeft = 0) {
       const el = createElement();
       el.columns = [
-        { key: 'a', header: 'A', width: 200 },
-        { key: 'b', header: 'B', width: 200 },
-        { key: 'act', header: 'Act', width: 80, pinned: 'right' },
+        { key: 'a', label: 'A', width: 200 },
+        { key: 'b', label: 'B', width: 200 },
+        { key: 'act', label: 'Act', width: 80, pinned: 'right' },
       ];
       el.data = [{ a: 'a', b: 'b', act: 'x' }];
       const internals = el as unknown as { _viewportWidth: number; _scrollLeft: number };
@@ -1280,8 +1281,8 @@ describe('FlexTable', () => {
     it('rests at its natural offset when the content does not overflow', async () => {
       const el = createElement();
       el.columns = [
-        { key: 'a', header: 'A', width: 120 },
-        { key: 'act', header: 'Act', width: 80, pinned: 'right' },
+        { key: 'a', label: 'A', width: 120 },
+        { key: 'act', label: 'Act', width: 80, pinned: 'right' },
       ];
       el.data = [{ a: 'a', act: 'x' }];
       (el as unknown as { _viewportWidth: number })._viewportWidth = 600;
@@ -1294,9 +1295,9 @@ describe('FlexTable', () => {
     it('stacks multiple right-pinned columns in order', async () => {
       const el = createElement();
       el.columns = [
-        { key: 'a', header: 'A', width: 400 },
-        { key: 'edit', header: 'Edit', width: 60, pinned: 'right' },
-        { key: 'del', header: 'Del', width: 80, pinned: 'right' },
+        { key: 'a', label: 'A', width: 400 },
+        { key: 'edit', label: 'Edit', width: 60, pinned: 'right' },
+        { key: 'del', label: 'Del', width: 80, pinned: 'right' },
       ];
       el.data = [{ a: 'a', edit: 'e', del: 'd' }];
       (el as unknown as { _viewportWidth: number })._viewportWidth = 300;
@@ -1332,8 +1333,8 @@ describe('FlexTable', () => {
     el.selectable = true;
     el.showRowNumbers = true;
     el.columns = [
-      { key: 'a', header: 'A', width: 100 },
-      { key: 'b', header: 'B', width: 200 },
+      { key: 'a', label: 'A', width: 100 },
+      { key: 'b', label: 'B', width: 200 },
     ];
     el.data = [{ a: 'a', b: 'b' }, { a: 'c', b: 'd' }];
     await el.updateComplete;
@@ -1351,9 +1352,9 @@ describe('FlexTable', () => {
   it('should calculate cumulative left for multiple pinned columns', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'id', header: 'ID', width: 60, pinned: 'left' },
-      { key: 'code', header: 'Code', width: 80, pinned: 'left' },
-      { key: 'name', header: 'Name' },
+      { key: 'id', label: 'ID', width: 60, pinned: 'left' },
+      { key: 'code', label: 'Code', width: 80, pinned: 'left' },
+      { key: 'name', label: 'Name' },
     ];
     el.data = [{ id: 1, code: 'A', name: 'Alice' }];
     await el.updateComplete;
@@ -1369,9 +1370,9 @@ describe('FlexTable', () => {
   it('should apply headerAlign as a class on the header cell', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'id', header: 'ID' },
-      { key: 'actions', header: 'Actions', headerAlign: 'center' },
-      { key: 'total', header: 'Total', headerAlign: 'end' },
+      { key: 'id', label: 'ID' },
+      { key: 'actions', label: 'Actions', headerAlign: 'center' },
+      { key: 'total', label: 'Total', headerAlign: 'end' },
     ];
     el.data = [{ id: 1, actions: '', total: 0 }];
     await el.updateComplete;
@@ -1383,14 +1384,46 @@ describe('FlexTable', () => {
     expect(headers[2].classList.contains('ft-header-align-end')).toBe(true);
   });
 
+  // 머리글은 값을 따른다 — 오른쪽 정렬 숫자 위에 왼쪽 머리글이 얹히면 열이 넓을수록 머리글이 옆 열의
+  // 것처럼 읽힌다(소비자 실측: 같은 열 안에서 60px 어긋남). 기본값은 셀의 실효 정렬이다.
+  it('header and cells follow the column effective alignment (type default, align, headerAlign)', async () => {
+    const el = createElement();
+    el.columns = [
+      { key: 'name', label: 'Name' },
+      { key: 'qty', label: 'Qty', type: 'number' },
+      { key: 'ok', label: 'OK', type: 'boolean' },
+      { key: 'code', label: 'Code', align: 'center' },
+      { key: 'amount', label: 'Amount', type: 'number', headerAlign: 'start' },
+    ];
+    el.data = [{ name: 'a', qty: 1, ok: true, code: 'X', amount: 2 }];
+    await el.updateComplete;
+
+    const headers = [...el.shadowRoot!.querySelectorAll('.ft-header-cell')];
+    const cells = [...el.shadowRoot!.querySelectorAll('.ft-cell')].slice(0, 5);
+    const headerAlign = (h: Element) =>
+      h.classList.contains('ft-header-align-end') ? 'end' : h.classList.contains('ft-header-align-center') ? 'center' : 'start';
+    const cellAlign = (c: Element) => ['start', 'center', 'end'].find(a => c.classList.contains(`ft-align-${a}`));
+
+    expect(cells.map(cellAlign)).toEqual(['start', 'end', 'center', 'center', 'end']);
+    // 머리글: 셀을 따르되, 명시한 headerAlign 이 이긴다(마지막 열).
+    expect(headers.map(headerAlign)).toEqual(['start', 'end', 'center', 'center', 'start']);
+  });
+
+  it('effectiveAlign — align wins over the type default', () => {
+    expect(effectiveAlign({ type: 'number' })).toBe('end');
+    expect(effectiveAlign({ type: 'number', align: 'start' })).toBe('start');
+    expect(effectiveAlign({ type: 'boolean' })).toBe('center');
+    expect(effectiveAlign({})).toBe('start');
+  });
+
   // --- Column Reorder ---
 
   it('should move a column via moveColumn()', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'b', header: 'B' },
-      { key: 'c', header: 'C' },
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
+      { key: 'c', label: 'C' },
     ];
     el.data = [{ a: '1', b: '2', c: '3' }];
     await el.updateComplete;
@@ -1402,8 +1435,8 @@ describe('FlexTable', () => {
   it('should dispatch column-reorder event', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'b', header: 'B' },
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
     ];
     el.data = [];
     await el.updateComplete;
@@ -1423,9 +1456,9 @@ describe('FlexTable', () => {
   it('should undo/redo moveColumn', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'b', header: 'B' },
-      { key: 'c', header: 'C' },
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
+      { key: 'c', label: 'C' },
     ];
     el.data = [{ a: '1', b: '2', c: '3' }];
     await el.updateComplete;
@@ -1451,8 +1484,8 @@ describe('FlexTable', () => {
   it('should clamp moveColumn newIndex to valid range', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'b', header: 'B' },
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
     ];
     el.data = [];
     await el.updateComplete;
@@ -1466,7 +1499,7 @@ describe('FlexTable', () => {
 
   it('should ignore moveColumn for non-existent key', async () => {
     const el = createElement();
-    el.columns = [{ key: 'a', header: 'A' }];
+    el.columns = [{ key: 'a', label: 'A' }];
     el.data = [];
     await el.updateComplete;
 
@@ -1481,8 +1514,8 @@ describe('FlexTable', () => {
     const el = createElement();
     el.showFilters = true;
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
@@ -1496,7 +1529,7 @@ describe('FlexTable', () => {
 
   it('should not offer filtering by default — the column menu still resizes and hides', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1509,7 +1542,7 @@ describe('FlexTable', () => {
 
   it('column menu sorts — the keyboard path to sorting — with the header click contract', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }, { key: 'n', header: 'N', sortable: false }];
+    el.columns = [{ key: 'name', label: 'Name' }, { key: 'n', label: 'N', sortable: false }];
     el.data = [{ name: 'b', n: 1 }, { name: 'a', n: 2 }, { name: 'c', n: 3 }];
     await el.updateComplete;
     const events: unknown[] = [];
@@ -1536,7 +1569,7 @@ describe('FlexTable', () => {
   it('menu sort in server mode only reports — the data order is the server’s', async () => {
     const el = createElement();
     el.dataMode = 'server';
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'b' }, { name: 'a' }];
     await el.updateComplete;
     const events: unknown[] = [];
@@ -1552,7 +1585,7 @@ describe('FlexTable', () => {
   it('should open filter dropdown from the column menu', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1565,7 +1598,7 @@ describe('FlexTable', () => {
   it('should render text filter input for text columns', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }, { name: 'Bob' }];
     await el.updateComplete;
 
@@ -1580,7 +1613,7 @@ describe('FlexTable', () => {
   it('should render number filter with condition inputs', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'age', header: 'Age', type: 'number' }];
+    el.columns = [{ key: 'age', label: 'Age', type: 'number' }];
     el.data = [{ age: 30 }];
     await el.updateComplete;
 
@@ -1597,7 +1630,7 @@ describe('FlexTable', () => {
   it('should render boolean filter with select', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'active', header: 'Active', type: 'boolean' }];
+    el.columns = [{ key: 'active', label: 'Active', type: 'boolean' }];
     el.data = [{ active: true }];
     await el.updateComplete;
 
@@ -1612,7 +1645,7 @@ describe('FlexTable', () => {
   it('should highlight the column menu button when its column is filtered', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }, { name: 'Bob' }];
     await el.updateComplete;
 
@@ -1630,7 +1663,7 @@ describe('FlexTable', () => {
 
   it('should ignore deleteColumn for non-existent key', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [];
     await el.updateComplete;
 
@@ -1645,9 +1678,9 @@ describe('FlexTable', () => {
   it('should have horizontal scroll tracking in _scrollToActiveCell', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A', width: 200 },
-      { key: 'b', header: 'B', width: 200 },
-      { key: 'c', header: 'C', width: 200 },
+      { key: 'a', label: 'A', width: 200 },
+      { key: 'b', label: 'B', width: 200 },
+      { key: 'c', label: 'C', width: 200 },
     ];
     el.data = [{ a: '1', b: '2', c: '3' }];
     await el.updateComplete;
@@ -1662,8 +1695,8 @@ describe('FlexTable', () => {
   it('should render resize handles on header cells', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'b', header: 'B' },
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
     ];
     el.data = [{ a: '1', b: '2' }];
     await el.updateComplete;
@@ -1675,7 +1708,7 @@ describe('FlexTable', () => {
   describe('header click suppression after resize/column-drag', () => {
     it('does not toggle sort when the browser synthesizes a click after a resize drag', async () => {
       const el = createElement();
-      el.columns = [{ key: 'a', header: 'A' }];
+      el.columns = [{ key: 'a', label: 'A' }];
       el.data = [{ a: '1' }];
       await el.updateComplete;
 
@@ -1695,7 +1728,7 @@ describe('FlexTable', () => {
 
     it('does not toggle sort when the browser synthesizes a click after a real column-drag reorder', async () => {
       const el = createElement();
-      el.columns = [{ key: 'a', header: 'A' }, { key: 'b', header: 'B' }];
+      el.columns = [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }];
       el.data = [{ a: '1', b: '2' }];
       await el.updateComplete;
 
@@ -1713,7 +1746,7 @@ describe('FlexTable', () => {
 
     it('still sorts on a plain click that never became a drag', async () => {
       const el = createElement();
-      el.columns = [{ key: 'a', header: 'A' }];
+      el.columns = [{ key: 'a', label: 'A' }];
       el.data = [{ a: '1' }];
       await el.updateComplete;
 
@@ -1732,8 +1765,8 @@ describe('FlexTable', () => {
   it('should set aria-selected on active cell', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'b', header: 'B' },
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
     ];
     el.data = [{ a: '1', b: '2' }, { a: '3', b: '4' }];
     await el.updateComplete;
@@ -1756,8 +1789,8 @@ describe('FlexTable', () => {
   it('should set aria-selected on range selection', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A' },
-      { key: 'b', header: 'B' },
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
     ];
     el.data = [{ a: '1', b: '2' }, { a: '3', b: '4' }];
     await el.updateComplete;
@@ -1782,8 +1815,8 @@ describe('FlexTable', () => {
     const el = createElement();
     el.showFilters = true;
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [{ name: 'Alice', age: 30 }];
     await el.updateComplete;
@@ -1807,7 +1840,7 @@ describe('FlexTable', () => {
 
   it('column menu: the button click neither sorts nor starts a column drag', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name', sortable: true }];
+    el.columns = [{ key: 'name', label: 'Name', sortable: true }];
     el.data = [{ name: 'B' }, { name: 'A' }];
     await el.updateComplete;
 
@@ -1820,7 +1853,7 @@ describe('FlexTable', () => {
 
   it('column menu: Wider and Narrower resize by one step and keep the menu open', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name', width: 150, minWidth: 140 }];
+    el.columns = [{ key: 'name', label: 'Name', width: 150, minWidth: 140 }];
     el.data = [{ name: 'A' }];
     await el.updateComplete;
     const widths: number[] = [];
@@ -1843,7 +1876,7 @@ describe('FlexTable', () => {
   it('column menu: «Clear filter» appears only for a filtered column and removes the filter', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }, { name: 'Bob' }];
     await el.updateComplete;
 
@@ -1868,7 +1901,7 @@ describe('FlexTable', () => {
   it('column menu: arrow keys move between items and Escape returns focus to the button', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1896,7 +1929,7 @@ describe('FlexTable', () => {
   it('should set aria-readonly on non-editable cells (global editable=false)', async () => {
     const el = createElement();
     el.editable = false;
-    el.columns = [{ key: 'a', header: 'A' }];
+    el.columns = [{ key: 'a', label: 'A' }];
     el.data = [{ a: '1' }];
     await el.updateComplete;
 
@@ -1907,8 +1940,8 @@ describe('FlexTable', () => {
   it('should set aria-readonly on per-column non-editable cells', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'a', header: 'A', editable: false },
-      { key: 'b', header: 'B' },
+      { key: 'a', label: 'A', editable: false },
+      { key: 'b', label: 'B' },
     ];
     el.data = [{ a: '1', b: '2' }];
     await el.updateComplete;
@@ -1922,7 +1955,7 @@ describe('FlexTable', () => {
 
   it('should return column width via getColumnWidth()', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name', width: 150 }];
+    el.columns = [{ key: 'name', label: 'Name', width: 150 }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1942,7 +1975,7 @@ describe('FlexTable', () => {
 
   it('should enforce minWidth in rendered cells', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name', width: 20, minWidth: 60 }];
+    el.columns = [{ key: 'name', label: 'Name', width: 20, minWidth: 60 }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1954,7 +1987,7 @@ describe('FlexTable', () => {
 
   it('should expose activeCell and editingCell getters', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1971,7 +2004,7 @@ describe('FlexTable', () => {
 
   it('should return sortCriteria as a copy', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1984,7 +2017,7 @@ describe('FlexTable', () => {
 
   it('should expose filterKeys getter', async () => {
     const el = createElement();
-    el.columns = [{ key: 'name', header: 'Name' }];
+    el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
 
@@ -1999,7 +2032,7 @@ describe('FlexTable', () => {
     el.columns = [
       {
         key: 'age',
-        header: 'Age',
+        label: 'Age',
         type: 'number',
         validator: (v) => {
           const n = Number(v);
@@ -2039,8 +2072,8 @@ describe('FlexTable', () => {
   it('should select entire column via selectColumn() API', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'age', header: 'Age', type: 'number' },
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
     ];
     el.data = [
       { name: 'Alice', age: 30 },
@@ -2071,9 +2104,9 @@ describe('FlexTable', () => {
   it('should render pinned right column as an absolutely placed pinned cell', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'mid', header: 'Mid' },
-      { key: 'actions', header: 'Actions', pinned: 'right' },
+      { key: 'name', label: 'Name' },
+      { key: 'mid', label: 'Mid' },
+      { key: 'actions', label: 'Actions', pinned: 'right' },
     ];
     el.data = [{ name: 'Alice', mid: 'x', actions: 'Edit' }];
     await el.updateComplete;
@@ -2088,8 +2121,8 @@ describe('FlexTable', () => {
   it('should render pinned right body cell as an absolutely placed pinned cell', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name' },
-      { key: 'actions', header: 'Actions', pinned: 'right' },
+      { key: 'name', label: 'Name' },
+      { key: 'actions', label: 'Actions', pinned: 'right' },
     ];
     el.data = [{ name: 'Alice', actions: 'Edit' }];
     await el.updateComplete;
@@ -2106,7 +2139,7 @@ describe('FlexTable', () => {
   it('should resize column with Alt+Arrow keys', async () => {
     const el = createElement();
     el.columns = [
-      { key: 'name', header: 'Name', width: 100 },
+      { key: 'name', label: 'Name', width: 100 },
     ];
     el.data = [{ name: 'Alice' }];
     await el.updateComplete;
@@ -2135,7 +2168,7 @@ describe('FlexTable', () => {
   it('should render date inputs for date column filter', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'created', header: 'Created', type: 'date' }];
+    el.columns = [{ key: 'created', label: 'Created', type: 'date' }];
     el.data = [{ created: '2025-01-15' }];
     await el.updateComplete;
 
@@ -2150,7 +2183,7 @@ describe('FlexTable', () => {
   it('should render datetime-local inputs for datetime column filter', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'ts', header: 'Timestamp', type: 'datetime' }];
+    el.columns = [{ key: 'ts', label: 'Timestamp', type: 'datetime' }];
     el.data = [{ ts: '2025-01-15T10:30:00' }];
     await el.updateComplete;
 
@@ -2164,7 +2197,7 @@ describe('FlexTable', () => {
   it('should filter date data with from/to range', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'date', header: 'Date', type: 'date' }];
+    el.columns = [{ key: 'date', label: 'Date', type: 'date' }];
     el.data = [
       { date: '2025-01-10' },
       { date: '2025-01-20' },
@@ -2185,7 +2218,7 @@ describe('FlexTable', () => {
   it('should clear date filter state on clear button', async () => {
     const el = createElement();
     el.showFilters = true;
-    el.columns = [{ key: 'date', header: 'Date', type: 'date' }];
+    el.columns = [{ key: 'date', label: 'Date', type: 'date' }];
     el.data = [{ date: '2025-01-10' }, { date: '2025-02-10' }];
     await el.updateComplete;
 
@@ -2204,9 +2237,9 @@ describe('FlexTable', () => {
     it('should start range selection on mousedown and extend on mouseenter', async () => {
       const el = createElement();
       el.columns = [
-        { key: 'a', header: 'A' },
-        { key: 'b', header: 'B' },
-        { key: 'c', header: 'C' },
+        { key: 'a', label: 'A' },
+        { key: 'b', label: 'B' },
+        { key: 'c', label: 'C' },
       ];
       el.data = [
         { a: 1, b: 2, c: 3 },
@@ -2234,7 +2267,7 @@ describe('FlexTable', () => {
 
     it('should not interfere with plain click selection', async () => {
       const el = createElement();
-      el.columns = [{ key: 'a', header: 'A' }, { key: 'b', header: 'B' }];
+      el.columns = [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }];
       el.data = [{ a: 1, b: 2 }, { a: 3, b: 4 }];
       await el.updateComplete;
 
@@ -2250,7 +2283,7 @@ describe('FlexTable', () => {
 
     it('should not start drag on right-click or shift-click', async () => {
       const el = createElement();
-      el.columns = [{ key: 'a', header: 'A' }, { key: 'b', header: 'B' }];
+      el.columns = [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }];
       el.data = [{ a: 1, b: 2 }, { a: 3, b: 4 }];
       await el.updateComplete;
 
@@ -2274,9 +2307,9 @@ describe('FlexTable', () => {
     function makeEl() {
       const el = createElement();
       el.columns = [
-        { key: 'a', header: 'A', type: 'number' },
-        { key: 'b', header: 'B', type: 'number' },
-        { key: 'c', header: 'C', type: 'number' },
+        { key: 'a', label: 'A', type: 'number' },
+        { key: 'b', label: 'B', type: 'number' },
+        { key: 'c', label: 'C', type: 'number' },
       ];
       el.data = [
         { a: 10, b: 20, c: 30 },
@@ -2390,8 +2423,8 @@ describe('FlexTable', () => {
     it('Ctrl+D skips read-only columns', async () => {
       const el = createElement();
       el.columns = [
-        { key: 'a', header: 'A', type: 'number' },
-        { key: 'b', header: 'B', type: 'number', editable: false },
+        { key: 'a', label: 'A', type: 'number' },
+        { key: 'b', label: 'B', type: 'number', editable: false },
       ];
       el.data = [{ a: 10, b: 99 }, { a: 0, b: 99 }];
       await el.updateComplete;
@@ -2411,7 +2444,7 @@ describe('FlexTable', () => {
   describe('select type editor', () => {
     it('should accept type select column definition', () => {
       const el = createElement();
-      el.columns = [{ key: 'status', header: 'Status', type: 'select', options: ['A', 'B', 'C'] }];
+      el.columns = [{ key: 'status', label: 'Status', type: 'select', options: ['A', 'B', 'C'] }];
       el.data = [{ status: 'A' }];
       expect(el.columns[0].type).toBe('select');
       expect(el.columns[0].options).toEqual(['A', 'B', 'C']);
@@ -2420,7 +2453,7 @@ describe('FlexTable', () => {
     it('should render select editor when editing a select cell', async () => {
       const el = createElement();
       el.editable = true;
-      el.columns = [{ key: 'status', header: 'Status', type: 'select', options: ['A', 'B', 'C'] }];
+      el.columns = [{ key: 'status', label: 'Status', type: 'select', options: ['A', 'B', 'C'] }];
       el.data = [{ status: 'B' }];
       await el.updateComplete;
 
@@ -2437,7 +2470,7 @@ describe('FlexTable', () => {
     it('should commit select editor value on blur', async () => {
       const el = createElement();
       el.editable = true;
-      el.columns = [{ key: 'status', header: 'Status', type: 'select', options: ['A', 'B', 'C'] }];
+      el.columns = [{ key: 'status', label: 'Status', type: 'select', options: ['A', 'B', 'C'] }];
       el.data = [{ status: 'B' }];
       await el.updateComplete;
 
@@ -2458,7 +2491,7 @@ describe('FlexTable', () => {
     it('should display label for select cell when not editing', async () => {
       const el = createElement();
       el.columns = [{
-        key: 'color', header: 'Color', type: 'select',
+        key: 'color', label: 'Color', type: 'select',
         options: [{ label: 'Red', value: 'red' }, { label: 'Blue', value: 'blue' }]
       }];
       el.data = [{ color: 'blue' }];
@@ -2473,7 +2506,7 @@ describe('FlexTable', () => {
     it('_finishRowDrag moves row in data array', async () => {
       const el = createElement();
       el.showRowNumbers = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
       await el.updateComplete;
 
@@ -2490,7 +2523,7 @@ describe('FlexTable', () => {
     it('undo row reorder restores original order', async () => {
       const el = createElement();
       el.showRowNumbers = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
       await el.updateComplete;
 
@@ -2508,7 +2541,7 @@ describe('FlexTable', () => {
     it('row-reorder event fires on drag complete', async () => {
       const el = createElement();
       el.showRowNumbers = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'A' }, { name: 'B' }];
       await el.updateComplete;
 
@@ -2525,7 +2558,7 @@ describe('FlexTable', () => {
     it('does not re-select the row when the browser synthesizes a click after a real row-drag reorder', async () => {
       const el = createElement();
       el.showRowNumbers = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
       await el.updateComplete;
 
@@ -2548,7 +2581,7 @@ describe('FlexTable', () => {
     it('should render fill handle when a cell is selected', async () => {
       const el = createElement();
       el.editable = true;
-      el.columns = [{ key: 'a', header: 'A' }];
+      el.columns = [{ key: 'a', label: 'A' }];
       el.data = [{ a: 1 }, { a: 2 }];
       await el.updateComplete;
 
@@ -2563,7 +2596,7 @@ describe('FlexTable', () => {
     it('_applyFillHandle down replicates single value', async () => {
       const el = createElement();
       el.editable = true;
-      el.columns = [{ key: 'a', header: 'A', type: 'number' }];
+      el.columns = [{ key: 'a', label: 'A', type: 'number' }];
       el.data = [{ a: 5 }, { a: 0 }, { a: 0 }];
       await el.updateComplete;
 
@@ -2580,7 +2613,7 @@ describe('FlexTable', () => {
     it('_applyFillHandle down with numeric series', async () => {
       const el = createElement();
       el.editable = true;
-      el.columns = [{ key: 'a', header: 'A', type: 'number' }];
+      el.columns = [{ key: 'a', label: 'A', type: 'number' }];
       el.data = [{ a: 1 }, { a: 3 }, { a: 0 }, { a: 0 }];
       await el.updateComplete;
 
@@ -2597,7 +2630,7 @@ describe('FlexTable', () => {
     it('undo fill handle reverts changes', async () => {
       const el = createElement();
       el.editable = true;
-      el.columns = [{ key: 'a', header: 'A' }];
+      el.columns = [{ key: 'a', label: 'A' }];
       el.data = [{ a: 'x' }, { a: '' }, { a: '' }];
       await el.updateComplete;
 
@@ -2615,7 +2648,7 @@ describe('FlexTable', () => {
     function makeTable(values: string[]) {
       const el = createElement();
       el.editable = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = values.map(v => ({ name: v }));
       return el;
     }
@@ -2684,8 +2717,8 @@ describe('FlexTable', () => {
     it('exportToString xlsx returns Uint8Array', async () => {
       const el = createElement();
       el.columns = [
-        { key: 'name', header: 'Name' },
-        { key: 'score', header: 'Score', type: 'number' },
+        { key: 'name', label: 'Name' },
+        { key: 'score', label: 'Score', type: 'number' },
       ];
       el.data = [{ name: 'Alice', score: 42 }, { name: 'Bob', score: 99 }];
       await el.updateComplete;
@@ -2699,7 +2732,7 @@ describe('FlexTable', () => {
 
     it('xlsx contains header and data', async () => {
       const el = createElement();
-      el.columns = [{ key: 'x', header: 'X' }];
+      el.columns = [{ key: 'x', label: 'X' }];
       el.data = [{ x: 'hello' }];
       await el.updateComplete;
 
@@ -2713,9 +2746,9 @@ describe('FlexTable', () => {
 
   describe('xlsx import', () => {
     const importCols: ColumnDefinition[] = [
-      { key: 'name', header: 'Name', type: 'text' },
-      { key: 'age', header: 'Age', type: 'number' },
-      { key: 'active', header: 'Active', type: 'boolean' },
+      { key: 'name', label: 'Name', type: 'text' },
+      { key: 'age', label: 'Age', type: 'number' },
+      { key: 'active', label: 'Active', type: 'boolean' },
     ];
     const importData: DataRow[] = [
       { name: 'Alice', age: 30, active: true },
@@ -2771,7 +2804,7 @@ describe('FlexTable', () => {
 
       // Single-column xlsx with only "Name" column — "Age" and "Active" unmapped → null
       const singleColData: DataRow[] = [{ name: 'Charlie' }];
-      const singleCols: ColumnDefinition[] = [{ key: 'name', header: 'Name', type: 'text' }];
+      const singleCols: ColumnDefinition[] = [{ key: 'name', label: 'Name', type: 'text' }];
       const file = makeXlsxFile(singleColData, singleCols);
       await el.importFromFile(file);
       await el.updateComplete;
@@ -2834,7 +2867,7 @@ describe('FlexTable', () => {
   describe('column format', () => {
     it('applies string format pattern to cell display', async () => {
       const el = createElement();
-      el.columns = [{ key: 'price', header: 'Price', type: 'number', format: '$#,##0.00' }];
+      el.columns = [{ key: 'price', label: 'Price', type: 'number', format: '$#,##0.00' }];
       el.data = [{ price: 1234.56 }];
       await el.updateComplete;
 
@@ -2844,7 +2877,7 @@ describe('FlexTable', () => {
 
     it('applies function format to cell display', async () => {
       const el = createElement();
-      el.columns = [{ key: 'val', header: 'Val', format: (v) => `[${v}]` }];
+      el.columns = [{ key: 'val', label: 'Val', format: (v) => `[${v}]` }];
       el.data = [{ val: 42 }];
       await el.updateComplete;
 
@@ -2854,7 +2887,7 @@ describe('FlexTable', () => {
 
     it('editor shows raw value, not formatted value', async () => {
       const el = createElement();
-      el.columns = [{ key: 'price', header: 'Price', type: 'number', format: '$#,##0.00' }];
+      el.columns = [{ key: 'price', label: 'Price', type: 'number', format: '$#,##0.00' }];
       el.data = [{ price: 42 }];
       await el.updateComplete;
 
@@ -2868,7 +2901,7 @@ describe('FlexTable', () => {
 
     it('clipboard copy uses raw value, not formatted', async () => {
       const el = createElement();
-      el.columns = [{ key: 'val', header: 'Val', format: (v) => `formatted:${v}` }];
+      el.columns = [{ key: 'val', label: 'Val', format: (v) => `formatted:${v}` }];
       el.data = [{ val: 'hello' }];
       await el.updateComplete;
 
@@ -2881,7 +2914,7 @@ describe('FlexTable', () => {
   describe('autocomplete editor', () => {
     function makeAcEl(autocomplete: boolean | 'strict' = true) {
       const el = createElement();
-      el.columns = [{ key: 'tag', header: 'Tag', autocomplete }];
+      el.columns = [{ key: 'tag', label: 'Tag', autocomplete }];
       el.data = [{ tag: 'apple' }, { tag: 'apricot' }, { tag: 'banana' }];
       return el;
     }
@@ -2974,8 +3007,8 @@ describe('FlexTable', () => {
       const el = createElement();
       el.setAttribute('show-context-menu', '');
       el.columns = [
-        { key: 'name', header: 'Name' },
-        { key: 'val', header: 'Val', type: 'number' },
+        { key: 'name', label: 'Name' },
+        { key: 'val', label: 'Val', type: 'number' },
       ];
       el.data = [{ name: 'Alice', val: 1 }, { name: 'Bob', val: 2 }];
       return el;
@@ -3105,9 +3138,9 @@ describe('FlexTable', () => {
     function makeCols() {
       const el = createElement();
       el.columns = [
-        { key: 'a', header: 'A' },
-        { key: 'b', header: 'B' },
-        { key: 'c', header: 'C' },
+        { key: 'a', label: 'A' },
+        { key: 'b', label: 'B' },
+        { key: 'c', label: 'C' },
       ];
       el.data = [{ a: 1, b: 2, c: 3 }];
       return el;
@@ -3227,7 +3260,7 @@ describe('FlexTable', () => {
     it('applies background style when condition is true', async () => {
       const el = createElement();
       el.columns = [{
-        key: 'score', header: 'Score', type: 'number',
+        key: 'score', label: 'Score', type: 'number',
         conditionalRules: [{ when: (v) => (v as number) < 60, style: { background: '#fdd', color: 'red' } }]
       }];
       el.data = [{ score: 40 }, { score: 80 }];
@@ -3241,7 +3274,7 @@ describe('FlexTable', () => {
     it('merges multiple matching rules', async () => {
       const el = createElement();
       el.columns = [{
-        key: 'v', header: 'V',
+        key: 'v', label: 'V',
         conditionalRules: [
           { when: (v) => (v as number) > 0, style: { background: 'blue' } },
           { when: (v) => (v as number) > 0, style: { color: 'white' } },
@@ -3266,7 +3299,7 @@ describe('FlexTable', () => {
 
     it('should render ft-frozen-rows band when frozenRows > 0', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = Array.from({ length: 10 }, (_, i) => ({ name: `Row ${i + 1}` }));
       el.frozenRows = 2;
       await el.updateComplete;
@@ -3277,7 +3310,7 @@ describe('FlexTable', () => {
 
     it('should NOT render ft-frozen-rows when frozenRows is 0', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'A' }, { name: 'B' }];
       await el.updateComplete;
 
@@ -3286,7 +3319,7 @@ describe('FlexTable', () => {
 
     it('should contain the correct number of frozen rows', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = Array.from({ length: 10 }, (_, i) => ({ name: `Row ${i + 1}` }));
       el.frozenRows = 3;
       await el.updateComplete;
@@ -3298,7 +3331,7 @@ describe('FlexTable', () => {
 
     it('should not include frozen rows in virtual scroll body', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = Array.from({ length: 5 }, (_, i) => ({ name: `Row ${i + 1}` }));
       el.frozenRows = 2;
       await el.updateComplete;
@@ -3311,7 +3344,7 @@ describe('FlexTable', () => {
 
     it('should clamp frozenRows to visibleRowCount', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'A' }, { name: 'B' }];
       el.frozenRows = 10; // more than data rows
       await el.updateComplete;
@@ -3323,7 +3356,7 @@ describe('FlexTable', () => {
 
     it('should update frozen rows when data changes', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = Array.from({ length: 10 }, (_, i) => ({ name: `Row ${i + 1}` }));
       el.frozenRows = 2;
       await el.updateComplete;
@@ -3344,7 +3377,7 @@ describe('FlexTable', () => {
     it('should render mode selector in text filter dropdown', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3362,7 +3395,7 @@ describe('FlexTable', () => {
     it('should filter by starts-with mode', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Alicia' }];
       await el.updateComplete;
 
@@ -3386,7 +3419,7 @@ describe('FlexTable', () => {
     it('should filter by ends-with mode', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Malice' }];
       await el.updateComplete;
 
@@ -3408,7 +3441,7 @@ describe('FlexTable', () => {
     it('should filter by wildcard mode', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'code', header: 'Code' }];
+      el.columns = [{ key: 'code', label: 'Code' }];
       el.data = [{ code: 'A001' }, { code: 'B002' }, { code: 'A099' }];
       await el.updateComplete;
 
@@ -3432,7 +3465,7 @@ describe('FlexTable', () => {
     it('should render empty filter section in all filter types', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3445,7 +3478,7 @@ describe('FlexTable', () => {
     it('should filter empty cells only (text column)', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }, { name: '' }, { name: null }, { name: 'Bob' }];
       await el.updateComplete;
 
@@ -3462,7 +3495,7 @@ describe('FlexTable', () => {
     it('should filter non-empty cells only (text column)', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }, { name: '' }, { name: null }, { name: 'Bob' }];
       await el.updateComplete;
 
@@ -3479,7 +3512,7 @@ describe('FlexTable', () => {
     it('should clear empty filter when text is typed', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }, { name: '' }, { name: 'Bob' }];
       await el.updateComplete;
 
@@ -3506,7 +3539,7 @@ describe('FlexTable', () => {
     it('should filter with AND condition (>= 20 AND <= 40)', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'age', header: 'Age', type: 'number' }];
+      el.columns = [{ key: 'age', label: 'Age', type: 'number' }];
       el.data = [{ age: 10 }, { age: 25 }, { age: 35 }, { age: 50 }];
       await el.updateComplete;
 
@@ -3528,7 +3561,7 @@ describe('FlexTable', () => {
     it('should filter with OR condition (< 15 OR > 45)', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'age', header: 'Age', type: 'number' }];
+      el.columns = [{ key: 'age', label: 'Age', type: 'number' }];
       el.data = [{ age: 10 }, { age: 25 }, { age: 35 }, { age: 50 }];
       await el.updateComplete;
 
@@ -3566,7 +3599,7 @@ describe('FlexTable', () => {
     it('should filter with single condition only', async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'score', header: 'Score', type: 'number' }];
+      el.columns = [{ key: 'score', label: 'Score', type: 'number' }];
       el.data = [{ score: 5 }, { score: 15 }, { score: 25 }];
       await el.updateComplete;
 
@@ -3585,7 +3618,7 @@ describe('FlexTable', () => {
   describe('cell comments', () => {
     it('setComment and getComment round-trip', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }, { name: 'Bob' }];
       await el.updateComplete;
 
@@ -3596,7 +3629,7 @@ describe('FlexTable', () => {
 
     it('setComment with null removes comment', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3607,7 +3640,7 @@ describe('FlexTable', () => {
 
     it('setComment with empty string removes comment', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3618,7 +3651,7 @@ describe('FlexTable', () => {
 
     it('getAllComments returns all set comments', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }, { key: 'age', header: 'Age' }];
+      el.columns = [{ key: 'name', label: 'Name' }, { key: 'age', label: 'Age' }];
       el.data = [{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }];
       await el.updateComplete;
 
@@ -3632,7 +3665,7 @@ describe('FlexTable', () => {
 
     it('clearComments removes all comments', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3644,7 +3677,7 @@ describe('FlexTable', () => {
 
     it('setComment fires comment-change event', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3664,7 +3697,7 @@ describe('FlexTable', () => {
 
     it('cell with comment renders ft-has-comment class', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3677,7 +3710,7 @@ describe('FlexTable', () => {
 
     it('cell without comment does not render ft-has-comment class', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3687,7 +3720,7 @@ describe('FlexTable', () => {
 
     it('comment indicator rendered in cell with comment', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3701,7 +3734,7 @@ describe('FlexTable', () => {
 
     it('setComment undo restores previous comment', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3718,7 +3751,7 @@ describe('FlexTable', () => {
 
     it('setComment redo re-applies comment', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       await el.updateComplete;
 
@@ -3732,7 +3765,7 @@ describe('FlexTable', () => {
 
     it('clearComments undo restores all comments', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }, { key: 'age', header: 'Age' }];
+      el.columns = [{ key: 'name', label: 'Name' }, { key: 'age', label: 'Age' }];
       el.data = [{ name: 'Alice', age: 30 }];
       await el.updateComplete;
 
@@ -3750,7 +3783,7 @@ describe('FlexTable', () => {
   describe('undo history management', () => {
     function makeEl() {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.data = [{ name: 'Alice' }];
       return el;
     }
@@ -3790,12 +3823,12 @@ describe('FlexTable', () => {
 
     it('clearUndoOnDataChange does not clear undo during undo/redo', async () => {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.clearUndoOnDataChange = true;
       el.data = [];
       await el.updateComplete;
 
-      const importCols = [{ key: 'name', header: 'Name', type: 'string' as const }];
+      const importCols = [{ key: 'name', label: 'Name', type: 'string' as const }];
       el.columns = importCols;
       el.data = [{ name: 'Alice' }];
 
@@ -3815,7 +3848,7 @@ describe('FlexTable', () => {
   describe('row selection on data change (safety)', () => {
     function makeSelectableEl() {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.selectable = true;
       el.data = [{ name: 'Alice' }, { name: 'Bob' }];
       return el;
@@ -3865,7 +3898,7 @@ describe('FlexTable', () => {
   describe('row checkbox shift-click range selection', () => {
     function makeSelectableEl(rowCount = 5) {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.selectable = true;
       el.data = Array.from({ length: rowCount }, (_, i) => ({ name: `Row${i}` }));
       return el;
@@ -3939,7 +3972,7 @@ describe('FlexTable', () => {
   describe('selectWhere', () => {
     function makeSelectableEl() {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }];
+      el.columns = [{ key: 'name', label: 'Name' }];
       el.selectable = true;
       el.data = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Carol' }, { name: 'Dave' }];
       return el;
@@ -3991,7 +4024,7 @@ describe('FlexTable', () => {
   describe('comment popup', () => {
     function makeEl() {
       const el = createElement();
-      el.columns = [{ key: 'name', header: 'Name' }, { key: 'age', header: 'Age' }];
+      el.columns = [{ key: 'name', label: 'Name' }, { key: 'age', label: 'Age' }];
       el.data = [{ name: 'Alice', age: 30 }];
       el.showContextMenu = true;
       return el;
@@ -4104,7 +4137,7 @@ describe('FlexTable', () => {
     const build = async () => {
       const el = createElement();
       el.showFilters = true;
-      el.columns = [{ key: 'name', header: '관리번호' }, { key: 'age', header: '나이', type: 'number' }];
+      el.columns = [{ key: 'name', label: '관리번호' }, { key: 'age', label: '나이', type: 'number' }];
       el.data = [{ name: 'A-1', age: 30 }];
       await el.updateComplete;
       return el;

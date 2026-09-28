@@ -3,9 +3,9 @@ import { copyToClipboard, parseClipboardText, parseValueForColumn } from './clip
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 
 const cols: ColumnDefinition[] = [
-  { key: 'name', header: 'Name', type: 'text' },
-  { key: 'value', header: 'Value', type: 'number' },
-  { key: 'active', header: 'Active', type: 'boolean' },
+  { key: 'name', label: 'Name', type: 'text' },
+  { key: 'value', label: 'Value', type: 'number' },
+  { key: 'active', label: 'Active', type: 'boolean' },
 ];
 
 describe('copyToClipboard', () => {

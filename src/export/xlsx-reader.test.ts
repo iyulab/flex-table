@@ -5,9 +5,9 @@ import type { ColumnDefinition, DataRow } from '../models/types.js';
 
 // Round-trip test data (write with xlsx-writer, read with xlsx-reader)
 const cols: ColumnDefinition[] = [
-  { key: 'name', header: 'Name', type: 'text' },
-  { key: 'age', header: 'Age', type: 'number' },
-  { key: 'active', header: 'Active', type: 'boolean' },
+  { key: 'name', label: 'Name', type: 'text' },
+  { key: 'age', label: 'Age', type: 'number' },
+  { key: 'active', label: 'Active', type: 'boolean' },
 ];
 
 const data: DataRow[] = [
@@ -65,7 +65,7 @@ describe('readXlsx', () => {
   });
 
   it('should handle single column', async () => {
-    const singleCol: ColumnDefinition[] = [{ key: 'id', header: 'ID', type: 'number' }];
+    const singleCol: ColumnDefinition[] = [{ key: 'id', label: 'ID', type: 'number' }];
     const singleData: DataRow[] = [{ id: 1 }, { id: 2 }];
     const buf = xlsxBuffer(singleData, singleCol);
     const sheet = await readXlsx(buf);
@@ -105,7 +105,7 @@ describe('readXlsx', () => {
   it('should handle many columns (10 columns)', async () => {
     const manyCols: ColumnDefinition[] = Array.from({ length: 10 }, (_, i) => ({
       key: `col${i}`,
-      header: `Col${i}`,
+      label: `Col${i}`,
       type: 'text' as const,
     }));
     const manyData: DataRow[] = [
@@ -176,7 +176,7 @@ describe('readXlsx — dates come from the cell style\'s number format', () => {
 
   it('🔴round-trips a date exported by buildXlsx on the same day, not the day before', async () => {
     const d = new Date(Date.UTC(2026, 8, 23));
-    const buf = buildXlsx([{ when: d }], [{ key: 'when', header: 'When', type: 'date' }]).buffer as ArrayBuffer;
+    const buf = buildXlsx([{ when: d }], [{ key: 'when', label: 'When', type: 'date' }]).buffer as ArrayBuffer;
     expect((await readXlsx(buf)).rows[0][0]).toBe('2026-09-23');
   });
 
