@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import buildQuery from 'odata-query';
-import { buildSearchExpression, parseOrderBy, resolveInitialState } from './use-odata-source.js';
+import { buildSearchExpression, parseOrderBy, resolveInitialState } from './query.js';
 
 describe('buildSearchExpression', () => {
   it('단일 단어를 phrase로 감싼다', () => {

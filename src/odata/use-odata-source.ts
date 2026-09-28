@@ -1,70 +1,8 @@
 // src/odata/use-odata-source.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
-import buildQuery from 'odata-query';
 import type { SortCriteria } from '../core/sorting.js';
 import type { UseODataSourceOptions, UseODataSourceResult } from './types.js';
-
-/**
- * 검색어를 OData `$search` 표현식으로 인코딩한다 (`red shirt` → `"red" AND "shirt"`).
- *
- * 토큰을 인용하는 이유: OData 4.0의 `searchWord`는 문자(Unicode L/Nl)만 허용해
- * `2026`·`ZT-E2E-A` 같은 검색어가 거부된다. 4.01이 숫자·하이픈을 허용하도록 완화했으나
- * Microsoft.OData 렉서는 아직 4.0 규칙이다(odata.net#2445). `searchPhrase`는 두 버전
- * 모두에서 적법하므로 서버 버전과 무관하게 안전하다.
- *
- * 통째로가 아니라 토큰별로 감싸는 이유: 인용 없는 다중 단어는 암묵 AND로 파싱되므로
- * (`searchAndExpr = RWS [ 'AND' RWS ] searchExpr`), 전체를 한 phrase로 감싸면 연속
- * 문자열 매칭으로 의미가 바뀐다. 토큰별 인용은 기존 의미론을 그대로 보존한다.
- *
- * `"`는 phrase 안에 넣을 수 없고 이스케이프 규칙도 없어(`qchar-no-AMP-DQUOTE`) 제거한다.
- *
- * @returns `$search` 표현식, 또는 유효 토큰이 없으면 `undefined`
- */
-export function buildSearchExpression(term: string): string | undefined {
-  const tokens = term
-    .split(/\s+/)
-    .map(token => token.replace(/"/g, ''))
-    .filter(token => token.length > 0);
-  if (tokens.length === 0) return undefined;
-  return tokens.map(token => `"${token}"`).join(' AND ');
-}
-
-/** `resolveInitialState`가 읽는 옵션 — 두 소스 훅의 옵션 타입이 공통으로 갖는 부분. */
-export interface InitialSourceStateOptions {
-  defaultOrderBy?: string;
-  initialPage?: number;
-  initialSearch?: string;
-  initialSort?: SortCriteria[];
-}
-
-/**
- * 옵션에서 `page`/`search`/`sortCriteria`의 **초기값**을 뽑는다.
- *
- * ★**두 훅이 이 함수 하나를 공유하는 것이 요점이다.** README가 *"same shape … so the same
- * binding code works with either source"*를 계약으로 선언하는데, 초기값 해석을 양쪽에
- * 복제하면 그 계약이 **문장으로만** 유지된다 — 이 리포가 반복 기록한 실패 형태다.
- * 구현이 하나면 드리프트가 없다.
- *
- * ⚠**`initialSort`가 `defaultOrderBy`를 이긴다.** 둘은 같은 것을 서로 다른 표기로
- * 말하고(`SortCriteria[]` ↔ `$orderby` 문자열), 더 구체적인 쪽을 우선한다.
- * `initialSort`는 `onSortChange`가 주는 모양 그대로라 저장해 둔 정렬을 파싱 없이 되돌린다.
- *
- * ⚠**React가 useState 초기값을 첫 렌더에서만 읽는다는 사실이 계약의 일부다** — 이후의
- * 옵션 변경은 무시되고, 이동은 `setPage`/`setSearch`로 한다. `defaultOrderBy`가 이미
- * 그렇게 동작해 왔으므로 새 규칙이 아니다.
- */
-export function resolveInitialState(options: InitialSourceStateOptions): {
-  page: number;
-  search: string;
-  sortCriteria: SortCriteria[];
-} {
-  const { defaultOrderBy, initialPage = 0, initialSearch = '', initialSort } = options;
-  return {
-    page: initialPage,
-    search: initialSearch,
-    sortCriteria: initialSort ?? (defaultOrderBy ? parseOrderBy(defaultOrderBy) : []),
-  };
-}
+import { buildODataQuery, resolveInitialState } from './query.js';
 
 /**
  * OData v4 서버 사이드 데이터소스 React 훅.
@@ -167,24 +105,7 @@ export function useODataSource<T = Record<string, unknown>>(
     setLoading(true);
     setError(null);
 
-    const orderBy = sortCriteria.length > 0
-      ? sortCriteria.map(s => `${s.key} ${s.direction}`).join(', ')
-      : defaultOrderBy;
-
-    const queryParams: Record<string, unknown> = {
-      top: pageSize,
-      skip: page * pageSize,
-      count: true,
-    };
-
-    if (orderBy) queryParams.orderBy = orderBy;
-    if (fixedFilter) queryParams.filter = fixedFilter;
-    if (search) {
-      const searchExpression = buildSearchExpression(search);
-      if (searchExpression) queryParams.search = searchExpression;
-    }
-
-    const queryString = buildQuery(queryParams);
+    const queryString = buildODataQuery({ page, pageSize, sortCriteria, defaultOrderBy, search, fixedFilter });
     const fullUrl = `${baseUrl ?? window.location.origin}${url}${queryString}`;
 
     /*
@@ -294,18 +215,4 @@ export function useODataSource<T = Record<string, unknown>>(
     search, setSearch: handleSetSearch,
     refresh,
   };
-}
-
-/**
- * `$orderby` 문자열을 정렬 기준 배열로 파싱한다 (`'a asc, b desc'`).
- * 방향이 생략되거나 `desc`가 아니면 `asc`로 본다(OData 기본값).
- */
-export function parseOrderBy(orderBy: string): SortCriteria[] {
-  return orderBy.split(',').map(s => {
-    const parts = s.trim().split(/\s+/);
-    return {
-      key: parts[0],
-      direction: (parts[1]?.toLowerCase() === 'desc' ? 'desc' : 'asc') as SortCriteria['direction'],
-    };
-  });
 }

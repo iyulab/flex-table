@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.40.0] - 2026-09-28
+
+### Changed
+
+- 🔴 **Breaking — the React hooks moved to `./react`.** `useODataSource` and `useArraySource` (and
+  their option/result types) are now exported from `@iyulab/flex-table/react`, next to
+  `FlexTableReact`. `./odata` and `./array` keep only the pure functions — `buildSearchExpression`,
+  `parseOrderBy`, `computeArrayView`, and the new `buildODataQuery` — and no longer load React, so an
+  app without React (a typeahead that is not a table, a Lit app) can use them without installing it.
+  Before, importing `buildSearchExpression` from `./odata` required `react` statically.
+  Migration: `import { useODataSource } from '@iyulab/flex-table/odata'` →
+  `import { useODataSource } from '@iyulab/flex-table/react'` (same for `useArraySource` from
+  `./array`).
+
+### Added
+
+- **`buildODataQuery(state)` on `./odata`** — the step `useODataSource` runs on every request (page,
+  page size, sort, search, fixed filter → OData query string), now callable without React. A Lit
+  table or a non-table list doing server paging can send exactly the query the hook would, instead
+  of re-deriving `$top`/`$skip`/`$orderby`/`$search`. The hook now calls it.
+
 ## [0.39.0] - 2026-09-27
 
 ### Added

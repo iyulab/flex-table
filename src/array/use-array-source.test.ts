@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeArrayView } from './use-array-source.js';
+import { computeArrayView } from './view.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import type { SortCriteria } from '../core/sorting.js';
 

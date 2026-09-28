@@ -668,7 +668,7 @@ table.addEventListener('sort-change', (e) => {
 `useODataSource(url, options)` fetches paginated/sorted/filtered data from an OData v4 endpoint and returns props ready to bind to `<FlexTableReact dataMode="server" ...>`.
 
 ```tsx
-import { useODataSource } from '@iyulab/flex-table/odata';
+import { useODataSource } from '@iyulab/flex-table/react';
 
 const source = useODataSource('/api/orders', {
   pageSize: 20,
@@ -760,7 +760,7 @@ The hook returns:
 
 Terms are always quoted because OData 4.0 only allows letters in an unquoted `searchWord`, so `2026` or `ZT-E2E-A` would be rejected by servers that follow it (4.01 relaxed this, but [Microsoft.OData still lexes as 4.0](https://github.com/OData/odata.net/issues/2445)). Quoting keeps any term valid regardless of server version. Since a `$search` phrase cannot contain `"` and OData defines no escape for it, double quotes are stripped from the term.
 
-The quoting/escaping logic above is also available standalone as `buildSearchExpression(term)`, for consumers that need the same `$search` encoding without the pagination hook (e.g. a typeahead/combobox that isn't a table). `parseOrderBy(orderBy)` (`'a asc, b desc'` → `SortCriteria[]`) is exported the same way, for consumers driving a sort UI that isn't `useODataSource` either:
+The quoting/escaping logic above is also available standalone as `buildSearchExpression(term)`, for consumers that need the same `$search` encoding without the pagination hook (e.g. a typeahead/combobox that isn't a table). `parseOrderBy(orderBy)` (`'a asc, b desc'` → `SortCriteria[]`) is exported the same way, for consumers driving a sort UI that isn't `useODataSource` either. The `./odata` entry holds only pure functions and does not load React, so an app without React can use it (the hooks live on `./react`):
 
 ```ts
 import { buildSearchExpression, parseOrderBy } from '@iyulab/flex-table/odata';
@@ -768,6 +768,20 @@ import { buildSearchExpression, parseOrderBy } from '@iyulab/flex-table/odata';
 buildSearchExpression('red shirt'); // '"red" AND "shirt"'
 buildSearchExpression('');          // undefined
 parseOrderBy('name desc');          // [{ key: 'name', direction: 'desc' }]
+```
+
+`buildODataQuery(state)` is the step the hook runs on every request — table state in, OData query string out. Use it to drive server paging without React (a Lit table, a list that is not a table) with exactly the query the hook would send:
+
+```ts
+import { buildODataQuery } from '@iyulab/flex-table/odata';
+
+buildODataQuery({
+  page: 2, pageSize: 20,                          // 0-based page → $skip=40
+  sortCriteria: [{ key: 'name', direction: 'desc' }], // else defaultOrderBy
+  search: 'red shirt',                            // encoded by buildSearchExpression
+  fixedFilter: { IsActive: true },                // odata-query filter object
+});
+// '?$filter=IsActive eq true&$orderby=name desc&$count=true&$top=20&$skip=40&$search=%22red%22%20AND%20%22shirt%22'
 ```
 
 ### Array Source Hook (React)
@@ -788,7 +802,7 @@ e.g. a lookup table whose display name lives on a different endpoint than the ro
 so search/sort has to run after the join, in memory:
 
 ```tsx
-import { useArraySource } from '@iyulab/flex-table/array';
+import { useArraySource } from '@iyulab/flex-table/react';
 
 const joined = useMemo(
   () => seasonPrices.map(p => ({ ...p, productName: productsById[p.productId]?.name ?? '' })),

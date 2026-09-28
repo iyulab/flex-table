@@ -70,3 +70,10 @@ export const FlexTableReact = FlexTableReactBase as unknown as <T = DataRow>(
 
 export type { FlexTable };
 export type { ColumnDefinition, DataRow, ColumnType, CellRenderer, CellEditor, CellValidator, ConditionalRule, SelectionMode, DataMode } from './models/types.js';
+
+// React 훅 — 순수 함수(`buildSearchExpression`·`parseOrderBy`·`computeArrayView`)는
+// React 없이 쓰도록 `./odata`·`./array` 에 남는다.
+export { useODataSource } from './odata/use-odata-source.js';
+export type { UseODataSourceOptions, UseODataSourceResult } from './odata/types.js';
+export { useArraySource } from './array/use-array-source.js';
+export type { UseArraySourceOptions, UseArraySourceResult } from './array/types.js';
