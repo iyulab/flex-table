@@ -24,6 +24,11 @@
   a different header alignment. Cell alignment uses logical values (`text-align: end`), so
   right-to-left locales mirror.
 
+- **The column menu, the cell context menu and the drag ghost read the shared stacking tokens.**
+  The menus sit on `--u-layer-floating` (1000 — they were at 200, below every other floating
+  surface) and the drag ghost on `--u-layer-overlay` (9999, as before), so they stack the same way
+  as popovers and dialogs from `@iyulab/components`.
+
 ### Added
 
 - **`align` on `ColumnDefinition`** (`'start' | 'center' | 'end'`) — cell alignment. Default comes

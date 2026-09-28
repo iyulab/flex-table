@@ -2625,7 +2625,7 @@ export class FlexTable extends LitElement {
 
     return html`
       <div class="ft-header-menu" role="menu" aria-label=${t('columnMenuRegion', { header: col.label })}
-        style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
+        style="position: fixed; left: ${x}px; top: ${y}px; z-index: var(--u-layer-floating, 1000);"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}
         @keydown=${(e: KeyboardEvent) => this._onHeaderMenuKeydown(e)}>
         ${col.sortable !== false ? html`
@@ -2670,7 +2670,7 @@ export class FlexTable extends LitElement {
     // Opens at the pointer; `updated()` moves it back inside the viewport once its real size is known.
     return html`
       <div class="ft-body-context-menu" role="menu" aria-label=${t('cellActions')}
-        style="position: fixed; left: ${x}px; top: ${y}px; z-index: 200;"
+        style="position: fixed; left: ${x}px; top: ${y}px; z-index: var(--u-layer-floating, 1000);"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}
         @keydown=${(e: KeyboardEvent) => this._onMenuKeydown(e, '.ft-body-context-menu', close)}>
         ${item(t('copy'), () => this._handleCopy(false))}
@@ -2738,7 +2738,7 @@ export class FlexTable extends LitElement {
 
     return html`
       <div class="ft-comment-popup"
-        style="position: fixed; left: ${adjustedX}px; top: ${adjustedY}px; z-index: 201;"
+        style="position: fixed; left: ${adjustedX}px; top: ${adjustedY}px; z-index: calc(var(--u-layer-floating, 1000) + 1);"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}>
         <textarea class="ft-comment-popup-textarea"
           rows="4"
@@ -3278,7 +3278,7 @@ export class FlexTable extends LitElement {
     ghost.style.cssText = [
       'position:fixed',
       'pointer-events:none',
-      'z-index:9999',
+      'z-index:var(--u-layer-overlay, 9999)',
       'opacity:0.85',
       `background:${getComputedStyle(this).getPropertyValue('--ft-header-bg') || '#f0f0f0'}`,
       `border:2px solid ${getComputedStyle(this).getPropertyValue('--ft-active-color') || '#3b82f6'}`,
@@ -3539,7 +3539,7 @@ export class FlexTable extends LitElement {
     ghost.style.cssText = [
       'position:fixed',
       'pointer-events:none',
-      'z-index:9999',
+      'z-index:var(--u-layer-overlay, 9999)',
       'opacity:0.85',
       'background:#e8f0fe',
       'border:2px solid #3b82f6',
