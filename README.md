@@ -209,7 +209,7 @@ Rules are evaluated in order and combined; later matching rules override earlier
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `addColumn(def, index?)` | `ColumnDefinition` | Add column at position (default: end) |
-| `deleteColumn(key)` | `void` | Remove column + cleanup filters/sort/widths |
+| `deleteColumn(key)` | `void` | Remove column + cleanup filters/sort/widths. Row objects keep that key's values (undo restores the column with them); delete the key from `data` yourself if you need it gone |
 | `moveColumn(key, newIndex)` | `void` | Reorder column to target index (clamped) |
 | `getColumnWidth(key)` | `number \| undefined` | Get internal resize width for column |
 | `selectColumn(colIndex)` | `void` | Select entire column (range selection) |
