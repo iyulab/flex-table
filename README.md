@@ -476,6 +476,8 @@ conformance claim for the success criteria it does not list.
 Not yet measured: the boolean and date filter dropdowns and the comment popup. Color contrast comes
 from the `@iyulab/components` tokens this package reads.
 
+For **KWCAG 2.2** (the Korean web accessibility standard), the `@iyulab/components` README has a table of all 33 check items — which are guaranteed by a test across the sibling packages, which are shared with the app, and which do not apply: [KWCAG 2.2 대응표](https://github.com/iyulab/node-components#kwcag-22-대응표).
+
 ## Usage Guide
 
 ### React

@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- The optional `@lit/react` peer is `^1.0.8` (was `^1.0.0`) — the version the React entry is tested
+  with.
+
+### Documentation
+
+- README: the Accessibility section links the KWCAG 2.2 table in `@iyulab/components`.
+
 ## [0.40.3] - 2026-09-30
 
 ### Fixed
@@ -586,8 +597,6 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
 
 ## [0.23.1] - 2026-08-03
 
