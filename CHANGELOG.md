@@ -8,6 +8,11 @@
   no longer jumps to the next match in the find panel. Typing Korean (or another composed language)
   committed the cell before the last syllable was in. Requires `@iyulab/components` 1.51.0 or later.
 
+### Documentation
+
+- The package now ships an agent skill (`skills/iyulab-flex-table/`) — the component API, the React
+  wrapper and data-source hooks, and styling in a form coding agents load directly.
+
 ## [0.40.0] - 2026-09-28
 
 ### Changed

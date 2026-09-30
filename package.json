@@ -33,6 +33,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "package.json",
     "README.md",
     "CHANGELOG.md",
