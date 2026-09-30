@@ -9,7 +9,8 @@ import { RowSelectionState } from './core/row-selection.js';
 import { computeSortedIndices, toggleSort } from './core/sorting.js';
 import { computeFilteredIndices } from './core/filtering.js';
 import { UndoStack } from './core/undo.js';
-import { copyToClipboard, parseClipboardText, parseValueForColumn } from './clipboard/clipboard.js';
+import { copyToClipboard, parseValueForColumn } from './clipboard/clipboard.js';
+import { decodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
 import { exportData, downloadFile, getExportMimeType, getExportExtension } from './export/export.js';
 import type { ExportFormat } from './export/export.js';
 import { readXlsx } from './export/xlsx-reader.js';
@@ -970,7 +971,7 @@ export class FlexTable extends LitElement {
       this._applyImportedSheet(sheet);
     } else if (name.endsWith('.csv') || name.endsWith('.tsv')) {
       const text = await file.text();
-      const rows = parseClipboardText(text);
+      const rows = decodeTsv(text);
       this._applyImportedRows(rows);
     } else {
       console.warn(`flex-table importFromFile: unsupported file type "${file.name}"`);
@@ -2016,7 +2017,7 @@ export class FlexTable extends LitElement {
     const text = await this._readClipboardText();
     if (text == null) return;
 
-    const parsed = parseClipboardText(text);
+    const parsed = decodeTsv(text);
     if (parsed.length === 0) return;
 
     const addedRows = this._expandRowsForPaste(this._activeCell.row, parsed.length);

@@ -13,7 +13,9 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['lit', /^lit\//, 'react', /^react\//, '@lit/react', /^@lit\/react/, 'odata-query'],
+      // 필수 peer `@iyulab/components` 도 번들에 넣지 않는다 — 넣으면 `Locale` 같은 모듈 상태가 사본으로
+      // 갈라져 앱의 `Locale.set()` 이 이 패키지에 닿지 않는다(0.40.1 까지 실측: dist 에 그 사본이 있었다).
+      external: ['lit', /^lit\//, 'react', /^react\//, '@lit/react', /^@lit\/react/, 'odata-query', /^@iyulab\/components(\/|$)/],
     },
   },
 });

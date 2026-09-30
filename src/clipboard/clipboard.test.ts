@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { copyToClipboard, parseClipboardText, parseValueForColumn } from './clipboard.js';
+import { copyToClipboard, parseValueForColumn } from './clipboard.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 
 const cols: ColumnDefinition[] = [
@@ -9,6 +9,12 @@ const cols: ColumnDefinition[] = [
 ];
 
 describe('copyToClipboard', () => {
+  it('quotes a cell with a line break, a tab or a quote so it pastes into a spreadsheet as one cell', () => {
+    const data: DataRow[] = [{ name: 'line1\nline2', value: 'a"b', active: 'x\ty' }];
+    const result = copyToClipboard(data, cols, { startRow: 0, startCol: 0, endRow: 0, endCol: 2 });
+    expect(result).toBe('"line1\nline2"\t"a""b"\t"x\ty"');
+  });
+
   it('should copy single cell', () => {
     const data: DataRow[] = [{ name: 'Alice', value: 42, active: true }];
     const result = copyToClipboard(data, cols, { startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
@@ -28,48 +34,6 @@ describe('copyToClipboard', () => {
     const data: DataRow[] = [{ name: null, value: undefined, active: true }];
     const result = copyToClipboard(data, cols, { startRow: 0, startCol: 0, endRow: 0, endCol: 1 });
     expect(result).toBe('\t');
-  });
-});
-
-describe('parseClipboardText', () => {
-  it('should parse simple TSV', () => {
-    const result = parseClipboardText('A\tB\nC\tD');
-    expect(result).toEqual([['A', 'B'], ['C', 'D']]);
-  });
-
-  it('should handle Windows line endings', () => {
-    const result = parseClipboardText('A\tB\r\nC\tD\r\n');
-    expect(result).toEqual([['A', 'B'], ['C', 'D']]);
-  });
-
-  it('should handle single cell', () => {
-    const result = parseClipboardText('hello');
-    expect(result).toEqual([['hello']]);
-  });
-
-  it('should parse quoted fields with embedded tabs', () => {
-    const result = parseClipboardText('"A\tB"\tC');
-    expect(result).toEqual([['A\tB', 'C']]);
-  });
-
-  it('should parse quoted fields with embedded newlines', () => {
-    const result = parseClipboardText('"line1\nline2"\tB');
-    expect(result).toEqual([['line1\nline2', 'B']]);
-  });
-
-  it('should parse escaped double quotes (RFC 4180)', () => {
-    const result = parseClipboardText('"He said ""hi"""\tB');
-    expect(result).toEqual([['He said "hi"', 'B']]);
-  });
-
-  it('should handle mixed quoted and unquoted fields', () => {
-    const result = parseClipboardText('A\t"B\tC"\tD\n"E"\tF\tG');
-    expect(result).toEqual([['A', 'B\tC', 'D'], ['E', 'F', 'G']]);
-  });
-
-  it('should handle empty quoted fields', () => {
-    const result = parseClipboardText('""\tA');
-    expect(result).toEqual([['', 'A']]);
   });
 });
 

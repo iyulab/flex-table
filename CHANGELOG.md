@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.40.2] - 2026-09-30
+
+### Fixed
+
+- **`Locale.set()` from `@iyulab/components` reaches the table again.** The build copied the parts of
+  `@iyulab/components` this package uses (`Locale`, number and date formatting, the IME check) into its
+  own bundle, so the table kept a separate locale of its own: an app that switched language with
+  `Locale.set()` saw the table's menus, labels and formatted values stay in the language detected at
+  startup (it matched only when `<html lang>` was already right). `@iyulab/components` is now imported,
+  not copied.
+- **Copying cells quotes a cell that contains a line break, a tab or a double quote**, so a multi-line
+  note pastes into Excel or Google Sheets as one cell instead of splitting into rows. Pasting keeps a
+  trailing row of empty cells, which used to be dropped. The clipboard format now comes from
+  `@iyulab/components` (`encodeTsv` / `decodeTsv`).
+
+### Changed
+
+- Requires `@iyulab/components` 1.52.0 or later (peer).
+
 ## [0.40.1] - 2026-09-30
 
 ### Fixed
