@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.40.3] - 2026-09-30
+
+### Fixed
+
+- **Screen readers get the position of a row and a cell in the whole table, not in the rendered part.**
+  The grid renders only the visible rows and columns, so without indices a screen reader announced the
+  first rendered row as row 1 after scrolling. Rows now carry `aria-rowindex` and cells, column headers
+  and footer cells `aria-colindex` (1-based, in display order). `aria-rowcount` now counts the header
+  row and the footer row as the ARIA grid pattern defines it (it counted data rows only, so it is one or
+  two higher than before). The footer row's cells now have the grid cell role — the footer was a row
+  without cells.
+
 ## [0.40.2] - 2026-09-30
 
 ### Fixed

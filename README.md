@@ -67,7 +67,7 @@ npm install @iyulab/flex-table
 - **Data Mode** — Client-side or server-side sorting/filtering (`dataMode`)
 - **Context Menu** — `context-menu` event for custom right-click menus
 - **React Wrapper** — `@iyulab/flex-table/react` subpath for idiomatic React usage
-- **ARIA** — `role="grid"`, `aria-sort`, `aria-selected`, `aria-readonly`, `aria-invalid`, `aria-rowcount`, `aria-colcount`
+- **ARIA** — `role="grid"`, `aria-sort`, `aria-selected`, `aria-readonly`, `aria-invalid`, `aria-rowcount`, `aria-colcount`, `aria-rowindex`, `aria-colindex`
 
 ## Sizing
 
@@ -471,6 +471,7 @@ conformance claim for the success criteria it does not list.
 | SC 2.5.8 Target Size (Minimum) | Sortable headers, column menu buttons, the open column menu, the open filter dropdown (text and number), the find/replace bar, the cell context menu and row selection checkboxes are at least 24×24 CSS px or meet the spacing exception (24px between centers, counting the neighbouring resize handles), and are actually hit at that position. Two small targets use the equivalent-control exception: the 6px column resize handle (every resize is also in the column menu) and the hidden-column marker (its column menu offers **Show: …**) | `tests/browser/target-size.browser.test.ts` (real Chromium) |
 | SC 2.1.1 Keyboard (pointer-cursor check) | Nothing the grid renders shows a pointer cursor without being an interactive element. Sorting by header click also has a keyboard path — the column menu's **Sort ascending** / **Sort descending** (the check alone cannot see that, because the header cell wraps the menu button) | `tests/browser/target-size.browser.test.ts` · `src/flex-table.test.ts` |
 | SC 2.5.7 Dragging Movements | Resizing never requires a drag — the column menu's **Auto-fit width**, **Wider** and **Narrower** are single clicks | `tests/browser/column-menu.browser.test.ts` |
+| SC 1.3.1 Info and Relationships (virtualized grid) | Only the visible rows and columns are in the DOM, so every row carries `aria-rowindex` and every cell `aria-colindex` (1-based, in display order), and the grid's `aria-rowcount` / `aria-colcount` give the full size — the header row is row 1, data rows start at 2, and the footer row (if any) is last. A screen reader announces "row 621 of 10001" after scrolling instead of counting the rows that happen to be rendered. The footer row's cells are grid cells | `tests/browser/aria-grid-index.browser.test.ts` |
 
 Not yet measured: the boolean and date filter dropdowns and the comment popup. Color contrast comes
 from the `@iyulab/components` tokens this package reads.

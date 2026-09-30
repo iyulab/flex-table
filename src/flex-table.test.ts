@@ -426,7 +426,8 @@ describe('FlexTable', () => {
     await el.updateComplete;
 
     expect(el.getAttribute('role')).toBe('grid');
-    expect(el.getAttribute('aria-rowcount')).toBe('1');
+    // 행 수는 머리글 행을 포함한다(APG Data Grid) — 데이터 1행 + 머리글 1행.
+    expect(el.getAttribute('aria-rowcount')).toBe('2');
     expect(el.getAttribute('aria-colcount')).toBe('1');
   });
 
@@ -555,11 +556,11 @@ describe('FlexTable', () => {
     el.columns = [{ key: 'name', label: 'Name' }];
     el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
     await el.updateComplete;
-    expect(el.getAttribute('aria-rowcount')).toBe('3');
+    expect(el.getAttribute('aria-rowcount')).toBe('4'); // 머리글 포함
 
     el.setFilter('name', (v) => v === 'A');
     await el.updateComplete;
-    expect(el.getAttribute('aria-rowcount')).toBe('1');
+    expect(el.getAttribute('aria-rowcount')).toBe('2');
   });
 
   // --- Paste Auto-Expand ---

@@ -1298,7 +1298,8 @@ export class FlexTable extends LitElement {
     if (changedProps.has('stylesheets')) this._syncStylesheets();
     // Update ARIA live attributes — guard against no-op setAttribute calls that
     // can trigger MutationObserver → requestUpdate() in Lit dev mode.
-    const rowCount = String(this._visibleRowCount);
+    // 행 수는 머리글(1)·푸터 행을 포함한다(APG Data Grid) — 인덱스 1 이 머리글, 2 부터 데이터다.
+    const rowCount = String(1 + this._visibleRowCount + (this.footerData ? 1 : 0));
     const colCount = String(this.visibleColumns.length);
     if (this.getAttribute('aria-rowcount') !== rowCount) this.setAttribute('aria-rowcount', rowCount);
     if (this.getAttribute('aria-colcount') !== colCount) this.setAttribute('aria-colcount', colCount);
@@ -2453,6 +2454,7 @@ export class FlexTable extends LitElement {
     return html`
       <div class=${dragClasses}
         role="columnheader"
+        aria-colindex=${colIndex + 1}
         data-col-index=${colIndex}
         style=${cellStyle}
         aria-sort=${ariaSortValue ?? nothing}
@@ -3852,7 +3854,7 @@ export class FlexTable extends LitElement {
       const msg = this.data.length === 0 ? this.emptyMessage : this.noMatchingMessage;
       return html`
         ${loadingOverlay}
-        <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
+        <div class="ft-header" role="row" aria-rowindex="1" style="width: ${tw}px; height: ${hdrH}px;">
           ${selectAllHeader}${rowNumHeader}
           ${headerCells}
           ${dropIndicator}
@@ -3879,7 +3881,7 @@ export class FlexTable extends LitElement {
       ${importOverlay}
       ${loadingOverlay}
       ${this._renderFindPanel()}
-      <div class="ft-header" role="row" style="width: ${tw}px; height: ${hdrH}px;">
+      <div class="ft-header" role="row" aria-rowindex="1" style="width: ${tw}px; height: ${hdrH}px;">
         ${selectAllHeader}${rowNumHeader}
         ${headerCells}
         ${dropIndicator}
@@ -3975,7 +3977,7 @@ export class FlexTable extends LitElement {
         ? `position: absolute; top: 0; left: ${this._getPinnedRightLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
         : `position: absolute; top: 0; left: ${sl + this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
       footerCells.push(html`
-        <div class="ft-footer-cell ft-pinned" style=${pStyle}>
+        <div class="ft-footer-cell ft-pinned" role="gridcell" aria-colindex=${pi + 1} style=${pStyle}>
           ${this.footerData![col.key] ?? ''}</div>
       `);
     }
@@ -3995,13 +3997,13 @@ export class FlexTable extends LitElement {
         cellStyle = `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
       }
       footerCells.push(html`
-        <div class="ft-footer-cell ${isPinned ? 'ft-pinned' : ''}" style=${cellStyle}>
+        <div class="ft-footer-cell ${isPinned ? 'ft-pinned' : ''}" role="gridcell" aria-colindex=${i + 1} style=${cellStyle}>
           ${this.footerData![col.key] ?? ''}</div>
       `);
     }
 
     return html`
-      <div class="ft-footer" role="row" style="width: ${tw}px; height: ${rowH}px;">
+      <div class="ft-footer" role="row" aria-rowindex=${this._visibleRowCount + 2} style="width: ${tw}px; height: ${rowH}px;">
         ${checkboxFooter}${rowNumFooter}
         ${footerCells}
       </div>
@@ -4051,7 +4053,7 @@ export class FlexTable extends LitElement {
     }
 
     return html`
-      <div class="ft-row ${parity} ${isRowSelected ? 'ft-row-selected' : ''}" role="row"
+      <div class="ft-row ${parity} ${isRowSelected ? 'ft-row-selected' : ''}" role="row" aria-rowindex=${index + 2}
         style="top: ${top}px; height: ${rowH}px; width: ${tw}px;">
         ${checkboxCell}${rowNumCell}
         ${cells}
@@ -4101,6 +4103,7 @@ export class FlexTable extends LitElement {
     if (isEditing) {
       return html`
         <div class="ft-cell ft-editing ft-active ${isPinned ? 'ft-pinned' : ''}" role="gridcell"
+          aria-colindex=${colIndex + 1}
           data-col-index=${colIndex}
           aria-selected="true"
           aria-readonly=${readonly ? 'true' : nothing}
@@ -4137,6 +4140,7 @@ export class FlexTable extends LitElement {
     return html`
       <div class=${hasComment ? classes + ' ft-has-comment' : classes}
         role="gridcell"
+        aria-colindex=${colIndex + 1}
         data-col-index=${colIndex}
         aria-selected=${selected ? 'true' : 'false'}
         aria-readonly=${readonly ? 'true' : nothing}
