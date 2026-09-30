@@ -60,7 +60,7 @@ npm install @iyulab/flex-table
 - **Filter Types** — Text search, number range, boolean toggle, date/datetime range picker
 - **Row Operations** — `addRow()`, `deleteRows()`, `updateRows()` with undo
 - **Undo/Redo** — Ctrl+Z / Ctrl+Y for all operations; configurable stack size
-- **Export** — CSV, TSV, JSON; full data or selection-only
+- **Export** — CSV, TSV, JSON, XLSX; full data or selection-only
 - **Dark Theme** — Auto via `prefers-color-scheme`, or manual `theme="dark"`
 - **Row Numbers** — Optional `show-row-numbers` attribute with sticky positioning
 - **Footer Row** — Summary/aggregate row via `footer-data` property
@@ -110,7 +110,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `selectable` | `selectable` | `boolean` | `false` | Enable row-level checkbox selection |
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | Row selection mode |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Client-side or server-side data processing |
-| `footerData` | `footer-data` | `Record<string, string>` | `null` | Footer/summary row data (keys match column keys) |
+| `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Footer/summary row data (keys match column keys) |
 | `emptyMessage` | `empty-message` | `string` | `'No data'` | Shown when `data` is empty |
 | `noMatchingMessage` | `no-matching-message` | `string` | `'No matching data'` | Shown when `data` has rows but every one is hidden by an active column filter |
 | `stylesheets` | — | `CSSStyleSheet[]` | `[]` | Constructable stylesheets adopted into the shadow root alongside the grid's own styles — the escape hatch for styling content a `render` function inserts, since document CSS doesn't cross the shadow boundary. Reassigning swaps the previous set, it doesn't accumulate |
@@ -161,7 +161,7 @@ The `validator` callback returns `null` if valid, or an error message string. On
 
 Both control how a cell's raw value is displayed, but they differ in what they replace:
 
-- **`format`**: a plain string pattern (Excel-style, e.g. `'#,##0.00'`, `'0.00%'`, `'$#,##0'`, `'yyyy-MM-dd'`) or a `(value) => string` function. Only the *displayed text* changes — editing, sorting, filtering, and export all keep operating on the raw underlying value. Use this for number/date/currency display formatting.
+- **`format`**: a plain string pattern (Excel-style, e.g. `'#,##0.00'`, `'0.00%'`, `'$#,##0'`, `'yyyy-MM-dd'`) or a `(value, row, col) => string` function. Only the *displayed text* changes — editing, sorting, filtering, and export all keep operating on the raw underlying value. Use this for number/date/currency display formatting.
 - **`render`**: a `(value, row, col) => TemplateResult | string` function that replaces the cell's rendered content entirely — badges, links, icons, multi-field composites. Sorting/filtering still use the raw value, but the visual output is fully custom.
 
 ```typescript
@@ -242,7 +242,7 @@ Default is `false`, matching `clear-undo-on-data-change`.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `exportToString(format, options?)` | `string` | Export to `'csv'` / `'tsv'` / `'json'`. Pass `{ selectionOnly: true }` for selection range |
+| `exportToString(format, options?)` | `string \| Uint8Array` | Export to `'csv'` / `'tsv'` / `'json'` (a string) or `'xlsx'` (bytes). Pass `{ selectionOnly: true }` for selection range |
 | `exportToFile(format, filename?)` | `void` | Export and trigger browser file download |
 
 ## Events
@@ -253,7 +253,7 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 
 | Event | Detail | Description |
 |-------|--------|-------------|
-| `cell-select` | `{ row, col }` | Cell focus changed |
+| `cell-select` | `{ row, col }` or `null` | Cell focus changed (`null` when no cell is active) |
 | `cell-edit-start` | `{ row, col, key, value }` | Cell editing started |
 | `cell-edit-commit` | `{ row, col, key, oldValue, newValue }` | Cell value committed |
 | `cell-edit-cancel` | `{ row, col }` | Cell edit cancelled (Escape) |
@@ -306,7 +306,7 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 | Event | Detail | Description |
 |-------|--------|-------------|
 | `undo-state-change` | `{ canUndo, canRedo }` | Undo/redo availability changed |
-| `context-menu` | `{ x, y, row, col, dataRow, column }` | Right-click on cell |
+| `context-menu` | `{ x, y, row, col, key, value, rowData }` | Right-click on cell. Cancelable — `preventDefault()` suppresses the built-in menu |
 
 ## CSS Custom Properties
 

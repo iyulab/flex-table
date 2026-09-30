@@ -8,8 +8,16 @@
   no longer jumps to the next match in the find panel. Typing Korean (or another composed language)
   committed the cell before the last syllable was in. Requires `@iyulab/components` 1.51.0 or later.
 
+- **The React wrapper maps every custom event.** `row-reorder`, `column-visibility-change`,
+  `comment-change`, `data-import`, `fill-handle-apply`, `find-replace` and `header-context-menu` had no
+  `on*` prop; they are now `onRowReorder`, `onColumnVisibilityChange`, `onCommentChange`,
+  `onDataImport`, `onFillHandleApply`, `onFindReplace` and `onHeaderContextMenu`.
+
 ### Documentation
 
+- README corrected against the source: the `context-menu` detail and that it is cancelable,
+  `cell-select` can be `null`, XLSX export, the `footerData` type, and the `format` function's
+  arguments.
 - The package now ships an agent skill (`skills/iyulab-flex-table/`) — the component API, the React
   wrapper and data-source hooks, and styling in a form coding agents load directly.
 

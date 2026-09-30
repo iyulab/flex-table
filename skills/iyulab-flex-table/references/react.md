@@ -45,10 +45,12 @@ function Orders({ orders }: { orders: Order[] }) {
 | `onRowDelete` | `row-delete` | `onClipboardError` | `clipboard-error` |
 | `onRowActivate` | `row-activate` | `onUndoStateChange` | `undo-state-change` |
 | `onBatchUpdate` | `batch-update` | `onContextMenu` | `context-menu` |
+| `onRowReorder` | `row-reorder` | `onHeaderContextMenu` | `header-context-menu` |
+| `onColumnVisibilityChange` | `column-visibility-change` | `onCommentChange` | `comment-change` |
+| `onDataImport` | `data-import` | `onFillHandleApply` | `fill-handle-apply` |
+| `onFindReplace` | `find-replace` | | |
 
-Events without a prop (`row-reorder`, `column-visibility-change`, `comment-change`, `data-import`,
-`fill-handle-apply`, `find-replace`, `header-context-menu`) are available through
-`ref.current.addEventListener(...)` in an effect.
+Every custom event of `<flex-table>` has a prop.
 
 Type exports from this entry: `FlexTable`, `FlexTableReactProps`, `ColumnDefinition`, `DataRow`,
 `ColumnType`, `ColumnAlign`, `CellRenderer`, `CellEditor`, `CellValidator`, `ConditionalRule`,

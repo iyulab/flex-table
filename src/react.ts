@@ -32,6 +32,13 @@ const FlexTableReactBase = createComponent({
     onBatchUpdate: 'batch-update' as EventName<CustomEvent>,
     onContextMenu: 'context-menu' as EventName<CustomEvent>,
     onFilterError: 'filter-error' as EventName<CustomEvent>,
+    onRowReorder: 'row-reorder' as EventName<CustomEvent>,
+    onColumnVisibilityChange: 'column-visibility-change' as EventName<CustomEvent>,
+    onCommentChange: 'comment-change' as EventName<CustomEvent>,
+    onDataImport: 'data-import' as EventName<CustomEvent>,
+    onFillHandleApply: 'fill-handle-apply' as EventName<CustomEvent>,
+    onFindReplace: 'find-replace' as EventName<CustomEvent>,
+    onHeaderContextMenu: 'header-context-menu' as EventName<CustomEvent>,
   },
 });
 
