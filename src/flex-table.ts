@@ -20,6 +20,7 @@ import type { ColumnFilter, FilterPredicate } from './core/filtering.js';
 import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './models/types.js';
 import { effectiveAlign } from './models/types.js';
 import type { TemplateResult } from 'lit';
+import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
 type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
@@ -1707,6 +1708,8 @@ export class FlexTable extends LitElement {
   }
 
   private _onEditorKeyDown(e: KeyboardEvent): void {
+    // IME 조합 중인 키(한국어 등)는 입력기의 것이다 — 조합을 확정하는 Enter 로 확정·이동·제출하지 않는다.
+    if (isImeComposing(e)) return;
     // Autocomplete dropdown navigation
     if (this._autocompleteState && this._autocompleteState.candidates.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -1815,7 +1818,7 @@ export class FlexTable extends LitElement {
     if (cols.length === 0 || this._visibleRowCount === 0) return;
 
     // Enter/F2 to start editing; Enter on a non-editable cell fires `row-activate` instead
-    if ((e.key === 'Enter' || e.key === 'F2') && this._activeCell) {
+    if ((e.key === 'Enter' || e.key === 'F2') && this._activeCell && !isImeComposing(e)) {
       e.preventDefault();
       const col = cols[this._activeCell.col];
       if (col && this._isCellEditable(col)) {
@@ -3749,7 +3752,7 @@ export class FlexTable extends LitElement {
         @keydown=${(e: KeyboardEvent) => {
           e.stopPropagation();
           if (e.key === 'Escape') { this._closeFindPanel(); return; }
-          if (e.key === 'Enter' && e.target instanceof HTMLInputElement && e.target.classList.contains('ft-find-input')) {
+          if (e.key === 'Enter' && !isImeComposing(e) && e.target instanceof HTMLInputElement && e.target.classList.contains('ft-find-input')) {
             e.shiftKey ? this._findPrev() : this._findNext();
           }
         }}>

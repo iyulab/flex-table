@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.40.1] - 2026-09-30
+
+### Fixed
+
+- **The Enter that finishes an IME composition no longer commits the cell edit and moves down**, and
+  no longer jumps to the next match in the find panel. Typing Korean (or another composed language)
+  committed the cell before the last syllable was in. Requires `@iyulab/components` 1.51.0 or later.
+
 ## [0.40.0] - 2026-09-28
 
 ### Changed
