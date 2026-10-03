@@ -139,6 +139,15 @@ export interface ColumnDefinition<T = DataRow> {
    * the top of the scrolled view and below frozen rows, so it never scrolls out of sight.
    */
   mergeRepeated?: boolean | ((row: T, previousRow: T, col: ColumnDefinition<T>) => boolean);
+  /**
+   * When the column's content shows.
+   * - `'always'` (default)
+   * - `'hover'`: only while the row is hovered, holds focus, or is selected — for a row-actions
+   *   column (edit, a "more" menu), so a list does not repeat the same buttons on every row. The
+   *   content stays in the DOM and keyboard focus reveals it; on touch screens (no hover) it is
+   *   always shown, and it is not printed.
+   */
+  reveal?: 'always' | 'hover';
 }
 
 /** Style applied to a cell by a conditional formatting rule */

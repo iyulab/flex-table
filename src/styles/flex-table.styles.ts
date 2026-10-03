@@ -912,4 +912,26 @@ export const flexTableStyles = css`
     outline: 2px solid var(--ft-find-color);
     outline-offset: -2px;
   }
+
+  /* reveal: 'hover' — a row-actions column shows while the row is hovered, focused or selected.
+     opacity (not display/visibility) keeps the controls focusable, so Tab reveals them. */
+  .ft-cell.ft-reveal-hover > * {
+    opacity: 0;
+    transition: opacity 0.12s ease-out;
+  }
+  .ft-row:hover .ft-cell.ft-reveal-hover > *,
+  .ft-row:focus-within .ft-cell.ft-reveal-hover > *,
+  .ft-row-selected .ft-cell.ft-reveal-hover > *,
+  .ft-cell.ft-reveal-hover.ft-active > * {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .ft-cell.ft-reveal-hover > * { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ft-cell.ft-reveal-hover > * { transition: none; }
+  }
+  @media print {
+    .ft-cell.ft-reveal-hover > * { visibility: hidden; }
+  }
 `;

@@ -151,6 +151,7 @@ interface ColumnDefinition {
   validator?: CellValidator; // Validate before commit: (value, row, col) => string | null
   conditionalRules?: ConditionalRule[]; // Per-cell style rules, see below
   mergeRepeated?: boolean | ((row, previousRow, col) => boolean); // Merge runs of repeated values, see below
+  reveal?: 'always' | 'hover';   // 'hover': show only while the row is hovered, focused or selected (row actions)
 }
 ```
 
@@ -197,6 +198,18 @@ const columns: ColumnDefinition<Order>[] = [
 ```
 
 Rules are evaluated in order and combined; later matching rules override earlier ones for overlapping style properties.
+
+### Row actions that appear on hover
+
+A column of row actions (edit, a "more" menu) repeated on every row turns a list into a wall of
+buttons. `reveal: 'hover'` shows that column's content only while its row is hovered, holds focus or
+is selected. The controls stay in the DOM and focusable — Tab reveals them — touch screens (no
+hover) always show them, and they are not printed.
+
+```ts
+{ key: 'actions', label: '', width: 72, editable: false, reveal: 'hover',
+  render: (_, row) => html`<u-button size="sm" variant="ghost" aria-label="Edit">…</u-button>` }
+```
 
 ### Merging Repeated Values
 

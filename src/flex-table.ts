@@ -4198,6 +4198,7 @@ export class FlexTable extends LitElement {
       merge ? `ft-merge-${merge.headParity}` : '',
       merge?.continues ? 'ft-merge-continued' : '',
       merge?.opensDown ? 'ft-merge-open' : '',
+      col.reveal === 'hover' ? 'ft-reveal-hover' : '',
     ].filter(Boolean).join(' ');
 
     const dataIdx = this._toDataIndex(rowIndex);

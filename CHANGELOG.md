@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`reveal: 'hover'` column option** — the column's content shows only while its row is hovered,
+  holds focus or is selected; for a row-actions column, so a list does not repeat the same buttons
+  on every row. The content stays focusable (Tab reveals it), touch screens always show it, and it
+  is not printed.
+
 ### Changed
 
 - **The virtual scroll renders only the rows it needs above the view.** The first row in view was
