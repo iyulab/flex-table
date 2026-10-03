@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **The virtual scroll renders only the rows it needs above the view.** The first row in view was
+  computed as if the header and the frozen rows scrolled away with the body, so up to
+  (header + frozen rows) ÷ row height extra rows were rendered above the view — ten with eight frozen
+  rows. What is visible does not change.
+
 ## [0.41.2] - 2026-10-03
 
 ### Fixed

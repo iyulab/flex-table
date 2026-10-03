@@ -1125,10 +1125,13 @@ export class FlexTable extends LitElement {
 
   private get visibleRange(): { start: number; end: number } {
     const fr = this._frozenRowCount;
-    const bodyScrollTop = Math.max(0, this._scrollTop - this.headerHeight - this.frozenRowsHeight);
-    const firstBodyRow = fr + Math.floor(bodyScrollTop / this.rowHeight);
+    // The header and the frozen band are sticky in the scroll flow: body row k sits `k * rowHeight`
+    // below the band's lower edge, and `scrollTop` is how far that edge has scrolled — so the first
+    // body row in view is `scrollTop / rowHeight` (subtracting the band again over-renders above).
+    const firstBodyRow = fr + Math.floor(Math.max(0, this._scrollTop) / this.rowHeight);
     const start = Math.max(fr, firstBodyRow - OVERSCAN);
-    const visibleCount = Math.ceil(this._viewportHeight / this.rowHeight);
+    const bodyViewport = Math.max(0, this._viewportHeight - this.headerHeight - this.frozenRowsHeight);
+    const visibleCount = Math.ceil(bodyViewport / this.rowHeight) + 1;
     const end = Math.min(this._visibleRowCount, firstBodyRow + visibleCount + OVERSCAN);
     return { start, end };
   }
