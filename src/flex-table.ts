@@ -9,7 +9,8 @@ import { RowSelectionState } from './core/row-selection.js';
 import { computeSortedIndices, toggleSort } from './core/sorting.js';
 import { computeFilteredIndices } from './core/filtering.js';
 import { UndoStack } from './core/undo.js';
-import { copyToClipboard, parseValueForColumn } from './clipboard/clipboard.js';
+import { copyToClipboard, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
+import { parseNumber } from '@iyulab/components/dist/utilities/format.js';
 import { decodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
 import { exportData, downloadFile, getExportMimeType, getExportExtension } from './export/export.js';
 import type { ExportFormat } from './export/export.js';
@@ -25,7 +26,8 @@ import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
 type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
-interface NumCondition { op: NumericOp; value: number | null }
+/** `text` is what the person typed — kept so a re-render never rewrites a half-typed `1,` to `1`. */
+interface NumCondition { op: NumericOp; value: number | null; text?: string }
 interface NumberAdvState { cond1: NumCondition; join: 'and' | 'or'; cond2: NumCondition }
 
 const NUM_OP_LABELS: Record<NumericOp, string> = {
@@ -1359,7 +1361,7 @@ export class FlexTable extends LitElement {
     const input = this.shadowRoot?.querySelector('.ft-editor') as HTMLInputElement | null;
     if (input && document.activeElement !== input) {
       input.focus();
-      if (input.type === 'text' || input.type === 'number') {
+      if (input.type === 'text') {
         input.select();
       }
     }
@@ -1645,7 +1647,7 @@ export class FlexTable extends LitElement {
     if (colDef.autocomplete === 'strict' && newValue != null && newValue !== '') {
       const allCandidates = this._getAutocompleteCandidates(colDef, '');
       if (!allCandidates.includes(String(newValue))) {
-        const error = 'Value must be from the existing list';
+        const error = t('notInList');
         this._markCellInvalid(row, col, error);
         this.dispatchEvent(new CustomEvent('validation-error', {
           detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
@@ -1654,6 +1656,19 @@ export class FlexTable extends LitElement {
         }));
         return;
       }
+    }
+
+    // A number column keeps text it cannot read as a number (the paste contract) — but an edit is
+    // the person typing into the cell, so tell them instead of storing text in a number column.
+    if (colDef.type === 'number' && typeof newValue === 'string') {
+      const error = t('notANumber');
+      this._markCellInvalid(row, col, error);
+      this.dispatchEvent(new CustomEvent('validation-error', {
+        detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
+        bubbles: true,
+        composed: true,
+      }));
+      return;
     }
 
     // Run validator if present
@@ -3024,12 +3039,13 @@ export class FlexTable extends LitElement {
           ${(Object.keys(NUM_OP_LABELS) as NumericOp[]).map(op =>
             html`<option value=${op}>${NUM_OP_LABELS[op]}</option>`)}
         </select>
-        <input class="ft-filter-input ft-num-cond-input" type="number" placeholder=${t('valuePlaceholder')}
-          .value=${cond.value != null ? String(cond.value) : ''}
+        <input class="ft-filter-input ft-num-cond-input" type="text" inputmode="decimal" placeholder=${t('valuePlaceholder')}
+          .value=${cond.text ?? (cond.value != null ? editableNumber(cond.value) : '')}
+          aria-invalid=${cond.text && cond.value == null ? 'true' : 'false'}
           @input=${(e: InputEvent) => {
             const raw = (e.target as HTMLInputElement).value;
             const cur = this._numberFilterState.get(key) ?? this._defaultNumState();
-            cur[which] = { ...cur[which], value: raw === '' ? null : Number(raw) };
+            cur[which] = { ...cur[which], text: raw, value: raw.trim() === '' ? null : parseNumber(raw) };
             this._numberFilterState.set(key, cur);
             this._emptyFilterState.delete(key);
             this._applyFilterForKey(key);
@@ -4168,8 +4184,8 @@ export class FlexTable extends LitElement {
 
     if (col.type === 'number') {
       return html`
-        <input class="ft-editor ft-editor-number" type="number"
-          .value=${strValue}
+        <input class="ft-editor ft-editor-number" type="text" inputmode="decimal"
+          .value=${typeof value === 'number' ? editableNumber(value) : strValue}
           @keydown=${this._onEditorKeyDown}
           @blur=${() => this._commitEdit()}>
       `;

@@ -1623,7 +1623,9 @@ describe('FlexTable', () => {
     // Two numeric condition inputs (cond1, cond2) and two op selects
     const numInputs = el.shadowRoot!.querySelectorAll('.ft-num-cond-input');
     expect(numInputs.length).toBe(2);
-    expect((numInputs[0] as HTMLInputElement).type).toBe('number');
+    // Text with a decimal keyboard, not the native number input — that one drops a decimal comma.
+    expect((numInputs[0] as HTMLInputElement).type).toBe('text');
+    expect((numInputs[0] as HTMLInputElement).inputMode).toBe('decimal');
     const opSelects = el.shadowRoot!.querySelectorAll('.ft-num-op-select');
     expect(opSelects.length).toBe(2);
   });
@@ -4194,4 +4196,86 @@ describe('FlexTable', () => {
       expect(items.some(l => /^[a-z][A-Za-z]*$/.test(l))).toBe(false);
     });
   });
+  describe('decimal comma in number entry', () => {
+    afterEach(() => Locale.set('en'));
+
+    async function editNumberCell(el: FlexTable, text: string): Promise<HTMLInputElement> {
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-cell')!.click();
+      await el.updateComplete;
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await el.updateComplete;
+      const editor = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-editor-number')!;
+      expect(editor).toBeTruthy();
+      editor.value = text;
+      editor.dispatchEvent(new Event('input'));
+      editor.dispatchEvent(new Event('blur'));
+      await el.updateComplete;
+      return editor;
+    }
+
+    it('shows the value with the locale decimal separator and reads `1,5` back as 1.5', async () => {
+      Locale.set('de');
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'qty', label: 'Qty', type: 'number', editable: true }];
+      el.data = [{ qty: 2.25 }];
+      await el.updateComplete;
+
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-cell')!.click();
+      await el.updateComplete;
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await el.updateComplete;
+      const editor = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-editor-number')!;
+      expect(editor.value).toBe('2,25');
+
+      editor.value = '1,5';
+      editor.dispatchEvent(new Event('input'));
+      editor.dispatchEvent(new Event('blur'));
+      await el.updateComplete;
+      expect(el.data[0].qty).toBe(1.5);
+    });
+
+    it('rejects text that is not a number instead of storing it in a number column', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'qty', label: 'Qty', type: 'number', editable: true }];
+      el.data = [{ qty: 3 }];
+      await el.updateComplete;
+      const errors: string[] = [];
+      el.addEventListener('validation-error', (e) => errors.push((e as CustomEvent).detail.error));
+
+      await editNumberCell(el, 'abc');
+      expect(el.data[0].qty).toBe(3);
+      expect(errors).toEqual(['Enter a number']);
+      expect(el.shadowRoot!.querySelector('.ft-cell.ft-invalid')).toBeTruthy();
+    });
+
+    it('filters by a decimal-comma condition and keeps the typed text while it is half-typed', async () => {
+      Locale.set('de');
+      const el = createElement();
+      el.showFilters = true;
+      el.columns = [{ key: 'v', label: 'V', type: 'number' }];
+      el.data = [{ v: 1.2 }, { v: 1.6 }, { v: 2 }];
+      await el.updateComplete;
+      await openFilter(el);
+
+      const input = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-num-cond-input')!;
+      input.value = '1,';
+      input.dispatchEvent(new Event('input'));
+      await el.updateComplete;
+      // A re-render must not rewrite `1,` to `1` under the caret.
+      expect(el.shadowRoot!.querySelector<HTMLInputElement>('.ft-num-cond-input')!.value).toBe('1,');
+
+      input.value = '1,5';
+      input.dispatchEvent(new Event('input'));
+      await el.updateComplete;
+      expect(el.filteredRowCount).toBe(2); // >= 1.5 → 1.6 and 2
+
+      input.value = '1,5x';
+      input.dispatchEvent(new Event('input'));
+      await el.updateComplete;
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+    });
+  });
+
 });

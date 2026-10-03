@@ -66,6 +66,7 @@ as `text`). See `references/api.md` for every field.
 - `render` replaces the cell content (`(value, row, col) => TemplateResult | string`) and wins over `format`.
 - `editor` returns a Lit template containing an element with class `ft-editor`; its `.value` is committed.
 - `validator` returns `null` when valid, or an error message (the edit is rejected and `validation-error` fires).
+- `number` cells, the number filter and paste read numbers in the active `Locale` (`1,5` is 1.5 on a comma-decimal page); an edit that is not a number is rejected with `validation-error`.
 - `conditionalRules` applies `{ when, style }` rules in order; later matches override earlier ones.
 - `pinned: 'left' | 'right'` freezes a column during horizontal scroll.
 

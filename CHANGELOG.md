@@ -2,7 +2,26 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Number entry reads a decimal comma.** The `number` cell editor and the number filter used the native
+  number input, which turns `1,5` into `15` or an empty value depending on the browser. Both are now text
+  fields with a decimal keyboard (`inputmode="decimal"`) that read numbers in the active `Locale` — `1,5`
+  is 1.5 and `1.234,5` is 1234.5 on a comma-decimal page — and the editor shows the current value with
+  that locale's decimal separator. The filter keeps what you typed while you type it and marks a condition
+  it cannot read (`aria-invalid`).
+- **Pasting `1,5` into a number column stores 1.5.** Pasted text was read with `Number()`, so a value from a
+  comma-decimal spreadsheet stayed text (`"1,5"`) and sorted and summed wrongly. Plain notation (`1e3`) is
+  still read; text that is not a number still stays text.
+- **The built-in editor rejects text that is not a number** in a `number` column. It fires
+  `validation-error` (`error`: "Enter a number") and keeps the old value, like a validator failure — the
+  native input never let such text through, so a text field must not store it.
+- The strict-autocomplete error ("Value must be from the existing list") follows the `Locale` (new keys
+  `notANumber` and `notInList` in `flexTableLocale`; `ko` built in).
+
 ### Changed
+
+- **The `@iyulab/components` peer is `>=1.54.0`** — number parsing uses its `parseNumber`.
 
 - The optional `@lit/react` peer is `^1.0.8` (was `^1.0.0`) — the version the React entry is tested
   with.

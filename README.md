@@ -157,6 +157,8 @@ The `editor` callback must return a Lit `TemplateResult` containing an input ele
 
 The `validator` callback returns `null` if valid, or an error message string. On failure, the cell shows a red border for 3 seconds and a `validation-error` event is dispatched.
 
+A `number` column's built-in editor reads numbers the way people type them in the active `Locale` — `1,5` on a comma-decimal page is 1.5, `1.234,5` is 1234.5 — and shows the value with that locale's decimal separator. Text that is not a number is rejected the same way as a validator failure (`error` is the localized "Enter a number"). The number filter's conditions and pasted values are read the same way; pasted text that is not a number stays text.
+
 ### `format` vs `render`
 
 Both control how a cell's raw value is displayed, but they differ in what they replace:
@@ -257,7 +259,7 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 | `cell-edit-start` | `{ row, col, key, value }` | Cell editing started |
 | `cell-edit-commit` | `{ row, col, key, oldValue, newValue }` | Cell value committed |
 | `cell-edit-cancel` | `{ row, col }` | Cell edit cancelled (Escape) |
-| `validation-error` | `{ row, col, key, value, error }` | Cell validator rejected value |
+| `validation-error` | `{ row, col, key, value, error }` | Cell validator rejected value, or a `number` cell got text that is not a number |
 
 ### Data Events
 

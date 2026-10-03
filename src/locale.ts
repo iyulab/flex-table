@@ -91,7 +91,10 @@ export type FlexTableMessageKey =
   | 'booleanTrue'
   | 'booleanFalse'
   // 가져오기 오버레이
-  | 'dropFileToImport';
+  | 'dropFileToImport'
+  // 셀 편집 검증
+  | 'notANumber'
+  | 'notInList';
 
 /** 이 패키지의 chrome 문자열 묶음. 소비자가 `register()` 로 언어를 더하거나 문구를 덮을 수 있다. */
 export const flexTableLocale = Locale.namespace<FlexTableMessageKey>('flex-table');
@@ -156,6 +159,9 @@ flexTableLocale.register('en', {
   booleanFalse: 'False',
 
   dropFileToImport: 'Drop file to import (.xlsx / .csv)',
+
+  notANumber: 'Enter a number',
+  notInList: 'Value must be from the existing list',
 });
 
 flexTableLocale.register('ko', {
@@ -218,6 +224,9 @@ flexTableLocale.register('ko', {
   booleanFalse: '거짓',
 
   dropFileToImport: '가져올 파일을 놓으세요 (.xlsx / .csv)',
+
+  notANumber: '숫자를 입력하세요',
+  notInList: '목록에 있는 값이어야 합니다',
 });
 
 /** 짧은 조회 별칭 — 렌더 코드가 읽히게 유지한다. */
