@@ -95,6 +95,7 @@ export type FlexTableMessageKey =
   // 셀 편집 검증
   | 'notANumber'
   | 'notADate'
+  | 'notADateTime'
   | 'notInList';
 
 /** 이 패키지의 chrome 문자열 묶음. 소비자가 `register()` 로 언어를 더하거나 문구를 덮을 수 있다. */
@@ -163,6 +164,7 @@ flexTableLocale.register('en', {
 
   notANumber: 'Enter a number',
   notADate: 'Enter a date as YYYY-MM-DD',
+  notADateTime: 'Enter a date and time as YYYY-MM-DD HH:mm',
   notInList: 'Value must be from the existing list',
 });
 
@@ -229,6 +231,7 @@ flexTableLocale.register('ko', {
 
   notANumber: '숫자를 입력하세요',
   notADate: '날짜를 YYYY-MM-DD 로 입력하세요',
+  notADateTime: '날짜와 시간을 YYYY-MM-DD HH:mm 으로 입력하세요',
   notInList: '목록에 있는 값이어야 합니다',
 });
 

@@ -4332,4 +4332,58 @@ describe('FlexTable', () => {
     });
   });
 
+  describe('datetime editor', () => {
+    it('shows YYYY-MM-DD HH:mm, reads a typed date and time, and rejects an impossible time', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'at', label: 'At', type: 'datetime', editable: true }];
+      el.data = [{ at: '2026-10-02T14:05' }];
+      await el.updateComplete;
+      const errors: string[] = [];
+      el.addEventListener('validation-error', (e) => errors.push((e as CustomEvent).detail.error));
+
+      const open = async () => {
+        el.shadowRoot!.querySelector<HTMLElement>('.ft-cell')!.click();
+        await el.updateComplete;
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+        await el.updateComplete;
+        const editor = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-editor-datetime')!;
+        expect(editor).toBeTruthy();
+        return editor;
+      };
+
+      const editor = await open();
+      expect(editor.type).toBe('text');
+      expect(editor.value).toBe('2026-10-02 14:05');
+      editor.value = '2026-12-31 9:30';
+      editor.dispatchEvent(new Event('input'));
+      editor.dispatchEvent(new Event('blur'));
+      await el.updateComplete;
+      expect(el.data[0].at).toBe('2026-12-31T09:30');
+      expect(errors).toEqual([]);
+    });
+
+    it('rejects an impossible time and keeps the old value', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'at', label: 'At', type: 'datetime', editable: true }];
+      el.data = [{ at: '2026-10-02T14:05' }];
+      await el.updateComplete;
+      const errors: string[] = [];
+      el.addEventListener('validation-error', (e) => errors.push((e as CustomEvent).detail.error));
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-cell')!.click();
+      await el.updateComplete;
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await el.updateComplete;
+      const editor = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-editor-datetime')!;
+      expect(editor).toBeTruthy();
+      editor.value = '2026-12-31 25:00';
+      editor.dispatchEvent(new Event('input'));
+      editor.dispatchEvent(new Event('blur'));
+      await el.updateComplete;
+      expect(el.data[0].at).toBe('2026-10-02T14:05');
+      expect(errors).toEqual(['Enter a date and time as YYYY-MM-DD HH:mm']);
+    });
+  });
+
 });

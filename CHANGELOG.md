@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **The `datetime` cell editor shows and takes `YYYY-MM-DD HH:mm` in every browser language.** It was the
+  native `datetime-local` input, which follows the browser's UI language. It is now a text box in local
+  time that reads `2026-10-02 14:05` (`9:05`, a date alone is midnight), stores the local
+  `YYYY-MM-DDTHH:mm` string as before, and rejects text it cannot read with `validation-error`
+  ("Enter a date and time as YYYY-MM-DD HH:mm", new `flexTableLocale` key `notADateTime`).
+- **Pasting `2026-10-02 14:05` into a datetime column stores `2026-10-02T14:05`.** Other text stays text.
+
+### Changed
+
+- **The `@iyulab/components` peer is `>=1.56.0`** — date-times are read with its `parseDateTime`.
+
 ## [0.41.1] - 2026-10-03
 
 ### Fixed

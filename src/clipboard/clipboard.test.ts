@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { afterEach } from 'vitest';
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
-import { copyToClipboard, editableDate, editableNumber, parseValueForColumn } from './clipboard.js';
+import { copyToClipboard, editableDate, editableDateTime, editableNumber, parseValueForColumn } from './clipboard.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 
 const cols: ColumnDefinition[] = [
@@ -97,5 +97,26 @@ describe('dates', () => {
     expect(editableDate(new Date(2026, 9, 2))).toBe('2026-10-02');
     expect(editableDate(null)).toBe('');
     expect(editableDate('soon')).toBe('soon');
+  });
+});
+
+describe('date-times', () => {
+  const col: ColumnDefinition = { key: 'at', label: 'At', type: 'datetime' };
+
+  it('reads pasted date-times into local ISO and keeps other text', () => {
+    expect(parseValueForColumn('2026-10-02 14:05', col)).toBe('2026-10-02T14:05');
+    expect(parseValueForColumn('2026-10-02', col)).toBe('2026-10-02T00:00');
+    expect(parseValueForColumn('tomorrow', col)).toBe('tomorrow');
+  });
+
+  it('writes a date-time for editing in local time', () => {
+    expect(editableDateTime('2026-10-02T14:05')).toBe('2026-10-02 14:05');
+    expect(editableDateTime('2026-10-02T14:05:30')).toBe('2026-10-02 14:05');
+    expect(editableDateTime(new Date(2026, 9, 2, 8, 7))).toBe('2026-10-02 08:07');
+    const utc = new Date(Date.UTC(2026, 9, 2, 0, 0));
+    const pad = (n: number) => String(n).padStart(2, '0');
+    expect(editableDateTime('2026-10-02T00:00:00Z'))
+      .toBe(`${utc.getFullYear()}-${pad(utc.getMonth() + 1)}-${pad(utc.getDate())} ${pad(utc.getHours())}:${pad(utc.getMinutes())}`);
+    expect(editableDateTime('')).toBe('');
   });
 });

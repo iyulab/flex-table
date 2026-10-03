@@ -9,8 +9,8 @@ import { RowSelectionState } from './core/row-selection.js';
 import { computeSortedIndices, toggleSort } from './core/sorting.js';
 import { computeFilteredIndices } from './core/filtering.js';
 import { UndoStack } from './core/undo.js';
-import { copyToClipboard, editableDate, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
-import { dateTextPattern, parseDate, parseNumber } from '@iyulab/components/dist/utilities/format.js';
+import { copyToClipboard, editableDate, editableDateTime, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
+import { dateTextPattern, parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
 import { decodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
 import { exportData, downloadFile, getExportMimeType, getExportExtension } from './export/export.js';
 import type { ExportFormat } from './export/export.js';
@@ -1663,9 +1663,10 @@ export class FlexTable extends LitElement {
     // A number column keeps text it cannot read as a number (the paste contract) — but an edit is
     // the person typing into the cell, so tell them instead of storing text in a number column.
     const unreadable = (colDef.type === 'number' && typeof newValue === 'string')
-      || (colDef.type === 'date' && typeof newValue === 'string' && parseDate(newValue) === null);
+      || (colDef.type === 'date' && typeof newValue === 'string' && parseDate(newValue) === null)
+      || (colDef.type === 'datetime' && typeof newValue === 'string' && parseDateTime(newValue) === null);
     if (unreadable) {
-      const error = t(colDef.type === 'number' ? 'notANumber' : 'notADate');
+      const error = t(colDef.type === 'number' ? 'notANumber' : colDef.type === 'date' ? 'notADate' : 'notADateTime');
       this._markCellInvalid(row, col, error);
       this.dispatchEvent(new CustomEvent('validation-error', {
         detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
@@ -4253,10 +4254,10 @@ export class FlexTable extends LitElement {
     }
 
     if (col.type === 'datetime') {
-      const dtStr = this._toDateTimeInputValue(value);
+      // Same reason as `date`: the native datetime-local input shows the browser's UI language.
       return html`
-        <input class="ft-editor" type="datetime-local"
-          .value=${dtStr}
+        <input class="ft-editor ft-editor-datetime" type="text" placeholder=${`${dateTextPattern()} HH:mm`}
+          .value=${editableDateTime(value)}
           @keydown=${this._onEditorKeyDown}
           @blur=${() => this._commitEdit()}>
       `;
@@ -4308,20 +4309,6 @@ export class FlexTable extends LitElement {
         @keydown=${this._onEditorKeyDown}
         @blur=${() => this._commitEdit()}>
     `;
-  }
-
-  /** Convert value to YYYY-MM-DD for date input (local timezone) */
-  /** Convert value to YYYY-MM-DDTHH:mm for datetime-local input (local timezone) */
-  private _toDateTimeInputValue(value: unknown): string {
-    if (!value) return '';
-    const d = value instanceof Date ? value : new Date(String(value));
-    if (isNaN(d.getTime())) return '';
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const hh = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
   }
 }
 

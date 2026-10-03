@@ -72,7 +72,7 @@
     "odata-query": "^8.1.0"
   },
   "peerDependencies": {
-    "@iyulab/components": ">=1.55.0",
+    "@iyulab/components": ">=1.56.0",
     "@lit/react": "^1.0.8",
     "react": "^18.0.0 || ^19.0.0"
   },
