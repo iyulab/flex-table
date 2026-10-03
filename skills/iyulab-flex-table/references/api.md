@@ -65,6 +65,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `editor` | `CellEditor<T>` | `(value, row, col) => TemplateResult` with an `.ft-editor` element |
 | `validator` | `CellValidator<T>` | `(value, row, col) => string \| null \| undefined` |
 | `conditionalRules` | `ConditionalRule<T>[]` | `{ when(value, row, col): boolean, style: CellStyle }` |
+| `mergeRepeated` | `boolean \| (row, previousRow, col) => boolean` | Draw a run of repeated values as one merged cell; values, sort, filter and export are unchanged |
 
 `CellStyle` = `{ background?, color?, fontWeight?: 'bold' | 'normal', fontStyle?: 'italic' | 'normal' }`.
 

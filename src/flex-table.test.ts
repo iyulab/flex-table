@@ -2056,18 +2056,18 @@ describe('FlexTable', () => {
     await el.updateComplete;
 
     const editor = el.shadowRoot!.querySelector('.ft-editor') as HTMLInputElement;
-    if (editor) {
-      editor.value = '-5';
-      editor.dispatchEvent(new Event('input'));
-      // Blur to commit
-      editor.dispatchEvent(new Event('blur'));
-      await el.updateComplete;
+    // No silent guard: a missing editor must fail the test, not skip its assertions.
+    expect(editor).toBeTruthy();
+    editor.value = '-5';
+    editor.dispatchEvent(new Event('input'));
+    // Blur to commit
+    editor.dispatchEvent(new Event('blur'));
+    await el.updateComplete;
 
-      // Check that the cell got the ft-invalid class
-      const invalidCell = el.shadowRoot!.querySelector('.ft-cell.ft-invalid');
-      expect(invalidCell).toBeTruthy();
-      expect(invalidCell?.getAttribute('aria-invalid')).toBe('true');
-    }
+    // Check that the cell got the ft-invalid class
+    const invalidCell = el.shadowRoot!.querySelector('.ft-cell.ft-invalid');
+    expect(invalidCell).toBeTruthy();
+    expect(invalidCell?.getAttribute('aria-invalid')).toBe('true');
   });
 
   // --- Column Selection ---

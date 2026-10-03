@@ -128,6 +128,17 @@ export interface ColumnDefinition<T = DataRow> {
   format?: string | ((value: unknown, row: T, col: ColumnDefinition<T>) => string);
   /** Per-column conditional formatting rules applied during cell rendering */
   conditionalRules?: ConditionalRule<T>[];
+  /**
+   * Draws a run of repeated values in this column as one merged cell — the value shows once, in
+   * the first row of the run, and the lines between the run's rows are dropped. Every row keeps its
+   * own value: sorting, filtering, copying, export and screen readers see each row as before.
+   * - `true`: a row continues the run when its value equals the previous row's (empty values never merge).
+   * - Function: `(row, previousRow, col) => boolean` — e.g. merge customer cells only within one
+   *   order: `(row, prev) => row.orderId === prev.orderId`.
+   * Rows are compared in display order (after sorting and filtering). The value is drawn again at
+   * the top of the scrolled view and below frozen rows, so it never scrolls out of sight.
+   */
+  mergeRepeated?: boolean | ((row: T, previousRow: T, col: ColumnDefinition<T>) => boolean);
 }
 
 /** Style applied to a cell by a conditional formatting rule */

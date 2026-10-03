@@ -256,6 +256,15 @@ export const flexTableStyles = css`
   .ft-row-even:hover .ft-cell { background: var(--ft-row-hover-bg); }
   .ft-row-odd:hover .ft-cell { background: var(--ft-row-odd-hover-bg); }
 
+  /* mergeRepeated — one surface per run: the row it starts on sets the background, the lines
+     inside the run go, and the repeated values stay in the DOM (copy, find and screen readers
+     read them) but are not painted. A selected or active cell paints its value again. */
+  .ft-row-even .ft-cell.ft-merge-even:not(.ft-invalid), .ft-row-odd .ft-cell.ft-merge-even:not(.ft-invalid) { background: var(--ft-row-even-bg); }
+  .ft-row-even .ft-cell.ft-merge-odd:not(.ft-invalid), .ft-row-odd .ft-cell.ft-merge-odd:not(.ft-invalid) { background: var(--ft-row-odd-bg); }
+  .ft-cell.ft-merge-open { border-bottom-color: transparent; }
+  .ft-cell.ft-merge-continued:not(.ft-active):not(.ft-selected) { color: transparent; }
+  .ft-cell.ft-merge-continued:not(.ft-active):not(.ft-selected) > :not(.ft-comment-indicator) { opacity: 0; }
+
   .ft-cell.ft-active {
     outline: 2px solid var(--ft-active-color);
     outline-offset: -2px;

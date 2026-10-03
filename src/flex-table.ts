@@ -26,6 +26,8 @@ import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
 type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
+/** How a `mergeRepeated` cell joins the cells above and below it in its column. */
+interface MergeState { continues: boolean; opensDown: boolean; headParity: 'even' | 'odd' }
 /** `text` is what the person typed — kept so a re-render never rewrites a half-typed `1,` to `1`. */
 interface NumCondition { op: NumericOp; value: number | null; text?: string }
 interface NumberAdvState { cond1: NumCondition; join: 'and' | 'or'; cond2: NumCondition }
@@ -4062,10 +4064,10 @@ export class FlexTable extends LitElement {
     // Data cells: pinned outside range + visible range
     const cells = [];
     for (const pi of pinnedIndices) {
-      cells.push(this._renderCell(row, cols[pi], index, pi));
+      cells.push(this._renderCell(row, cols[pi], index, pi, this._mergeState(cols[pi], index)));
     }
     for (let i = colStart; i < colEnd; i++) {
-      cells.push(this._renderCell(row, cols[i], index, i));
+      cells.push(this._renderCell(row, cols[i], index, i, this._mergeState(cols[i], index)));
     }
 
     return html`
@@ -4077,7 +4079,50 @@ export class FlexTable extends LitElement {
     `;
   }
 
-  private _renderCell(row: DataRow, col: ColumnDefinition, rowIndex: number, colIndex: number) {
+  /** Does visual row `index` continue the `mergeRepeated` run of the row above it? */
+  private _continuesRun(col: ColumnDefinition, index: number): boolean {
+    const rule = col.mergeRepeated;
+    if (!rule || index <= 0 || index >= this._visibleRowCount) return false;
+    const row = this.data[this._toDataIndex(index)];
+    const prev = this.data[this._toDataIndex(index - 1)];
+    if (!row || !prev) return false;
+    if (typeof rule === 'function') return rule(row, prev, col);
+    const value = row[col.key];
+    if (value == null || value === '') return false;
+    const before = prev[col.key];
+    return value instanceof Date && before instanceof Date
+      ? value.getTime() === before.getTime()
+      : Object.is(value, before);
+  }
+
+  /**
+   * Rows where a run starts again whatever the row above holds: the first body row below the
+   * frozen band, and the first body row in view — otherwise a run scrolled half out of view
+   * shows no value at all.
+   */
+  private _isForcedRunHead(index: number): boolean {
+    const fr = this._frozenRowCount;
+    if (index === fr) return true;
+    if (index < fr) return false;
+    // The header and the frozen band are sticky in the scroll flow, so body row k sits
+    // `k * rowHeight` below the band's lower edge and `scrollTop` is how far that edge has
+    // scrolled. The head goes on the first row that is at least half in view.
+    return index === fr + Math.floor((this._scrollTop + this.rowHeight / 2) / this.rowHeight);
+  }
+
+  /** How a `mergeRepeated` cell joins its neighbours, or `null` when the column does not merge. */
+  private _mergeState(col: ColumnDefinition, index: number): MergeState | null {
+    if (!col.mergeRepeated) return null;
+    const continues = !this._isForcedRunHead(index) && this._continuesRun(col, index);
+    const opensDown = !this._isForcedRunHead(index + 1) && this._continuesRun(col, index + 1);
+    if (!continues && !opensDown) return null;
+    // The run takes the background of the row it starts on, so the merged cell is one surface.
+    let head = index;
+    while (head > 0 && !this._isForcedRunHead(head) && this._continuesRun(col, head)) head--;
+    return { continues, opensDown, headParity: head % 2 === 0 ? 'even' : 'odd' };
+  }
+
+  private _renderCell(row: DataRow, col: ColumnDefinition, rowIndex: number, colIndex: number, merge: MergeState | null = null) {
     const isActive = this._activeCell?.row === rowIndex && this._activeCell?.col === colIndex;
     const isEditing = this._editingCell?.row === rowIndex && this._editingCell?.col === colIndex;
     const isSelected = this._selection.isInRange(rowIndex, colIndex);
@@ -4144,6 +4189,9 @@ export class FlexTable extends LitElement {
       isPinned ? 'ft-pinned' : '',
       validationError ? 'ft-invalid' : '',
       isFindCurrent ? 'ft-find-current' : (isFindMatch ? 'ft-find-match' : ''),
+      merge ? `ft-merge-${merge.headParity}` : '',
+      merge?.continues ? 'ft-merge-continued' : '',
+      merge?.opensDown ? 'ft-merge-open' : '',
     ].filter(Boolean).join(' ');
 
     const dataIdx = this._toDataIndex(rowIndex);

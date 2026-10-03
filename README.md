@@ -150,6 +150,7 @@ interface ColumnDefinition {
   editor?: CellEditor;     // Custom cell editor: (value, row, col) => TemplateResult
   validator?: CellValidator; // Validate before commit: (value, row, col) => string | null
   conditionalRules?: ConditionalRule[]; // Per-cell style rules, see below
+  mergeRepeated?: boolean | ((row, previousRow, col) => boolean); // Merge runs of repeated values, see below
 }
 ```
 
@@ -194,6 +195,22 @@ const columns: ColumnDefinition<Order>[] = [
 ```
 
 Rules are evaluated in order and combined; later matching rules override earlier ones for overlapping style properties.
+
+### Merging Repeated Values
+
+A list of child rows under a parent — order lines under an order, boxes under a shipment — repeats the parent's columns on every line. `mergeRepeated` draws each run of repeated values as one merged cell: the value shows once, on the run's first row, and the lines between the run's rows are dropped.
+
+```typescript
+const columns: ColumnDefinition<OrderLine>[] = [
+  { key: 'orderNo', label: 'Order', mergeRepeated: true },
+  // Two adjacent orders can share a customer — merge only within one order.
+  { key: 'customer', label: 'Customer', mergeRepeated: (row, prev) => row.orderNo === prev.orderNo },
+  { key: 'product', label: 'Product' },
+  { key: 'qty', label: 'Qty', type: 'number' },
+];
+```
+
+Every row keeps its own value. Sorting, filtering, copying, CSV/XLSX export and screen readers see each row exactly as without merging — a filter that drops a run's first row leaves the rest of the run labelled, and an export pivots. Rows are compared in display order, so sort by the merged column (or keep the server's order) for runs to form. The value is drawn again on the first row in view and on the first row below frozen rows, so scrolling or paging through a run never hides it. With `true`, empty values (`null`, `undefined`, `''`) never merge.
 
 ## Methods
 

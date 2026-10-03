@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`mergeRepeated` column option — a run of repeated values reads as one merged cell.** For lists of
+  child rows under a parent (order lines under an order, boxes under a shipment), the parent's columns
+  no longer repeat on every line: the value shows once, on the run's first row, the lines inside the run
+  are dropped, and the run keeps one background. `true` merges equal values (empty values never merge);
+  a function `(row, previousRow, col) => boolean` decides by any rule — e.g. merge a customer only within
+  one order. Every row keeps its own value, so sorting, filtering, copying, export and screen readers
+  see each row as before. Rows are compared in display order; the value is drawn again on the first row
+  in view and below frozen rows, so scrolling or paging through a run never hides it.
+
 ### Fixed
 
 - **Number entry reads a decimal comma.** The `number` cell editor and the number filter used the native
