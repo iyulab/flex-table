@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **The `date` cell editor shows and takes `YYYY-MM-DD` in every browser language.** It was the native
+  date input, which shows the browser's UI language (`10/02/2026` in an English browser) whatever the
+  page's `Locale`. It is now a text box that also reads `2026/10/2`, `20261002`, `2026. 10. 2.` and
+  `10-02` (this year), stores the ISO date string as before, and rejects text that is not a date with
+  `validation-error` ("Enter a date as YYYY-MM-DD", new `flexTableLocale` key `notADate`).
+- **The editor no longer shifts a date string by a day.** It read `'2026-10-02'` with `new Date()`
+  (UTC midnight), which is the previous day west of UTC.
+- **Pasting `2026/10/2` into a date column stores `2026-10-02`.** Text that is not a date still stays text.
+
+### Changed
+
+- **The `@iyulab/components` peer is `>=1.55.0`** — dates are read with its `parseDate`.
+
 ## [0.41.0] - 2026-10-03
 
 ### Added

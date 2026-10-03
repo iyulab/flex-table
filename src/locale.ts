@@ -94,6 +94,7 @@ export type FlexTableMessageKey =
   | 'dropFileToImport'
   // 셀 편집 검증
   | 'notANumber'
+  | 'notADate'
   | 'notInList';
 
 /** 이 패키지의 chrome 문자열 묶음. 소비자가 `register()` 로 언어를 더하거나 문구를 덮을 수 있다. */
@@ -161,6 +162,7 @@ flexTableLocale.register('en', {
   dropFileToImport: 'Drop file to import (.xlsx / .csv)',
 
   notANumber: 'Enter a number',
+  notADate: 'Enter a date as YYYY-MM-DD',
   notInList: 'Value must be from the existing list',
 });
 
@@ -226,6 +228,7 @@ flexTableLocale.register('ko', {
   dropFileToImport: '가져올 파일을 놓으세요 (.xlsx / .csv)',
 
   notANumber: '숫자를 입력하세요',
+  notADate: '날짜를 YYYY-MM-DD 로 입력하세요',
   notInList: '목록에 있는 값이어야 합니다',
 });
 

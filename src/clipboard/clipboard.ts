@@ -2,7 +2,7 @@ import type { CellRange } from '../core/selection.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 
 import { encodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
-import { parseNumber } from '@iyulab/components/dist/utilities/format.js';
+import { parseDate, parseNumber } from '@iyulab/components/dist/utilities/format.js';
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 
 /**
@@ -42,6 +42,9 @@ export function parseValueForColumn(raw: string, col: ColumnDefinition): unknown
     }
     case 'boolean':
       return raw.toLowerCase() === 'true' || raw === '1';
+    case 'date':
+      // `2026/10/2`, `20261002` and `2026. 10. 2.` become `2026-10-02`; text that is not a date stays text.
+      return parseDate(raw) ?? raw;
     default:
       return raw;
   }
@@ -58,4 +61,20 @@ export function editableNumber(value: number): string {
   if (!Number.isFinite(value) || plain.includes('e')) return plain;
   const decimal = new Intl.NumberFormat(Locale.get()).formatToParts(1.5).find(p => p.type === 'decimal')?.value;
   return decimal && decimal !== '.' ? plain.replace('.', decimal) : plain;
+}
+
+/**
+ * A `date` cell's value as `YYYY-MM-DD` for editing — the form the editor reads back. A date string
+ * keeps its own calendar day (`new Date('2026-10-02')` would be UTC midnight, the day before in
+ * negative offsets); a `Date` uses its local day. Anything else is shown as it is.
+ */
+export function editableDate(value: unknown): string {
+  if (value == null || value === '') return '';
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return '';
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+  const text = String(value);
+  const iso = /^(\d{4}-\d{2}-\d{2})(?:$|T)/.exec(text);
+  return iso ? iso[1] : text;
 }

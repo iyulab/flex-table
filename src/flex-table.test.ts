@@ -4278,4 +4278,58 @@ describe('FlexTable', () => {
     });
   });
 
+  describe('date editor', () => {
+    async function openEditor(el: FlexTable): Promise<HTMLInputElement> {
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-cell')!.click();
+      await el.updateComplete;
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await el.updateComplete;
+      const editor = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-editor-date')!;
+      expect(editor).toBeTruthy();
+      return editor;
+    }
+
+    it('is a text box showing YYYY-MM-DD, and keeps the calendar day of a date string', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'd', label: 'D', type: 'date', editable: true }];
+      el.data = [{ d: '2026-10-02' }];
+      await el.updateComplete;
+      const editor = await openEditor(el);
+      expect(editor.type).toBe('text');
+      expect(editor.value).toBe('2026-10-02');
+    });
+
+    it('reads typed short forms into an ISO date', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'd', label: 'D', type: 'date', editable: true }];
+      el.data = [{ d: '2026-10-02' }];
+      await el.updateComplete;
+      const editor = await openEditor(el);
+      editor.value = '20261231';
+      editor.dispatchEvent(new Event('input'));
+      editor.dispatchEvent(new Event('blur'));
+      await el.updateComplete;
+      expect(el.data[0].d).toBe('2026-12-31');
+    });
+
+    it('rejects text that is not a date and keeps the old value', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'd', label: 'D', type: 'date', editable: true }];
+      el.data = [{ d: '2026-10-02' }];
+      await el.updateComplete;
+      const errors: string[] = [];
+      el.addEventListener('validation-error', (e) => errors.push((e as CustomEvent).detail.error));
+      const editor = await openEditor(el);
+      editor.value = '2026-02-30';
+      editor.dispatchEvent(new Event('input'));
+      editor.dispatchEvent(new Event('blur'));
+      await el.updateComplete;
+      expect(el.data[0].d).toBe('2026-10-02');
+      expect(errors).toEqual(['Enter a date as YYYY-MM-DD']);
+    });
+  });
+
 });

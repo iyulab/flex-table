@@ -9,8 +9,8 @@ import { RowSelectionState } from './core/row-selection.js';
 import { computeSortedIndices, toggleSort } from './core/sorting.js';
 import { computeFilteredIndices } from './core/filtering.js';
 import { UndoStack } from './core/undo.js';
-import { copyToClipboard, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
-import { parseNumber } from '@iyulab/components/dist/utilities/format.js';
+import { copyToClipboard, editableDate, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
+import { dateTextPattern, parseDate, parseNumber } from '@iyulab/components/dist/utilities/format.js';
 import { decodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
 import { exportData, downloadFile, getExportMimeType, getExportExtension } from './export/export.js';
 import type { ExportFormat } from './export/export.js';
@@ -1662,8 +1662,10 @@ export class FlexTable extends LitElement {
 
     // A number column keeps text it cannot read as a number (the paste contract) — but an edit is
     // the person typing into the cell, so tell them instead of storing text in a number column.
-    if (colDef.type === 'number' && typeof newValue === 'string') {
-      const error = t('notANumber');
+    const unreadable = (colDef.type === 'number' && typeof newValue === 'string')
+      || (colDef.type === 'date' && typeof newValue === 'string' && parseDate(newValue) === null);
+    if (unreadable) {
+      const error = t(colDef.type === 'number' ? 'notANumber' : 'notADate');
       this._markCellInvalid(row, col, error);
       this.dispatchEvent(new CustomEvent('validation-error', {
         detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
@@ -4240,10 +4242,11 @@ export class FlexTable extends LitElement {
     }
 
     if (col.type === 'date') {
-      const dateStr = this._toDateInputValue(value);
+      // A text box, not the native date input: that one shows the browser's UI language
+      // (`10/02/2026` in an English browser) and cannot be typed into the same way everywhere.
       return html`
-        <input class="ft-editor" type="date"
-          .value=${dateStr}
+        <input class="ft-editor ft-editor-date" type="text" inputmode="numeric" placeholder=${dateTextPattern()}
+          .value=${editableDate(value)}
           @keydown=${this._onEditorKeyDown}
           @blur=${() => this._commitEdit()}>
       `;
@@ -4308,16 +4311,6 @@ export class FlexTable extends LitElement {
   }
 
   /** Convert value to YYYY-MM-DD for date input (local timezone) */
-  private _toDateInputValue(value: unknown): string {
-    if (!value) return '';
-    const d = value instanceof Date ? value : new Date(String(value));
-    if (isNaN(d.getTime())) return '';
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-
   /** Convert value to YYYY-MM-DDTHH:mm for datetime-local input (local timezone) */
   private _toDateTimeInputValue(value: unknown): string {
     if (!value) return '';

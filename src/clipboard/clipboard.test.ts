@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { afterEach } from 'vitest';
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
-import { copyToClipboard, editableNumber, parseValueForColumn } from './clipboard.js';
+import { copyToClipboard, editableDate, editableNumber, parseValueForColumn } from './clipboard.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 
 const cols: ColumnDefinition[] = [
@@ -78,5 +78,24 @@ describe('locale-aware number parsing', () => {
     Locale.set('en');
     expect(editableNumber(1234.5)).toBe('1234.5');
     expect(editableNumber(1e21)).toBe('1e+21');
+  });
+});
+
+describe('dates', () => {
+  const dateCol: ColumnDefinition = { key: 'd', label: 'D', type: 'date' };
+
+  it('reads pasted dates into ISO and keeps text that is not a date', () => {
+    expect(parseValueForColumn('2026/10/2', dateCol)).toBe('2026-10-02');
+    expect(parseValueForColumn('20261002', dateCol)).toBe('2026-10-02');
+    expect(parseValueForColumn('2026-10-02', dateCol)).toBe('2026-10-02');
+    expect(parseValueForColumn('next week', dateCol)).toBe('next week');
+  });
+
+  it('writes a date for editing without a timezone shift', () => {
+    expect(editableDate('2026-10-02')).toBe('2026-10-02');
+    expect(editableDate('2026-10-02T23:30:00Z')).toBe('2026-10-02');
+    expect(editableDate(new Date(2026, 9, 2))).toBe('2026-10-02');
+    expect(editableDate(null)).toBe('');
+    expect(editableDate('soon')).toBe('soon');
   });
 });
