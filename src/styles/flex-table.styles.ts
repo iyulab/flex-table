@@ -917,7 +917,7 @@ export const flexTableStyles = css`
      opacity (not display/visibility) keeps the controls focusable, so Tab reveals them. */
   .ft-cell.ft-reveal-hover > * {
     opacity: 0;
-    transition: opacity 0.12s ease-out;
+    transition: opacity var(--u-duration-fast, 140ms) ease-out;
   }
   .ft-row:hover .ft-cell.ft-reveal-hover > *,
   .ft-row:focus-within .ft-cell.ft-reveal-hover > *,
