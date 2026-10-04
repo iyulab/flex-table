@@ -4,7 +4,6 @@ description: Spreadsheet-grade data grid web component (`<flex-table>`, built wi
 license: MIT
 metadata:
   author: iyulab
-  version: "0.40.1"
 ---
 
 # @iyulab/flex-table
