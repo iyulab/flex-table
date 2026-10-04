@@ -102,7 +102,7 @@ function Orders() {
 | `fixedFilter` | — | odata-query filter object, always applied; value change resets to page 0 (compared by value) |
 | `baseUrl` | `window.location.origin` | For proxy/BFF setups |
 | `fetcher` | global `fetch` | `(input, init) => Promise<Response>`; keep stable |
-| `onUnauthorized` | — | `(response) => void` on 401/403; keep stable |
+| `onUnauthorized` | — | `(response) => void` on 401 only (403 surfaces as `error`); keep stable |
 | `enabled` | `true` | While `false`: no request, `loading` stays `true`, `refresh()` is a no-op, in-flight request is cancelled |
 
 ### Result

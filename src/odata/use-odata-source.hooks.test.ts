@@ -296,13 +296,13 @@ describe('useODataSource — 선언된 계약', () => {
         } as unknown as Response),
     });
     expect(calls).toEqual([401]);
-    // README: "Called on 401/403 responses, before the generic error is set"
+    // README: "Called on 401 responses, before the generic error is set"
     expect(view.current.error).not.toBeNull();
   });
 
-  it('403 에서도 불린다', async () => {
+  it('403 에서는 불리지 않고 에러로 드러난다 (권한 거절은 세션 만료가 아니다)', async () => {
     const calls: number[] = [];
-    await mount({
+    const view = await mount({
       onUnauthorized: (res) => calls.push(res.status),
       fetcher: () =>
         Promise.resolve({
@@ -312,7 +312,8 @@ describe('useODataSource — 선언된 계약', () => {
           text: () => Promise.resolve(''),
         } as unknown as Response),
     });
-    expect(calls).toEqual([403]);
+    expect(calls).toEqual([]);
+    expect(view.current.error).not.toBeNull();
   });
 
   it('500 에서는 불리지 않는다 (인증 실패만 이 훅의 대상이다)', async () => {

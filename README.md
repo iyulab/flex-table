@@ -725,7 +725,7 @@ const source = useODataSource('/api/orders', {
 | `fixedFilter` | — | Filter always applied in addition to search. Changing it resets the page to 0 — see below |
 | `baseUrl` | `window.location.origin` | Override the request origin (proxy/BFF setups) |
 | `fetcher` | global `fetch` | Custom transport — pass a wrapper that injects auth headers |
-| `onUnauthorized` | — | Called on `401`/`403` responses, before the generic error is set |
+| `onUnauthorized` | — | Called on `401` responses, before the generic error is set. A `403` (signed in, not permitted) does not call it — it surfaces as `error` |
 | `enabled` | `true` | While `false`, no request is made and `loading` stays `true` — see below |
 
 `fetcher`/`onUnauthorized` should be stable references (e.g. wrap in `useCallback`) — they are intentionally excluded from the hook's internal effect dependencies to avoid refetch loops on every render.

@@ -24,7 +24,10 @@ export interface UseODataSourceOptions {
   baseUrl?: string;
   /** 커스텀 fetch transport(예: 인증 헤더를 주입하는 `HttpClient` 래퍼). 기본값: 전역 `fetch`. */
   fetcher?: (input: string, init: RequestInit) => Promise<Response>;
-  /** 응답이 401/403일 때 호출(세션 만료 리다이렉트 등). 호출 후에도 기존 에러 처리는 계속 진행된다. */
+  /**
+   * 응답이 401 일 때 호출(세션 만료 리다이렉트 등). 호출 후에도 기존 에러 처리는 계속 진행된다.
+   * 403(인증됐지만 권한 없음)에는 부르지 않는다 — 그 실패는 `error` 로 드러난다.
+   */
   onUnauthorized?: (response: Response) => void;
   /**
    * `false` 인 동안 요청하지 않는다. 기본값 `true`.

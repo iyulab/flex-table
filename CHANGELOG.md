@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking: `useODataSource`'s `onUnauthorized` is called on `401` only.** It was also called on
+  `403`, so an app that sends the user to sign in from this hook (its documented use) bounced a
+  signed-in user without permission back to the sign-in page — and, after signing in, to the same
+  list and the same `403`. A `403` now surfaces only as `error`, like any other failed request.
+  Migration: if you handled `403` in `onUnauthorized`, read it from `error` instead.
+
 ## [0.42.0] - 2026-10-04
 
 ### Added

@@ -121,7 +121,8 @@ export function useODataSource<T = Record<string, unknown>>(
     const fetchPage = async (pageUrl: string) => {
       const res = await fetcher(pageUrl, { signal: controller.signal });
       if (!res.ok) {
-        if ((res.status === 401 || res.status === 403) && onUnauthorized) {
+        // 401 만 — 403 은 세션이 살아 있는 거절이라 «재인증» 훅의 사건이 아니다. 이어지는 에러 상태가 알린다.
+        if (res.status === 401 && onUnauthorized) {
           onUnauthorized(res);
         }
         const text = await res.text().catch(() => '');
