@@ -126,7 +126,9 @@ export class FlexTable extends LitElement {
    */
   @property({ type: Number, attribute: 'row-height' })
   get rowHeight(): number {
-    return this._rowHeightExplicit ?? this._rowHeightFromCss ?? DEFAULT_ROW_HEIGHT;
+    const base = this._rowHeightExplicit ?? this._rowHeightFromCss ?? DEFAULT_ROW_HEIGHT;
+    // 호스트 하한(`--u-target-size`)은 명시값보다도 이긴다 — 하한은 정책이지 표마다의 취향이 아니다.
+    return Math.max(base, this._targetFloor);
   }
   set rowHeight(value: number) {
     const old = this.rowHeight;
@@ -138,6 +140,8 @@ export class FlexTable extends LitElement {
   private _rowHeightExplicit?: number;
   /** `--ft-row-height` 판독 결과. 판독 전·판독 실패 시 기본값. */
   private _rowHeightFromCss: number = DEFAULT_ROW_HEIGHT;
+  /** 호스트 하한 `--u-target-size`(px) 판독 결과 — 행(그러므로 머리행)과 선택 열 폭의 하한. 미설정이면 0. */
+  private _targetFloor = 0;
 
   @property({ type: Boolean, attribute: 'show-row-numbers' })
   showRowNumbers: boolean = false;
@@ -336,9 +340,14 @@ export class FlexTable extends LitElement {
     return this.columns.filter(col => !col.hidden);
   }
 
+  /** 행 선택 열의 폭 — 36px, 호스트 하한(`--u-target-size`)이 더 크면 그 값. */
+  private get _checkboxColWidth(): number {
+    return Math.max(36, this._targetFloor);
+  }
+
   private get _prefixWidth(): number {
     let w = 0;
-    if (this.selectable) w += 36;
+    if (this.selectable) w += this._checkboxColWidth;
     if (this.showRowNumbers) w += 48;
     return w;
   }
@@ -1232,15 +1241,19 @@ export class FlexTable extends LitElement {
    * 문서 스코프의 정적 선언으로 쓰이므로 첫 렌더에 한 번 읽으면 충분하다.
    */
   private _readDensityTokens(): void {
-    const raw = getComputedStyle(this).getPropertyValue('--ft-row-height').trim();
-    if (!raw) return;
-    const px = parseFloat(raw);
+    const style = getComputedStyle(this);
     // px 이외 단위(em·%)는 여기서 해석할 수 없다 — 조용히 기본값을 유지한다.
-    if (!Number.isFinite(px) || px <= 0 || !/px\s*$/.test(raw)) return;
-    if (px === this._rowHeightFromCss) return;
+    const readPx = (name: string): number | undefined => {
+      const raw = style.getPropertyValue(name).trim();
+      const px = parseFloat(raw);
+      return raw && Number.isFinite(px) && px > 0 && /px\s*$/.test(raw) ? px : undefined;
+    };
     const old = this.rowHeight;
-    this._rowHeightFromCss = px;
-    if (this._rowHeightExplicit === undefined) this.requestUpdate('rowHeight', old);
+    const rowPx = readPx('--ft-row-height');
+    if (rowPx !== undefined) this._rowHeightFromCss = rowPx;
+    // 호스트 하한(`--u-target-size`) — 행 높이를 CSS 가 아니라 이 컴포넌트가 계산하므로(가상 스크롤) 여기서 읽는다.
+    this._targetFloor = readPx('--u-target-size') ?? 0;
+    if (this.rowHeight !== old) this.requestUpdate('rowHeight', old);
   }
 
   private _updateColOffsets(): void {
@@ -2385,7 +2398,7 @@ export class FlexTable extends LitElement {
   private _getPinnedLeft(colIndex: number): number {
     const cols = this.visibleColumns;
     let left = 0;
-    if (this.selectable) left += 36;
+    if (this.selectable) left += this._checkboxColWidth;
     if (this.showRowNumbers) left += 48;
     for (let i = 0; i < colIndex; i++) {
       if (cols[i].pinned === 'left') {
@@ -2838,20 +2851,25 @@ export class FlexTable extends LitElement {
   private _adjustFilterDropdown(): void {
     if (!this._openFilterKey) return;
     const dropdown = this.shadowRoot?.querySelector('.ft-filter-dropdown') as HTMLElement | null;
-    if (!dropdown) return;
+    const header = dropdown?.previousElementSibling as HTMLElement | null;
+    if (!dropdown || !header) return;
 
-    // Reset any previous adjustments
-    dropdown.style.top = '';
-    dropdown.style.bottom = '';
-
+    // 🔴표 «밖» 에 띄운다(position: fixed — 열 메뉴·본문 메뉴와 같은 방식). 표 안에 절대 배치하면 표의 스크롤
+    //   영역(호스트 overflow: auto)이 잘라, 짧은 표나 큰 타깃(--u-target-size)에서 아래쪽 컨트롤이 보이지도 눌리지도 않았다.
+    //   매 갱신마다 머리 칸에 다시 붙인다 — 가로 스크롤로 머리 칸이 움직여도 따라간다.
+    const margin = 4;
+    const cell = header.getBoundingClientRect();
     const rect = dropdown.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-
-    // If dropdown extends beyond viewport bottom, flip it above the header
-    if (rect.bottom > viewportHeight) {
-      dropdown.style.top = 'auto';
-      dropdown.style.bottom = '100%';
+    const viewWidth = document.documentElement.clientWidth;
+    const viewHeight = document.documentElement.clientHeight;
+    // 아래에 자리가 없으면 머리 칸 위로 — 위에도 없으면 창 안에 들도록 민다.
+    let top = cell.bottom;
+    if (top + rect.height > viewHeight - margin) {
+      top = cell.top - rect.height >= margin ? cell.top - rect.height : Math.max(margin, viewHeight - rect.height - margin);
     }
+    const left = Math.max(margin, Math.min(cell.left, viewWidth - rect.width - margin));
+    dropdown.style.left = `${left}px`;
+    dropdown.style.top = `${top}px`;
   }
 
   private _renderFilterDropdown(col: ColumnDefinition) {
@@ -3859,16 +3877,17 @@ export class FlexTable extends LitElement {
     const sl = this._scrollLeft;
     const selectAllHeader = this.selectable
       ? html`<div class="ft-checkbox-header"
-            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 36px; height: ${hdrH}px; z-index: 4;">
+            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${hdrH}px; z-index: 4;">
           ${this._rowSelection.mode === 'multi' ? html`
-            <input type="checkbox"
+            <!-- 칸 전체가 누르는 자리다(라벨) — 체크 상자는 16px 그대로. -->
+            <label class="ft-checkbox-hit"><input type="checkbox"
               .checked=${this._rowSelection.isAllSelected}
               .indeterminate=${this._rowSelection.isSomeSelected}
-              @change=${this._onSelectAllChange}>
+              @change=${this._onSelectAllChange}></label>
           ` : ''}
         </div>`
       : '';
-    if (this.selectable) prefixLeft += 36;
+    if (this.selectable) prefixLeft += this._checkboxColWidth;
 
     const rowNumHeader = this.showRowNumbers
       ? html`<div class="ft-row-num-header"
@@ -3998,9 +4017,9 @@ export class FlexTable extends LitElement {
     let prefixLeft = 0;
     const checkboxFooter = this.selectable
       ? html`<div class="ft-footer-cell ft-checkbox-cell"
-            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 36px; height: ${rowH}px; z-index: 2;"></div>`
+            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${rowH}px; z-index: 2;"></div>`
       : '';
-    if (this.selectable) prefixLeft += 36;
+    if (this.selectable) prefixLeft += this._checkboxColWidth;
 
     const rowNumFooter = this.showRowNumbers
       ? html`<div class="ft-footer-cell ft-row-num"
@@ -4065,14 +4084,14 @@ export class FlexTable extends LitElement {
     let prefixLeft = 0;
     const checkboxCell = this.selectable ? html`
       <div class="ft-checkbox-cell"
-        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 36px; height: ${rowH}px; z-index: 2;">
-        <input type="checkbox"
+        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${rowH}px; z-index: 2;">
+        <label class="ft-checkbox-hit"><input type="checkbox"
           .checked=${isRowSelected}
           @click=${(e: MouseEvent) => this._onRowCheckboxClick(e)}
-          @change=${(e: Event) => this._onRowCheckboxChange(e, index)}>
+          @change=${(e: Event) => this._onRowCheckboxChange(e, index)}></label>
       </div>
     ` : '';
-    if (this.selectable) prefixLeft += 36;
+    if (this.selectable) prefixLeft += this._checkboxColWidth;
 
     const isDraggingRow = this._rowDrag?.active && this._rowDrag.rowIndex === index;
     const rowNumCell = this.showRowNumbers ? html`

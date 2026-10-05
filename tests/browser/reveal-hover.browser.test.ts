@@ -56,7 +56,9 @@ describe("flex-table column reveal: 'hover'", () => {
     await settle(table);
     const btn = row(table, 1).querySelector<HTMLButtonElement>('button.act')!;
     btn.focus();
-    await new Promise((r) => setTimeout(r, 200));
+    // 고정 대기(200ms)는 전체 스위트 부하에서 140ms 전환의 끝을 놓쳤다(0.9554) — 그 요소의 전환이 끝나기를 기다린다.
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await Promise.all(btn.getAnimations().map((a) => a.finished));
     expect(opacity(btn)).toBe('1');
     expect(opacity(action(table, 0))).toBe('0');
   });

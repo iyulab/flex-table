@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Press targets follow `--u-target-size`** (the host's minimum target size from `@iyulab/components`).
+  When it is set, rows (and so the header row) are at least that tall — it wins over `row-height` and
+  `--ft-row-height`, because it is a floor — and the row-selection column is at least that wide. Column
+  menu buttons, menu items, filter fields and the find panel's fields and buttons follow too. Unset,
+  nothing changes. The column resize handle and the hidden-column marker keep their size: the column menu
+  does the same jobs (Wider · Narrower · Fit to content · Show …) with full-size targets.
+
+### Changed
+
+- **The whole row-selection cell toggles the checkbox**, not just the 16px box (it is now a label). The box
+  itself looks the same.
+
+### Fixed
+
+- **The column filter dropdown is no longer cut off by the table.** It was positioned inside the table's
+  scroll area, so in a short table its lower controls were hidden and could not be pressed. It now floats
+  like the column menu does, below the header (or above it when there is no room).
+
 ## [0.44.0] - 2026-10-05
 
 ### Added

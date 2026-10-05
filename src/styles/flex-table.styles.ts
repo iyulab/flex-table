@@ -461,8 +461,9 @@ export const flexTableStyles = css`
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    inline-size: 24px;
-    block-size: 24px;
+    /* 호스트 하한(--u-target-size)이 있으면 그 값 — 미설정이면 24px. */
+    inline-size: max(24px, var(--u-target-size, 0px));
+    block-size: max(24px, var(--u-target-size, 0px));
     margin-left: auto;
     flex-shrink: 0;
     border-radius: 4px;
@@ -490,22 +491,23 @@ export const flexTableStyles = css`
     opacity: 1;
   }
 
+  /* 표 밖에 띄운다 — 자리는 머리 칸에 맞춰 스크립트가 정한다(_adjustFilterDropdown). 표의 스크롤 영역에 잘리지 않는다. */
   .ft-filter-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
+    position: fixed;
     min-width: 200px;
     background: var(--ft-bg);
     border: 1px solid var(--ft-border-color);
     border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     padding: 8px;
-    z-index: 10;
+    z-index: var(--u-layer-floating, 1000);
     box-sizing: border-box;
   }
 
   .ft-filter-input {
     width: 100%;
+    /* 호스트 하한(--u-target-size, 미설정 = 0) — 아래 필터·찾기 패널의 입력·버튼도 같다. */
+    min-height: var(--u-target-size, 0px);
     padding: 4px 8px;
     font: inherit;
     font-size: 13px;
@@ -541,6 +543,12 @@ export const flexTableStyles = css`
     color: var(--ft-sort-indicator-color);
     padding: 2px 8px;
     border-radius: 3px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--u-target-size, 0px);
+    min-width: var(--u-target-size, 0px);
   }
 
   .ft-filter-clear:hover {
@@ -556,6 +564,9 @@ export const flexTableStyles = css`
 
   .ft-filter-mode-select {
     flex: 1;
+    box-sizing: border-box;
+    min-height: var(--u-target-size, 0px);
+    min-width: var(--u-target-size, 0px);
     padding: 3px 6px;
     font: inherit;
     font-size: 12px;
@@ -610,7 +621,7 @@ export const flexTableStyles = css`
   .ft-checkbox-header {
     background: var(--ft-header-bg);
     border-bottom: 2px solid var(--ft-border-color);
-  }
+  }\n  .ft-checkbox-header .ft-checkbox-hit {\n    margin-block-end: -2px;\n  }
 
   .ft-checkbox-cell {
     border-bottom: 1px solid var(--ft-border-color);
@@ -623,6 +634,19 @@ export const flexTableStyles = css`
   .ft-row-selected .ft-checkbox-cell { background: var(--ft-selection-bg); }
   .ft-row-selected .ft-cell { background: var(--ft-selection-bg) !important; }
   .ft-row-selected .ft-row-num { background: var(--ft-selection-bg); }
+
+  /* 누르는 자리는 칸 전체다(라벨이 입력을 토글한다) — 체크 상자는 16px 그대로. 칸의 좌우 여백(4px)까지 덮는다. */
+  .ft-checkbox-hit {
+    flex: 1;
+    align-self: stretch;
+    margin-inline: -4px;
+    /* 칸 아래 경계선(본문 1px · 머리 2px)까지 — 행 높이가 곧 누르는 높이가 되게. */
+    margin-block-end: -1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
 
   .ft-checkbox-header input[type="checkbox"],
   .ft-checkbox-cell input[type="checkbox"] {
@@ -673,7 +697,7 @@ export const flexTableStyles = css`
     all: unset;
     box-sizing: border-box;
     display: block;
-    min-block-size: 28px;
+    min-block-size: max(28px, var(--u-target-size, 0px));
     padding: 6px 12px;
     cursor: pointer;
     font-size: var(--ft-font-size, 14px);
@@ -737,7 +761,7 @@ export const flexTableStyles = css`
     box-sizing: border-box;
     display: block;
     inline-size: 100%;
-    min-block-size: 28px;
+    min-block-size: max(28px, var(--u-target-size, 0px));
     padding: 6px 14px;
     cursor: pointer;
     font-size: var(--ft-font-size, 14px);
@@ -853,6 +877,8 @@ export const flexTableStyles = css`
   .ft-find-input, .ft-find-replace-input {
     flex: 1;
     min-width: 120px;
+    /* content-box 다(최소 폭 120px 의 뜻을 바꾸지 않으려고) — 여백 3px ×2 와 테두리 1px ×2 를 뺀다. */
+    min-height: max(0px, calc(var(--u-target-size, 0px) - 8px));
     padding: 3px 6px;
     border: 1px solid var(--ft-border-color);
     border-radius: 3px;
@@ -875,6 +901,9 @@ export const flexTableStyles = css`
   }
 
   .ft-find-panel button {
+    box-sizing: border-box;
+    min-height: var(--u-target-size, 0px);
+    min-width: var(--u-target-size, 0px);
     padding: 2px 8px;
     border: 1px solid var(--ft-border-color);
     border-radius: 3px;
@@ -896,6 +925,8 @@ export const flexTableStyles = css`
   .ft-find-panel label {
     display: flex;
     align-items: center;
+    min-height: var(--u-target-size, 0px);
+    min-width: var(--u-target-size, 0px);
     gap: 2px;
     font-size: 12px;
     cursor: pointer;
