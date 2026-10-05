@@ -429,13 +429,16 @@ package dependency; CSS custom properties are resolved at render time, not impor
 |-----|--------|
 | Arrow keys | Navigate cells |
 | Tab / Shift+Tab | Move to next/previous cell |
-| Enter / F2 | Start editing |
-| Escape | Cancel edit / clear selection |
+| Enter / F2 | Start editing (Enter on a non-editable cell fires `row-activate`) |
+| Typing a printable character | Start editing an editable cell with that character |
+| Escape | Cancel edit / clear selection / close the find panel |
 | Home / End | Row start/end |
 | Ctrl+Home / Ctrl+End | Table start/end |
-| Shift+Arrow | Extend selection range |
+| Shift+Arrow / Shift+Click | Extend selection range |
 | Ctrl+C / Ctrl+X | Copy/Cut selection as TSV |
 | Ctrl+V | Paste TSV data |
+| Ctrl+D / Ctrl+R | Fill down / fill right |
+| Ctrl+F / Ctrl+H | Find / find and replace |
 | Delete / Backspace | Clear selected cells |
 | Ctrl+Z | Undo |
 | Ctrl+Shift+Z / Ctrl+Y | Redo |
