@@ -10,7 +10,9 @@ import { computeSortedIndices, toggleSort } from './core/sorting.js';
 import { computeFilteredIndices } from './core/filtering.js';
 import { UndoStack } from './core/undo.js';
 import { copyToClipboard, editableDate, editableDateTime, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
-import { dateTextPattern, parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
+import { parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
+// The date and datetime cell editor (registers `u-date-picker`).
+import '@iyulab/components/dist/components/date-picker/UDatePicker.js';
 import { decodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
 import { exportData, exportDataBlob, downloadBlob, getExportExtension } from './export/export.js';
 import type { ExportFormat } from './export/export.js';
@@ -1392,11 +1394,25 @@ export class FlexTable extends LitElement {
   private _focusEditor(): void {
     if (!this._editingCell) return;
     const input = this.shadowRoot?.querySelector('.ft-editor') as HTMLInputElement | null;
-    if (input && document.activeElement !== input) {
-      input.focus();
-      if (input.type === 'text') {
-        input.select();
-      }
+    // Once, when editing starts: this runs on every update, and the editor lives in this shadow
+    // tree — `document.activeElement` is the host there, so comparing with it re-selected the text
+    // on each update and the next typed key replaced what was typed (an autocomplete list updates
+    // on every key).
+    if (!input || this.shadowRoot!.activeElement === input) return;
+    if (input.localName === 'u-date-picker') {
+      // A custom element renders after this update — focus its text box once it exists, and
+      // select the text as the text editors do, so a typed key replaces it.
+      const picker = input as unknown as HTMLElement & { updateComplete: Promise<unknown> };
+      void picker.updateComplete.then(() => {
+        if (!picker.isConnected || this.shadowRoot!.activeElement === picker) return;
+        picker.focus();
+        picker.shadowRoot?.querySelector<HTMLInputElement>('[part~="input"]')?.select();
+      });
+      return;
+    }
+    input.focus();
+    if (input.type === 'text') {
+      input.select();
     }
   }
 
@@ -1656,6 +1672,26 @@ export class FlexTable extends LitElement {
       return;
     }
 
+    if (col.type === 'date' || col.type === 'datetime') {
+      const picker = this.shadowRoot?.querySelector('u-date-picker.ft-editor') as DatePickerEditor | null;
+      if (!picker) {
+        this._cancelEdit();
+        return;
+      }
+      // Text the picker could not read: hand that text to the same check the text editor used, so
+      // the cell keeps its value and reports why. The text box is the picker's published `input` part.
+      if (picker.validity?.badInput) {
+        const typed = picker.shadowRoot?.querySelector<HTMLInputElement>('[part~="input"]')?.value ?? '';
+        this._applyEdit(typed);
+        return;
+      }
+      // The picker's datetime value carries seconds and the browser's offset; the cell keeps the
+      // local `YYYY-MM-DDTHH:mm` a typed edit has always stored.
+      const v = picker.value || null;
+      this._applyEdit(v && col.type === 'datetime' ? v.slice(0, 16) : v);
+      return;
+    }
+
     const input = this.shadowRoot?.querySelector('.ft-editor') as HTMLInputElement | null;
     if (input) {
       const newValue = parseValueForColumn(input.value, col);
@@ -1763,6 +1799,13 @@ export class FlexTable extends LitElement {
   private _onEditorKeyDown(e: KeyboardEvent): void {
     // IME 조합 중인 키(한국어 등)는 입력기의 것이다 — 조합을 확정하는 Enter 로 확정·이동·제출하지 않는다.
     if (isImeComposing(e)) return;
+    // 날짜 편집기의 달력은 자기 키를 갖는다 — 날짜 칸의 Enter 는 고르기, Escape 는 달력 닫기다.
+    // 달력 안에서 난 키와, 달력이 열린 동안의 Escape 는 피커에게 맡긴다(고르기는 `change` 로 확정된다).
+    const editor = e.currentTarget as Element | null;
+    if (editor?.localName === 'u-date-picker') {
+      const inCalendar = e.composedPath().some(n => n instanceof Element && n.part?.contains('popover'));
+      if (inCalendar || (e.key === 'Escape' && calendarOpen(editor))) return;
+    }
     // Autocomplete dropdown navigation
     if (this._autocompleteState && this._autocompleteState.candidates.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -4298,24 +4341,19 @@ export class FlexTable extends LitElement {
       `;
     }
 
-    if (col.type === 'date') {
-      // A text box, not the native date input: that one shows the browser's UI language
-      // (`10/02/2026` in an English browser) and cannot be typed into the same way everywhere.
+    if (col.type === 'date' || col.type === 'datetime') {
+      // `u-date-picker`, not the native date input: that one shows the browser's UI language
+      // (`10/02/2026` in an English browser). The picker's text box reads and shows the same
+      // `YYYY-MM-DD` (`YYYY-MM-DD HH:mm`) the text editor did, with a calendar beside it. A day and
+      // a time are applied together (`confirm`), so picking the day does not end the edit early.
+      const datetime = col.type === 'datetime';
       return html`
-        <input class="ft-editor ft-editor-date" type="text" inputmode="numeric" placeholder=${dateTextPattern()}
-          .value=${editableDate(value)}
+        <u-date-picker class="ft-editor ft-editor-${col.type}" size="sm"
+          mode=${datetime ? 'datetime' : 'date'} ?confirm=${datetime}
+          .value=${pickerValue(value, datetime)}
           @keydown=${this._onEditorKeyDown}
-          @blur=${() => this._commitEdit()}>
-      `;
-    }
-
-    if (col.type === 'datetime') {
-      // Same reason as `date`: the native datetime-local input shows the browser's UI language.
-      return html`
-        <input class="ft-editor ft-editor-datetime" type="text" placeholder=${`${dateTextPattern()} HH:mm`}
-          .value=${editableDateTime(value)}
-          @keydown=${this._onEditorKeyDown}
-          @blur=${() => this._commitEdit()}>
+          @change=${() => this._commitEdit()}
+          @blur=${() => this._commitEdit()}></u-date-picker>
       `;
     }
 
@@ -4365,6 +4403,32 @@ export class FlexTable extends LitElement {
         @keydown=${this._onEditorKeyDown}
         @blur=${() => this._commitEdit()}>
     `;
+  }
+}
+
+/** What the editor reads from `u-date-picker` — its value and its form validity. */
+type DatePickerEditor = HTMLElement & { value?: string; readonly validity?: ValidityState };
+
+/**
+ * A cell value as the picker takes it: `YYYY-MM-DD`, or the local wall-clock `YYYY-MM-DDTHH:mm` for a
+ * datetime (a value with an offset is shown in local time, as the text editor showed it). A value
+ * that is not a date — text a paste kept — opens an empty picker; Escape keeps the cell as it was.
+ */
+function pickerValue(value: unknown, datetime: boolean): string | undefined {
+  if (datetime) {
+    const text = editableDateTime(value);
+    return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(text) ? text.replace(' ', 'T') : undefined;
+  }
+  const text = editableDate(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : undefined;
+}
+
+/** `u-date-picker` publishes its calendar state as `:state(open)`. Engines without `:state()` say no. */
+function calendarOpen(picker: Element): boolean {
+  try {
+    return picker.matches(':state(open)');
+  } catch {
+    return false;
   }
 }
 

@@ -1,13 +1,27 @@
 # Changelog
 
-## [Unreleased]
+## [0.46.0] - 2026-10-05
 
 ### Changed
+
+- **Date and datetime cells edit with `u-date-picker`** from `@iyulab/components` — the same text box
+  (`YYYY-MM-DD`, `YYYY-MM-DD HH:mm`, the same short forms and the same rejection of text that is not a
+  date) with a calendar beside it. A day picked in a `date` cell's calendar is the new value; in a
+  `datetime` cell the day and time are applied together with Apply. While the calendar is open,
+  Escape closes it and the next Escape cancels the edit. Stored values are unchanged: `YYYY-MM-DD`,
+  and the local `YYYY-MM-DDTHH:mm`. **Requires `@iyulab/components` 2.0.1** (peer `>=2.0.1`, was
+  `>=1.56.0`) — the release in which pressing the calendar keeps focus in the picker.
 
 - **A paste leaves the cells it wrote selected**, as spreadsheets do: after Ctrl+V the pasted block
   (including rows it appended) is the selection, so it can be seen, copied, cleared or undone as one
   block. The active cell stays where the paste began. A single-value paste keeps the single-cell
   selection.
+
+### Fixed
+
+- **Typing into a cell editor keeps every key.** The editor was focused and its text selected again on
+  every update of the table, so in an autocomplete column — whose list updates on each key — the next
+  key replaced what was typed (`apx` became `x`). It is now focused once, when editing starts.
 
 ## [0.45.0] - 2026-10-05
 

@@ -66,7 +66,7 @@ as `text`). See `references/api.md` for every field.
 - `editor` returns a Lit template containing an element with class `ft-editor`; its `.value` is committed.
 - `validator` returns `null` when valid, or an error message (the edit is rejected and `validation-error` fires).
 - `number` cells, the number filter and paste read numbers in the active `Locale` (`1,5` is 1.5 on a comma-decimal page); an edit that is not a number is rejected with `validation-error`.
-- `date` cells edit as a `YYYY-MM-DD` text box in every browser language (also `20261002`, `2026/10/2`, `10-02`); pasted dates are normalized to ISO. `datetime` cells edit as `YYYY-MM-DD HH:mm` (local) and store `YYYY-MM-DDTHH:mm`.
+- `date` cells edit with `u-date-picker` (a `YYYY-MM-DD` text box in every browser language plus a calendar) (also `20261002`, `2026/10/2`, `10-02`); pasted dates are normalized to ISO. `datetime` cells edit as `YYYY-MM-DD HH:mm` (local) and store `YYYY-MM-DDTHH:mm`.
 - `conditionalRules` applies `{ when, style }` rules in order; later matches override earlier ones.
 - `pinned: 'left' | 'right'` freezes a column during horizontal scroll.
 

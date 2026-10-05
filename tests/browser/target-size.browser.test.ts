@@ -469,13 +469,22 @@ async function mount(html: string, settle = 0): Promise<void> {
   await new Promise((r) => setTimeout(r, 80 + settle));
 }
 
-/** 등록된 태그 — 손으로 열거하지 않는다. */
+/**
+ * 이 패키지가 등록하는 태그 — 손으로 열거하지 않는다. 배럴 import 중의 `define` 을 가로채고, **이 패키지 소스가
+ * 선언한 태그**로 좁힌다: 날짜 편집기가 `@iyulab/components` 의 `u-date-picker` 를 싣자 그 부품
+ * (`u-field`·`u-popover`·`u-calendar`…)까지 여기 대상으로 들어왔다 — 그 태그들의 타깃은 components 자신의
+ * 게이트가 잰다. 두 게이트가 같은 태그를 따로 분류하면 한쪽이 낡는다.
+ */
 const registered: string[] = [];
+const declaredHere = new Set(
+  Object.values(import.meta.glob('../../src/**/*.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>)
+    .flatMap((src) => [...src.matchAll(/(?:@customElement|customElements\.define)\(\s*['"]([a-z][\w-]*-[\w-]*)['"]/g)].map((m) => m[1])),
+);
 
 beforeAll(async () => {
   const original = customElements.define.bind(customElements);
   customElements.define = ((name: string, ctor: CustomElementConstructor, opts?: ElementDefinitionOptions) => {
-    registered.push(name);
+    if (declaredHere.has(name)) registered.push(name);
     return original(name, ctor, opts);
   }) as typeof customElements.define;
   await import('../../src/index.js');

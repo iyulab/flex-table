@@ -300,6 +300,35 @@ export const flexTableStyles = css`
 
   .ft-editor-number { text-align: right; }
 
+  /* 날짜 편집기(u-date-picker) — 텍스트 편집기와 같은 자리·여백·초점선으로 셀을 채운다. 테두리는
+     셀의 것이고, 달력은 피커 자신의 팝오버다. */
+  u-date-picker.ft-editor {
+    display: block;
+    padding: 0;
+    background: none;
+    --u-date-picker-display: block;
+    --u-date-picker-width: 100%;
+  }
+  u-date-picker.ft-editor:focus { outline: none; }
+  u-date-picker.ft-editor:focus-within {
+    outline: 2px solid var(--ft-active-color);
+    outline-offset: -2px;
+  }
+  u-date-picker.ft-editor::part(field) { height: 100%; }
+  u-date-picker.ft-editor::part(container) {
+    height: 100%;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--ft-editor-bg);
+    padding: var(--ft-cell-padding-block) var(--ft-cell-padding-inline);
+  }
+  u-date-picker.ft-editor::part(input) {
+    font: inherit;
+    color: var(--ft-text-color);
+  }
+
   select.ft-editor {
     cursor: pointer;
     padding: 4px 6px;
