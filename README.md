@@ -684,8 +684,13 @@ button is highlighted while its column has an active filter.
 - **text**: case-insensitive substring search
 - **number**: min/max range inputs
 - **boolean**: All / True / False select
-- **date**: from/to date range picker (`<input type="date">`)
-- **datetime**: from/to datetime range picker (`<input type="datetime-local">`)
+- **date**: **From** and **To** `u-date-picker`s (`@iyulab/components`) — the cell editor's control, so the
+  bounds read and show `YYYY-MM-DD` in every browser language, with a calendar beside each. Either
+  bound may stay empty; the end day is inclusive, and each calendar stops at the other bound.
+- **datetime**: the same pickers with a time (`YYYY-MM-DD HH:mm`)
+
+A bound applies when it is committed — Enter, leaving the box, or a day picked in its calendar. While a
+calendar is open, Escape closes the calendar; the next Escape closes the filter.
 
 Filters set via the UI and the programmatic API (`setFilter()`) share the same filter state. Filter dropdowns automatically flip upward when near the viewport bottom.
 

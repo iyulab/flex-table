@@ -18,6 +18,15 @@
   (`{source.error && <p role="alert">{source.error.message}</p>}`), and compare `error?.message`
   where you compared the string.
 
+- **Date and datetime column filters use `u-date-picker`** for their From and To bounds, like the
+  cell editor since 0.46. The native date inputs they replace showed the browser's UI language
+  (`10/02/2026` in an English browser) while the table shows ISO; the bounds now read and show
+  `YYYY-MM-DD` (`YYYY-MM-DD HH:mm`) everywhere, with a calendar beside each. The bounds are labelled
+  (**From**, **To**), each calendar stops at the other bound, and either bound may still stay empty.
+  A bound now applies when it is committed — Enter, leaving the box, or a day picked in the calendar —
+  rather than on every keystroke. While a calendar is open, Escape closes the calendar and the next
+  Escape closes the filter. Opening the filter from the column menu focuses the From bound.
+
 ## [0.46.0] - 2026-10-05
 
 ### Changed

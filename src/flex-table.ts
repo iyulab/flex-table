@@ -1900,6 +1900,9 @@ export class FlexTable extends LitElement {
 
   private _onKeyDown(e: KeyboardEvent): void {
     if (this._editing.current) return;
+    // Keys pressed in the filter dropdown are the dropdown's. Most of its controls stop them; a date
+    // bound lets Escape through while its calendar is open, for the overlay layer to close the calendar.
+    if (this._openFilterKey && e.composedPath().some(n => n instanceof Element && n.classList.contains('ft-filter-dropdown'))) return;
 
     const cols = this.visibleColumns;
 
@@ -2709,8 +2712,12 @@ export class FlexTable extends LitElement {
     requestAnimationFrame(() => {
       document.addEventListener('click', this._onDocumentClick, { once: true });
     });
-    void this.updateComplete.then(() => {
-      this.shadowRoot?.querySelector<HTMLElement>('.ft-filter-dropdown input, .ft-filter-dropdown select')?.focus();
+    void this.updateComplete.then(async () => {
+      const first = this.shadowRoot?.querySelector<HTMLElement & { updateComplete?: Promise<unknown> }>(
+        '.ft-filter-dropdown input, .ft-filter-dropdown select, .ft-filter-dropdown u-date-picker');
+      // A date bound is a custom element that renders after this update — focus it once its text box exists.
+      await first?.updateComplete;
+      first?.focus();
     });
   }
 
@@ -3212,19 +3219,35 @@ export class FlexTable extends LitElement {
   private _dateFilterState: Map<string, { from?: string; to?: string }> = new Map();
   private _emptyFilterState: Map<string, 'empty' | 'non-empty'> = new Map();
 
+  /**
+   * From/to bounds as two `u-date-picker`s — the cell editor's control, for the same reason: the native
+   * date inputs show the browser's UI language (`10/02/2026` in an English browser) while the table
+   * shows ISO. Two pickers, not one `u-date-range-picker`: either bound may be left open ("from this
+   * day on"), which a range value cannot say. Each bound's calendar stops at the other bound.
+   */
   private _renderDateFilter(col: ColumnDefinition) {
-    const inputType = col.type === 'datetime' ? 'datetime-local' : 'date';
+    const datetime = col.type === 'datetime';
     const state = this._dateFilterState.get(col.key) ?? {};
+    const day = (v: string | undefined) => v?.slice(0, 10);
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Escape while a calendar is open closes that calendar, not the filter — the overlay layer that
+      // closes it listens on the document, so that one key is let through.
+      if (e.key === 'Escape' && calendarOpen(e.currentTarget as Element)) return;
+      e.stopPropagation();
+      if (e.key === 'Escape') this._openFilterKey = null;
+    };
     return html`
-      <div class="ft-filter-range">
-        <input class="ft-filter-input" type=${inputType} placeholder=${t('fromPlaceholder')}
-          .value=${state.from ?? ''}
-          @input=${(e: InputEvent) => this._applyDateFilter(col.key, e, 'from')}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
-        <input class="ft-filter-input" type=${inputType} placeholder=${t('toPlaceholder')}
-          .value=${state.to ?? ''}
-          @input=${(e: InputEvent) => this._applyDateFilter(col.key, e, 'to')}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+      <div class="ft-filter-range ft-filter-range-dates">
+        <u-date-picker class="ft-filter-date" size="sm" clearable
+          mode=${datetime ? 'datetime' : 'date'} label=${t('fromPlaceholder')}
+          .value=${state.from ?? ''} max=${day(state.to) ?? nothing}
+          @change=${(e: Event) => this._applyDateFilter(col.key, e, 'from')}
+          @keydown=${onKeyDown}></u-date-picker>
+        <u-date-picker class="ft-filter-date" size="sm" clearable
+          mode=${datetime ? 'datetime' : 'date'} label=${t('toPlaceholder')}
+          .value=${state.to ?? ''} min=${day(state.from) ?? nothing}
+          @change=${(e: Event) => this._applyDateFilter(col.key, e, 'to')}
+          @keydown=${onKeyDown}></u-date-picker>
       </div>
       ${this._renderEmptyFilterRow(col.key, () => {
         this._dateFilterState.delete(col.key);
@@ -3232,8 +3255,8 @@ export class FlexTable extends LitElement {
     `;
   }
 
-  private _applyDateFilter(key: string, e: InputEvent, bound: 'from' | 'to'): void {
-    const value = (e.target as HTMLInputElement).value;
+  private _applyDateFilter(key: string, e: Event, bound: 'from' | 'to'): void {
+    const value = (e.target as HTMLElement & { value?: string }).value ?? '';
     const state = this._dateFilterState.get(key) ?? {};
     if (value === '') {
       delete state[bound];

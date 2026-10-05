@@ -560,6 +560,19 @@ export const flexTableStyles = css`
     width: 50%;
   }
 
+  /* Date bounds stack: side by side, half of the dropdown is narrower than a date (and far narrower
+     than a date and a time) plus the calendar button. */
+  .ft-filter-range-dates {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ft-filter-date {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
   .ft-filter-actions {
     margin-top: 6px;
     text-align: right;

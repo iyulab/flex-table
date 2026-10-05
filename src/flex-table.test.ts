@@ -2221,34 +2221,8 @@ describe('FlexTable', () => {
 
   // --- Date/Datetime Filter UI ---
 
-  it('should render date inputs for date column filter', async () => {
-    const el = createElement();
-    el.showFilters = true;
-    el.columns = [{ key: 'created', label: 'Created', type: 'date' }];
-    el.data = [{ created: '2025-01-15' }];
-    await el.updateComplete;
-
-    await openFilter(el);
-
-    const inputs = el.shadowRoot!.querySelectorAll('.ft-filter-dropdown input');
-    expect(inputs.length).toBe(2);
-    expect((inputs[0] as HTMLInputElement).type).toBe('date');
-    expect((inputs[1] as HTMLInputElement).type).toBe('date');
-  });
-
-  it('should render datetime-local inputs for datetime column filter', async () => {
-    const el = createElement();
-    el.showFilters = true;
-    el.columns = [{ key: 'ts', label: 'Timestamp', type: 'datetime' }];
-    el.data = [{ ts: '2025-01-15T10:30:00' }];
-    await el.updateComplete;
-
-    await openFilter(el);
-
-    const inputs = el.shadowRoot!.querySelectorAll('.ft-filter-dropdown input');
-    expect(inputs.length).toBe(2);
-    expect((inputs[0] as HTMLInputElement).type).toBe('datetime-local');
-  });
+  // The date filter's bounds are `u-date-picker`s — measured in tests/browser/date-filter.browser.test.ts
+  // (the picker is form-associated, and jsdom's ElementInternals has no setValidity).
 
   it('should filter date data with from/to range', async () => {
     const el = createElement();
