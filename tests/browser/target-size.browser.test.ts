@@ -682,7 +682,10 @@ describe('WCAG 2.2 SC 2.5.8 — 타깃 크기(최소) 게이트', () => {
           .filter(({ misses }) => misses.length > 0)
           .map(({ el, misses }) => `${describeEl(el)} — ${misses.map((m) => `${m.point}→${m.hit}`).join(' · ')}`);
         expect(unreachable, '누르면 다른 요소가 받는 타깃 — 잘렸거나 가려졌거나 닫혀 있다').toEqual([]);
-        const neighbors = (fixture.spacingNeighbors ? fixture.spacingNeighbors(tag) : []).map(measure);
+        const neighborEls = fixture.spacingNeighbors ? fixture.spacingNeighbors(tag) : [];
+        // 이웃 셀렉터가 아무것도 못 찾으면 선언이 조용히 무력해진다(간격 예외가 종전처럼 일한다) — 선언했으면 찾아야 한다.
+        if (fixture.spacingNeighbors) expect(neighborEls.length, '간격 이웃을 하나도 못 찾았다').toBeGreaterThan(0);
+        const neighbors = neighborEls.map(measure);
         const verdicts = targets.map((t, i) =>
           fixture.spacingIsOurs ? judge(t, [...targets.filter((_, j) => j !== i), ...neighbors]) : judge(t, [t]),
         );
