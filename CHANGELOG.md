@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.44.0] - 2026-10-05
+
+### Added
+
+- **`exportToBlob(format, options?)`** — the export as a `Blob` typed with the format's MIME type.
+  XLSX comes out DEFLATE-compressed (platform `CompressionStream`), a fraction of the stored size —
+  a 500-row sheet is under a quarter of it.
+
+### Changed
+
+- **`exportToFile` returns `Promise<void>` and downloads a compressed XLSX.** It was synchronous and
+  wrote the workbook uncompressed (ZIP STORE). Calling it without `await` still works.
+  `exportToString` stays synchronous and still returns an uncompressed workbook for `'xlsx'` — use
+  `exportToBlob` when the bytes leave the browser.
+
 ## [0.43.0] - 2026-10-04
 
 ### Changed

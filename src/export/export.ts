@@ -1,5 +1,5 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
-import { buildXlsx } from './xlsx-writer.js';
+import { buildXlsx, buildXlsxDeflated } from './xlsx-writer.js';
 
 export type ExportFormat = 'csv' | 'tsv' | 'json' | 'xlsx';
 
@@ -22,6 +22,19 @@ export function exportData(
     case 'xlsx':
       return buildXlsx(data, columns);
   }
+}
+
+/**
+ * Export data as a `Blob` of the format's MIME type. XLSX is DEFLATE-compressed (unlike `exportData`,
+ * which stays synchronous and therefore stores the workbook uncompressed).
+ */
+export async function exportDataBlob(
+  data: DataRow[],
+  columns: ColumnDefinition[],
+  format: ExportFormat
+): Promise<Blob> {
+  const content = format === 'xlsx' ? await buildXlsxDeflated(data, columns) : exportData(data, columns, format);
+  return new Blob([content], { type: getExportMimeType(format) });
 }
 
 function formatValueForExport(value: unknown, col: ColumnDefinition): string {
@@ -74,12 +87,7 @@ function exportJson(data: DataRow[], columns: ColumnDefinition[]): string {
 /**
  * Trigger a file download in the browser.
  */
-export function downloadFile(
-  content: string | Uint8Array<ArrayBuffer>,
-  filename: string,
-  mimeType: string
-): void {
-  const blob = new Blob([content], { type: mimeType });
+export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

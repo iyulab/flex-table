@@ -276,8 +276,9 @@ Default is `false`, matching `clear-undo-on-data-change`.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `exportToString(format, options?)` | `string \| Uint8Array` | Export to `'csv'` / `'tsv'` / `'json'` (a string) or `'xlsx'` (bytes). Pass `{ selectionOnly: true }` for selection range |
-| `exportToFile(format, filename?)` | `void` | Export and trigger browser file download |
+| `exportToString(format, options?)` | `string \| Uint8Array` | Export to `'csv'` / `'tsv'` / `'json'` (a string) or `'xlsx'` (bytes, uncompressed). Pass `{ selectionOnly: true }` for selection range |
+| `exportToBlob(format, options?)` | `Promise<Blob>` | The same export as a `Blob` of the format's MIME type — `'xlsx'` is DEFLATE-compressed |
+| `exportToFile(format, filename?)` | `Promise<void>` | Export and trigger browser file download (`'xlsx'` compressed) |
 
 ## Events
 

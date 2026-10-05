@@ -1,6 +1,6 @@
 /**
  * Minimal XLSX writer — no external dependencies.
- * Generates OOXML (.xlsx) files using ZIP STORE method (no compression).
+ * Generates OOXML (.xlsx) files — ZIP STORE (sync) or DEFLATE (async, platform CompressionStream).
  * Supports string, number, boolean, and date cell types.
  */
 
@@ -27,23 +27,62 @@ function crc32(buf: Uint8Array): number {
 }
 
 // ---------------------------------------------------------------------------
-// ZIP STORE builder
+// ZIP builder — STORE(동기) · DEFLATE(비동기, 플랫폼 CompressionStream)
 // ---------------------------------------------------------------------------
 
 const ENC = new TextEncoder();
 
 export interface ZipFile { name: string; data: Uint8Array }
 
+/** 압축 방식이 정해진 항목 — `body` 는 실제로 쓰이는 바이트(STORE 면 원본, DEFLATE 면 압축본). */
+interface ZipEntry { name: string; data: Uint8Array; body: Uint8Array; method: 0 | 8 }
+
 /** @internal 테스트가 실물에 가까운 통합 문서(스타일·1904 날짜 체계)를 조립하는 데 쓴다. */
 export function buildZip(files: ZipFile[]): Uint8Array<ArrayBuffer> {
+  return assembleZip(files.map(f => ({ ...f, body: f.data, method: 0 })));
+}
+
+/**
+ * DEFLATE 로 압축한 ZIP. 항목마다 압축본이 원본보다 작을 때만 DEFLATE 를 쓰고, 아니면 STORE 로 둔다.
+ * 압축은 플랫폼 `CompressionStream('deflate-raw')` 라 비동기다 — 읽기 쪽이 이미 `DecompressionStream` 을 쓴다.
+ */
+export async function buildZipDeflated(files: ZipFile[]): Promise<Uint8Array<ArrayBuffer>> {
+  const entries: ZipEntry[] = [];
+  for (const f of files) {
+    const packed = await deflateRaw(f.data);
+    entries.push(packed.length < f.data.length
+      ? { ...f, body: packed, method: 8 }
+      : { ...f, body: f.data, method: 0 });
+  }
+  return assembleZip(entries);
+}
+
+async function deflateRaw(data: Uint8Array): Promise<Uint8Array> {
+  const cs = new CompressionStream('deflate-raw');
+  const writer = cs.writable.getWriter();
+  const reader = cs.readable.getReader();
+  void writer.write(data as Uint8Array<ArrayBuffer>);
+  void writer.close();
+  const chunks: Uint8Array[] = [];
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  return concat(chunks);
+}
+
+function assembleZip(entries: ZipEntry[]): Uint8Array<ArrayBuffer> {
   const parts: Uint8Array[] = [];
   const centralDir: Uint8Array[] = [];
   let offset = 0;
 
-  for (const f of files) {
+  for (const f of entries) {
     const nameBytes = ENC.encode(f.name);
     const crc = crc32(f.data);
     const size = f.data.length;
+    const packedSize = f.body.length;
+    const version = f.method === 8 ? 20 : 10;
     const dosTime = 0x0000; // 00:00:00
     const dosDate = 0x0021; // 1980-01-01
 
@@ -51,32 +90,32 @@ export function buildZip(files: ZipFile[]): Uint8Array<ArrayBuffer> {
     const local = new ArrayBuffer(30 + nameBytes.length);
     const lv = new DataView(local);
     lv.setUint32(0, 0x04034b50, true); // signature
-    lv.setUint16(4, 20, true);         // version needed
+    lv.setUint16(4, version, true);    // version needed
     lv.setUint16(6, 0, true);          // flags
-    lv.setUint16(8, 0, true);          // compression: STORE
+    lv.setUint16(8, f.method, true);   // compression: 0 STORE · 8 DEFLATE
     lv.setUint16(10, dosTime, true);
     lv.setUint16(12, dosDate, true);
     lv.setUint32(14, crc, true);
-    lv.setUint32(18, size, true);      // compressed size
-    lv.setUint32(22, size, true);      // uncompressed size
+    lv.setUint32(18, packedSize, true); // compressed size
+    lv.setUint32(22, size, true);       // uncompressed size
     lv.setUint16(26, nameBytes.length, true);
     lv.setUint16(28, 0, true);         // extra length
     new Uint8Array(local, 30).set(nameBytes);
     parts.push(new Uint8Array(local));
-    parts.push(f.data);
+    parts.push(f.body);
 
     // Central Directory Header
     const cd = new ArrayBuffer(46 + nameBytes.length);
     const cv = new DataView(cd);
     cv.setUint32(0, 0x02014b50, true); // signature
     cv.setUint16(4, 20, true);         // version made by
-    cv.setUint16(6, 20, true);         // version needed
+    cv.setUint16(6, version, true);    // version needed
     cv.setUint16(8, 0, true);
-    cv.setUint16(10, 0, true);         // STORE
+    cv.setUint16(10, f.method, true);
     cv.setUint16(12, dosTime, true);
     cv.setUint16(14, dosDate, true);
     cv.setUint32(16, crc, true);
-    cv.setUint32(20, size, true);
+    cv.setUint32(20, packedSize, true);
     cv.setUint32(24, size, true);
     cv.setUint16(28, nameBytes.length, true);
     cv.setUint16(30, 0, true);         // extra
@@ -88,7 +127,7 @@ export function buildZip(files: ZipFile[]): Uint8Array<ArrayBuffer> {
     new Uint8Array(cd, 46).set(nameBytes);
     centralDir.push(new Uint8Array(cd));
 
-    offset += 30 + nameBytes.length + size;
+    offset += 30 + nameBytes.length + packedSize;
   }
 
   const cdData = concat(centralDir);
@@ -97,8 +136,8 @@ export function buildZip(files: ZipFile[]): Uint8Array<ArrayBuffer> {
   ev.setUint32(0, 0x06054b50, true); // EOCD signature
   ev.setUint16(4, 0, true);
   ev.setUint16(6, 0, true);
-  ev.setUint16(8, files.length, true);
-  ev.setUint16(10, files.length, true);
+  ev.setUint16(8, entries.length, true);
+  ev.setUint16(10, entries.length, true);
   ev.setUint32(12, cdData.length, true);
   ev.setUint32(16, offset, true);
   ev.setUint16(20, 0, true);
@@ -242,8 +281,17 @@ function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
  * Build an XLSX file as a Uint8Array.
  */
 export function buildXlsx(data: DataRow[], columns: ColumnDefinition[]): Uint8Array<ArrayBuffer> {
+  return buildZip(xlsxParts(data, columns));
+}
+
+/** Build a DEFLATE-compressed XLSX file — the same workbook as `buildXlsx`, a fraction of the size. */
+export function buildXlsxDeflated(data: DataRow[], columns: ColumnDefinition[]): Promise<Uint8Array<ArrayBuffer>> {
+  return buildZipDeflated(xlsxParts(data, columns));
+}
+
+function xlsxParts(data: DataRow[], columns: ColumnDefinition[]): ZipFile[] {
   const sheet = buildWorksheet(data, columns);
-  const files: ZipFile[] = [
+  return [
     { name: '[Content_Types].xml', data: ENC.encode(CONTENT_TYPES) },
     { name: '_rels/.rels', data: ENC.encode(RELS) },
     { name: 'xl/workbook.xml', data: ENC.encode(WORKBOOK) },
@@ -251,5 +299,4 @@ export function buildXlsx(data: DataRow[], columns: ColumnDefinition[]): Uint8Ar
     { name: 'xl/worksheets/sheet1.xml', data: ENC.encode(sheet) },
     { name: 'xl/styles.xml', data: ENC.encode(STYLES) },
   ];
-  return buildZip(files);
 }

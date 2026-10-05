@@ -1065,6 +1065,28 @@ describe('FlexTable', () => {
     expect(csv).toBe('');
   });
 
+  it('exportToBlob returns the same text as exportToString, typed with the format MIME', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', label: 'Name' }, { key: 'age', label: 'Age', type: 'number' }];
+    el.data = [{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }];
+    await el.updateComplete;
+
+    const blob = await el.exportToBlob('csv');
+    expect(blob.type).toBe('text/csv;charset=utf-8');
+    expect(await blob.text()).toBe(el.exportToString('csv'));
+  });
+
+  it('exportToBlob compresses XLSX — smaller than the synchronous workbook', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', label: 'Name' }];
+    el.data = Array.from({ length: 300 }, (_, i) => ({ name: `Row ${i % 9}` }));
+    await el.updateComplete;
+
+    const blob = await el.exportToBlob('xlsx');
+    const stored = el.exportToString('xlsx') as Uint8Array;
+    expect(blob.size).toBeLessThan(stored.length);
+  });
+
   // --- Configurable UndoStack ---
 
   it('should support maxUndoSize property', async () => {

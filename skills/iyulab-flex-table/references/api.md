@@ -127,8 +127,9 @@ Enter/Escape and blur-to-commit behavior.
 | `setComment(dataIndex, colKey, text)` | `null` or `''` removes; undoable |
 | `getComment(dataIndex, colKey)` / `clearComments()` | |
 | `importFromFile(file)` | `Promise<void>`; `.xlsx`, `.csv`, `.tsv`; fires `data-import` |
-| `exportToString(format, { selectionOnly? })` | `string \| Uint8Array`; format `'csv' \| 'tsv' \| 'json' \| 'xlsx'` (xlsx returns bytes) |
-| `exportToFile(format, filename?)` | Triggers a download |
+| `exportToString(format, { selectionOnly? })` | `string \| Uint8Array`; format `'csv' \| 'tsv' \| 'json' \| 'xlsx'` (xlsx returns uncompressed bytes — synchronous) |
+| `exportToBlob(format, { selectionOnly? })` | `Promise<Blob>` typed with the format's MIME; xlsx is DEFLATE-compressed |
+| `exportToFile(format, filename?)` | `Promise<void>` — triggers a download (xlsx compressed) |
 
 ## Events
 

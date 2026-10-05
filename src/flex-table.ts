@@ -12,7 +12,7 @@ import { UndoStack } from './core/undo.js';
 import { copyToClipboard, editableDate, editableDateTime, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
 import { dateTextPattern, parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
 import { decodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
-import { exportData, downloadFile, getExportMimeType, getExportExtension } from './export/export.js';
+import { exportData, exportDataBlob, downloadBlob, getExportExtension } from './export/export.js';
 import type { ExportFormat } from './export/export.js';
 import { readXlsx } from './export/xlsx-reader.js';
 import type { ImportedSheet } from './export/xlsx-reader.js';
@@ -863,34 +863,49 @@ export class FlexTable extends LitElement {
   // --- Public API: Export ---
 
   /**
-   * Export table data to string in the specified format.
+   * Export table data to string in the specified format. Synchronous — XLSX comes back as an
+   * uncompressed workbook; use `exportToBlob` for a compressed one.
    * @param options.selectionOnly - Export only the currently selected range
    */
   exportToString(
     format: ExportFormat,
     options?: { selectionOnly?: boolean }
   ): string | Uint8Array<ArrayBuffer> {
+    const slice = this._exportSlice(options);
+    return slice ? exportData(slice.rows, slice.cols, format) : '';
+  }
+
+  /**
+   * Export table data as a `Blob` of the format's MIME type. XLSX is DEFLATE-compressed.
+   * @param options.selectionOnly - Export only the currently selected range
+   */
+  async exportToBlob(format: ExportFormat, options?: { selectionOnly?: boolean }): Promise<Blob> {
+    const slice = this._exportSlice(options) ?? { rows: [], cols: [] };
+    return exportDataBlob(slice.rows, slice.cols, format);
+  }
+
+  /**
+   * Export table data and trigger file download. XLSX is DEFLATE-compressed; the promise settles
+   * once the download has been handed to the browser.
+   */
+  async exportToFile(format: ExportFormat, filename?: string): Promise<void> {
+    const blob = await this.exportToBlob(format);
+    downloadBlob(blob, filename ?? `export${getExportExtension(format)}`);
+  }
+
+  /** 내보낼 행·열 — 선택만이면 선택 범위(없으면 `null`), 아니면 정렬 순서의 전체 행 · 보이는 열. */
+  private _exportSlice(options?: { selectionOnly?: boolean }): { rows: DataRow[]; cols: ColumnDefinition[] } | null {
     if (options?.selectionOnly) {
       const range = this._selection.getEffectiveRange();
-      if (!range) return '';
+      if (!range) return null;
       const cols = this.visibleColumns.slice(range.startCol, range.endCol + 1);
       const rows: DataRow[] = [];
       for (let r = range.startRow; r <= range.endRow; r++) {
         rows.push(this.data[this._toDataIndex(r)]);
       }
-      return exportData(rows, cols, format);
+      return { rows, cols };
     }
-    const visibleData = this._sortedIndices.map(i => this.data[i]);
-    return exportData(visibleData, this.visibleColumns, format);
-  }
-
-  /**
-   * Export table data and trigger file download.
-   */
-  exportToFile(format: ExportFormat, filename?: string): void {
-    const content = this.exportToString(format);
-    const name = filename ?? `export${getExportExtension(format)}`;
-    downloadFile(content, name, getExportMimeType(format));
+    return { rows: this._sortedIndices.map(i => this.data[i]), cols: this.visibleColumns };
   }
 
   // --- Public API: Comments ---
