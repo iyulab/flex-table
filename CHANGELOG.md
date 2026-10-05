@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **A paste leaves the cells it wrote selected**, as spreadsheets do: after Ctrl+V the pasted block
+  (including rows it appended) is the selection, so it can be seen, copied, cleared or undone as one
+  block. The active cell stays where the paste began. A single-value paste keeps the single-cell
+  selection.
+
 ## [0.45.0] - 2026-10-05
 
 ### Added

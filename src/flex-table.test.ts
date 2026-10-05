@@ -565,8 +565,28 @@ describe('FlexTable', () => {
 
   // --- Paste Auto-Expand ---
 
-  it('should auto-expand rows on paste beyond data bounds', async () => {
+  // A real paste: Ctrl+V reads the clipboard, writes the block, appends the rows it needs, and leaves
+  // the written cells selected (spreadsheet convention) with the active cell where the paste began.
+  // This test used to call addRow() «to simulate» the paste — it exercised nothing of it.
+  async function pasteAtFirstCell(el: FlexTable, text: string): Promise<void> {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { readText: async () => text, writeText: async () => {} },
+      configurable: true,
+    });
+    (el.shadowRoot!.querySelector('.ft-cell') as HTMLElement).click();
+    await el.updateComplete;
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true }));
+    await new Promise(r => setTimeout(r, 0));
+    await el.updateComplete;
+  }
+
+  const selectedCells = (el: FlexTable) =>
+    [...el.shadowRoot!.querySelectorAll('[role="row"]')].filter(row => row.querySelector('[role="gridcell"]')).flatMap((row, r) =>
+      [...row.querySelectorAll('[role="gridcell"][aria-selected="true"]')].map(c => `${r}:${c.getAttribute('data-col-index')}`));
+
+  it('should auto-expand rows on paste beyond data bounds and select the pasted block', async () => {
     const el = createElement();
+    el.editable = true;
     el.columns = [
       { key: 'name', label: 'Name' },
       { key: 'value', label: 'Value', type: 'number' },
@@ -574,13 +594,24 @@ describe('FlexTable', () => {
     el.data = [{ name: 'Alice', value: 1 }];
     await el.updateComplete;
 
-    // Verify initial state
-    expect(el.data.length).toBe(1);
+    await pasteAtFirstCell(el, 'Bob\t2\nCarol\t3\nDan\t4');
 
-    // Add 2 more rows via addRow to simulate what paste auto-expand does
-    el.addRow({ name: 'Bob', value: 2 });
-    el.addRow({ name: 'Charlie', value: 3 });
-    expect(el.data.length).toBe(3);
+    expect(el.data.map(r => [r.name, r.value])).toEqual([['Bob', 2], ['Carol', 3], ['Dan', 4]]);
+    expect(selectedCells(el)).toEqual(['0:0', '0:1', '1:0', '1:1', '2:0', '2:1']);
+    expect(el.activeCell).toEqual({ row: 0, col: 0 });
+  });
+
+  it('a single-value paste keeps the single-cell selection', async () => {
+    const el = createElement();
+    el.editable = true;
+    el.columns = [{ key: 'name', label: 'Name' }, { key: 'note', label: 'Note' }];
+    el.data = [{ name: 'Alice', note: '' }, { name: 'Bob', note: '' }];
+    await el.updateComplete;
+
+    await pasteAtFirstCell(el, 'Zed');
+
+    expect(el.data[0].name).toBe('Zed');
+    expect(selectedCells(el)).toEqual(['0:0']);
   });
 
   // --- Theme Property ---

@@ -2074,6 +2074,7 @@ export class FlexTable extends LitElement {
 
     const addedRows = this._expandRowsForPaste(this._activeCell.row, parsed.length);
     const changes = this._applyPasteData(this._activeCell, parsed);
+    this._selectPastedRange(this._activeCell, parsed);
 
     if (changes.length > 0 || addedRows.length > 0) {
       const addedCount = addedRows.length;
@@ -2118,6 +2119,23 @@ export class FlexTable extends LitElement {
       }));
       return null;
     }
+  }
+
+  /**
+   * After a paste, the cells it wrote are the selection — as in spreadsheets — so the reader sees
+   * what changed and can copy, clear or undo it as one block. The active cell stays where the
+   * paste began (the same shape as selecting a column: range to the far corner, focus at the start).
+   */
+  private _selectPastedRange(anchor: { row: number; col: number }, parsed: string[][]): void {
+    const width = Math.max(...parsed.map(r => r.length));
+    const endRow = Math.min(anchor.row + parsed.length, this._visibleRowCount) - 1;
+    const endCol = Math.min(anchor.col + width, this.visibleColumns.length) - 1;
+    if (endRow === anchor.row && endCol === anchor.col) return;
+    // Rows a paste appended are not in the selection's bounds until the next update.
+    this._selection.setDimensions(this._visibleRowCount, this.visibleColumns.length);
+    this._selection.setActive(anchor.row, anchor.col);
+    this._selection.setActiveWithRange(endRow, endCol);
+    this._activeCell = { row: anchor.row, col: anchor.col };
   }
 
   private _expandRowsForPaste(startRow: number, pasteRowCount: number): number[] {
