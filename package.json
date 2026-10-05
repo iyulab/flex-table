@@ -45,6 +45,7 @@
     "build": "npm run typecheck && vite build && tsc --emitDeclarationOnly",
     "build:demo": "vite build --config vite.config.demo.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "pretest": "node -e \"if(require('fs').existsSync('../../scripts/sibling-dist-check.js'))require('child_process').execFileSync('node',['../../scripts/sibling-dist-check.js'],{stdio:'inherit'})\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/",
