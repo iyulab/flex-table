@@ -127,7 +127,7 @@ Server paging from OData or an in-memory array uses the same binding — see `re
 - Styles for elements returned by `render` must be passed through the `stylesheets` property
   (constructable `CSSStyleSheet[]`); document CSS does not cross the shadow boundary.
 - `useODataSource` `fetcher` / `onUnauthorized` must be stable references (`useCallback`).
-- Always render `error` from `useODataSource`; a failed request otherwise leaves the grid empty.
+- Always render `error.message` from `useODataSource`; a failed request otherwise leaves the grid empty. Branch on `error.status` / `error.code` rather than parsing the message.
 
 ## References
 

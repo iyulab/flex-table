@@ -1,4 +1,5 @@
 import type { SortCriteria } from '../core/sorting.js';
+import type { SourceError } from '../core/source-error.js';
 
 export interface UseODataSourceOptions {
   pageSize?: number;
@@ -45,7 +46,11 @@ export interface UseODataSourceResult<T> {
   data: T[];
   totalCount: number;
   loading: boolean;
-  error: string | null;
+  /**
+   * 마지막 요청의 실패, 없으면 `null`. 화면에는 `error.message` 를 그린다. «어떤 실패인가» 는
+   * `status`(HTTP) · `code`(서버의 거절 코드) · `details` 로 가른다 — 401 은 `onUnauthorized` 도 부른다.
+   */
+  error: SourceError | null;
   page: number;
   setPage: (page: number) => void;
   sortCriteria: SortCriteria[];

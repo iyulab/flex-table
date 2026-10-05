@@ -73,7 +73,7 @@ function Orders() {
   return (
     <>
       <input value={source.search} onChange={(e) => source.setSearch(e.target.value)} />
-      {source.error && <p role="alert">{source.error}</p>}
+      {source.error && <p role="alert">{source.error.message}</p>}
       <FlexTableReact<Order>
         dataMode="server"
         columns={columns}
@@ -111,7 +111,7 @@ function Orders() {
 |---|---|
 | `data`, `totalCount` | Current page and `@odata.count`; `@odata.nextLink` is followed to fill a page |
 | `loading` | Request in flight |
-| `error` | `string \| null` — render it |
+| `error` | `SourceError \| null` — `{ message, status?, code?, details?, body? }`; render `error.message`, branch on `status` / `code` (OData `error.code`) |
 | `page`, `setPage` | Zero-based |
 | `sortCriteria`, `onSortChange` | Pass `onSortChange` to the table's `sort-change` (resets to page 0) |
 | `search`, `setSearch` | Literal text (resets to page 0) |

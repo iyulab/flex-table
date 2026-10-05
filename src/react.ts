@@ -84,3 +84,4 @@ export { useODataSource } from './odata/use-odata-source.js';
 export type { UseODataSourceOptions, UseODataSourceResult } from './odata/types.js';
 export { useArraySource } from './array/use-array-source.js';
 export type { UseArraySourceOptions, UseArraySourceResult } from './array/types.js';
+export type { SourceError, SourceErrorDetail } from './core/source-error.js';

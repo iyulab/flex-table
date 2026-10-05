@@ -1,4 +1,5 @@
 import type { SortCriteria } from '../core/sorting.js';
+import type { SourceError } from '../core/source-error.js';
 
 export interface UseArraySourceOptions<T> {
   /** 페이지당 행 수. `useODataSource`와 동일 기본값. */
@@ -38,7 +39,7 @@ export interface UseArraySourceResult<T> {
   /** 항상 `false` — 로컬 배열은 동기 처리라 로딩 상태가 없다. `useODataSource`와의 반환 형태 동일성을 위해 유지. */
   loading: boolean;
   /** 항상 `null` — 로컬 배열 처리는 실패하지 않는다. 위와 같은 이유로 유지. */
-  error: string | null;
+  error: SourceError | null;
   page: number;
   setPage: (page: number) => void;
   sortCriteria: SortCriteria[];

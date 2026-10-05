@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SortCriteria } from '../core/sorting.js';
 import type { UseODataSourceOptions, UseODataSourceResult } from './types.js';
 import { buildODataQuery, resolveInitialState } from './query.js';
+import { readFailedResponse, SourceRequestError, toSourceError, type SourceError } from '../core/source-error.js';
 
 /**
  * OData v4 서버 사이드 데이터소스 React 훅.
@@ -35,7 +36,7 @@ export function useODataSource<T = Record<string, unknown>>(
   const [data, setData] = useState<T[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SourceError | null>(null);
   /*
    * 초기 상태를 «옵션으로» 받는 이유: 이것들이 없으면 「목록 → 상세 → 뒤로가기」에서
    * 위치를 되살리려는 소비자가 마운트 effect + setPage 로 우회할 수밖에 없고, 그 우회는
@@ -125,19 +126,8 @@ export function useODataSource<T = Record<string, unknown>>(
         if (res.status === 401 && onUnauthorized) {
           onUnauthorized(res);
         }
-        const text = await res.text().catch(() => '');
-        // ⚠영어 리터럴이고, 이것은 **의도한 것이다** — 이 패키지에는 이제 로케일 묶음이
-        // 있지만(`src/locale.ts`) 그것은 **chrome 문자열** 용이다. 이 문자열은 서버 오류의
-        // 폴백이고, 서버가 메시지를 주면 그쪽이 이긴다(아래 두 줄) — 즉 화면에 남는 경우가
-        // 서버가 아무것도 말해 주지 않은 때뿐이라 진단 성격이 강하다.
-        // (종전 주석은 이 패키지가 로케일 레지스트리를 갖지 않는다는 전제 위에 서 있었다.
-        //  그 전제가 더 이상 참이 아니므로 판단 근거를 다시 적는다.)
-        let msg = `Request failed (${res.status})`;
-        try {
-          const json = JSON.parse(text);
-          msg = json?.error?.message ?? json?.message ?? msg;
-        } catch { /* ignore parse error */ }
-        throw new Error(msg);
+        // 상태·거절 코드·상세를 문자열로 납작하게 만들지 않는다 — 소비자가 «어떤 실패인가» 로 가른다.
+        throw new SourceRequestError(await readFailedResponse(res));
       }
       return res.json();
     };
@@ -192,7 +182,7 @@ export function useODataSource<T = Record<string, unknown>>(
       .catch((err) => {
         if (controller.signal.aborted) return;
         if (err.name === 'AbortError') return;
-        setError(err.message);
+        setError(toSourceError(err));
         setData([]);
         setTotalCount(0);
       })

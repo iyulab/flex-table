@@ -221,7 +221,8 @@ describe('useODataSource — 페이지 리셋', () => {
     }, urls);
     const view = await mount({ pageSize: 4, fetcher });
     expect(urls).toHaveLength(1);
-    expect(view.current.error).toMatch(/outside the source origin/);
+    expect(view.current.error?.message).toMatch(/outside the source origin/);
+    expect(view.current.error?.status, '응답이 없던 실패에는 상태가 없다').toBeUndefined();
     expect(view.current.data).toEqual([]);
   });
 
@@ -233,7 +234,7 @@ describe('useODataSource — 페이지 리셋', () => {
     }, urls);
     const view = await mount({ pageSize: 4, fetcher });
     expect(urls).toHaveLength(2);
-    expect(view.current.error).toMatch(/repeats an already-read page/);
+    expect(view.current.error?.message).toMatch(/repeats an already-read page/);
   });
 });
 
@@ -330,7 +331,8 @@ describe('useODataSource — 선언된 계약', () => {
     });
     expect(calls).toEqual([]);
     // 서버가 준 메시지가 일반 메시지를 이긴다.
-    expect(view.current.error).toBe('boom');
+    expect(view.current.error?.message).toBe('boom');
+    expect(view.current.error?.status).toBe(500);
   });
 
   it('요청이 갈아탈 때 이전 요청을 abort 한다', async () => {
@@ -496,5 +498,111 @@ describe('useODataSource — enabled', () => {
     const { calls, fetcher } = deferredFetcher();
     await mount({ fetcher });
     expect(calls).toHaveLength(1);
+  });
+});
+
+/**
+ * 실패는 문자열이 아니라 구조다 — 소비자는 «어떤 실패인가»(상태 · 서버의 거절 코드 · 상세)로
+ * 가른다. 메시지만 남기면 그 정보가 소스 경계에서 사라져, 403 중 특정 거절을 가르려는 앱이
+ * 전송(`fetcher`)을 감싸 상태를 엿보는 수밖에 없다.
+ */
+describe('useODataSource — 구조화된 실패', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  type Options = Parameters<typeof useODataSource>[1];
+
+  async function mount(options: Options) {
+    let latest: ReturnType<typeof useODataSource> | undefined;
+    const Probe = (props: { options: Options }) => {
+      latest = useODataSource('/api/orders', props.options);
+      return null;
+    };
+    await act(async () => {
+      root.render(createElement(Probe, { options }));
+    });
+    return {
+      get current() {
+        return latest!;
+      },
+    };
+  }
+
+  const failing = (status: number, text: string): NonNullable<Options>['fetcher'] => () =>
+    Promise.resolve({
+      ok: false,
+      status,
+      json: () => Promise.resolve(JSON.parse(text || 'null')),
+      text: () => Promise.resolve(text),
+    } as unknown as Response);
+
+  it('🔴403 의 거절 코드를 싣는다 — 같은 403 중 «비밀번호 변경 필요» 를 가를 수 있다', async () => {
+    const view = await mount({
+      fetcher: failing(403, '{"error":{"code":"password-change-required","message":"Change your password"}}'),
+    });
+    expect(view.current.error).toMatchObject({
+      status: 403,
+      code: 'password-change-required',
+      message: 'Change your password',
+    });
+  });
+
+  it('OData 봉투의 details 중 형식이 맞는 항목만 싣는다', async () => {
+    const view = await mount({
+      fetcher: failing(409, JSON.stringify({
+        error: {
+          code: 'conflict',
+          message: 'Row changed',
+          details: [{ code: 'etag', message: 'stale', target: 'RowVersion' }, { code: 1 }, 'x'],
+        },
+      })),
+    });
+    expect(view.current.error?.status).toBe(409);
+    expect(view.current.error?.details).toEqual([{ code: 'etag', message: 'stale', target: 'RowVersion' }]);
+    expect(view.current.error?.body).toMatchObject({ error: { code: 'conflict' } });
+  });
+
+  it('본문이 JSON 이 아니면 텍스트를 body 로, 문장은 기본값으로', async () => {
+    const view = await mount({ fetcher: failing(502, 'Bad Gateway') });
+    expect(view.current.error).toEqual({ status: 502, message: 'Request failed (502)', body: 'Bad Gateway' });
+  });
+
+  it('NEGATIVE 본문이 비면 body·code·details 를 만들지 않는다', async () => {
+    const view = await mount({ fetcher: failing(404, '') });
+    expect(view.current.error).toEqual({ status: 404, message: 'Request failed (404)' });
+  });
+
+  it('NEGATIVE 응답이 없던 실패(네트워크)는 상태 없이 메시지만', async () => {
+    const view = await mount({ fetcher: () => Promise.reject(new TypeError('Failed to fetch')) });
+    expect(view.current.error).toEqual({ message: 'Failed to fetch' });
+  });
+
+  it('NEGATIVE 성공한 다음 요청은 실패를 지운다', async () => {
+    let fail = true;
+    const view = await mount({
+      fetcher: () => fail
+        ? failing(500, '')!('', {})
+        : Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ value: [], '@odata.count': 0 }),
+            text: () => Promise.resolve(''),
+          } as unknown as Response),
+    });
+    expect(view.current.error?.status).toBe(500);
+    fail = false;
+    await act(async () => view.current.refresh());
+    expect(view.current.error).toBeNull();
   });
 });

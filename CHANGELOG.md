@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.47.0] - 2026-10-05
+
+### Changed
+
+- **Breaking: `error` from `useODataSource` and `useArraySource` is a structured failure, not a
+  string** — `SourceError | null`, where `SourceError` is `{ message, status?, code?, details?, body? }`
+  (exported from `@iyulab/flex-table/react` with `SourceErrorDetail`). The message alone lost which
+  failure it was, so an app could not tell a 403 the server marked with its own code (for example
+  "password change required") from any other 403, or a 404 from a 409, without wrapping `fetcher`
+  to watch the status. Now `status` is the HTTP status, `code` the server's rejection code (OData
+  `error.code`), `details` the OData `error.details` entries, and `body` the parsed response (or its
+  text). A failure with no response — a network error, or a `@odata.nextLink` the hook refused — has
+  a `message` only. The message itself is unchanged.
+
+  Migration: render `error.message` where you rendered `error`
+  (`{source.error && <p role="alert">{source.error.message}</p>}`), and compare `error?.message`
+  where you compared the string.
+
 ## [0.46.0] - 2026-10-05
 
 ### Changed
