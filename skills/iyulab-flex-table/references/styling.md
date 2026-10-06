@@ -68,7 +68,10 @@ flex-table {
 
 | Key | Action |
 |---|---|
-| Arrows / Tab / Shift+Tab | Move between cells |
+| Arrows / Tab / Shift+Tab | Move between cells; Tab past the last (Shift+Tab before the first) leaves the table |
+| ArrowUp on the first row | Move onto the header row (arrows / Home / End along it, ArrowDown back) |
+| Enter / Space on a header cell | Sort (Shift adds to the sort) |
+| Alt+ArrowDown or context-menu key on a header cell | Open the column menu |
 | Home / End, Ctrl+Home / Ctrl+End | Row start/end, table start/end |
 | Shift+Arrow, Shift+Click | Extend range selection |
 | Shift+Space | Select / deselect the active cell's row (`selectable`; row checkboxes are not Tab stops) |
@@ -83,6 +86,9 @@ flex-table {
 | Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z | Undo, redo |
 | Alt+ArrowLeft / Alt+ArrowRight | Resize current column |
 | Enter / Space on a column menu button | Open the column menu (arrows, Home/End navigate; Escape closes) |
+
+The table is one Tab stop — keyboard focus arriving on it activates the first cell; the column menu
+buttons are not Tab stops (the header row reaches them).
 
 Ctrl also matches Cmd on macOS. Editing shortcuts are ignored when `editable` is `false`.
 

@@ -253,6 +253,13 @@ export class FlexTable extends LitElement {
   @state()
   private _activeCell: CellPosition | null = null;
 
+  /**
+   * The header cell the keyboard is on — the header row sits above the first body row (ArrowUp from
+   * it). Exclusive with an active body cell: entering one leaves the other.
+   */
+  @state()
+  private _headerCol: number | null = null;
+
   @state()
   private _editingCell: CellPosition | null = null;
 
@@ -1146,6 +1153,7 @@ export class FlexTable extends LitElement {
     this._onDrop = this._onDrop.bind(this);
     this.addEventListener('scroll', this._onScroll, { passive: true });
     this.addEventListener('keydown', this._onKeyDown);
+    this.addEventListener('focus', this._onHostFocus);
     this.addEventListener('contextmenu', this._onContextMenu);
     this.addEventListener('dragover', this._onDragover as unknown as EventListener);
     this.addEventListener('dragleave', this._onDragleave as unknown as EventListener);
@@ -1171,6 +1179,7 @@ export class FlexTable extends LitElement {
     super.disconnectedCallback();
     this.removeEventListener('scroll', this._onScroll);
     this.removeEventListener('keydown', this._onKeyDown);
+    this.removeEventListener('focus', this._onHostFocus);
     this.removeEventListener('contextmenu', this._onContextMenu);
     this.removeEventListener('dragover', this._onDragover as unknown as EventListener);
     this.removeEventListener('dragleave', this._onDragleave as unknown as EventListener);
@@ -1435,7 +1444,17 @@ export class FlexTable extends LitElement {
     const cellEl = path.find(
       (el) => el instanceof HTMLElement && el.classList.contains('ft-cell')
     ) as HTMLElement | undefined;
-    if (!cellEl) return;
+    if (!cellEl) {
+      // The context-menu key (or Shift+F10) on the header row opens that column's menu.
+      if (path[0] === this && this._headerCol !== null) {
+        const col = this.visibleColumns[this._headerCol];
+        if (col) {
+          e.preventDefault();
+          this._openColumnMenu(col);
+        }
+      }
+      return;
+    }
 
     e.preventDefault();
 
@@ -1827,6 +1846,7 @@ export class FlexTable extends LitElement {
 
   private _syncActiveCell(): void {
     this._activeCell = this._selection.activeCell ? { ...this._selection.activeCell } : null;
+    if (this._activeCell) this._headerCol = null;
     this._scrollToActiveCell();
     this._dispatchSelectionEvent();
   }
@@ -1849,13 +1869,26 @@ export class FlexTable extends LitElement {
       }
     }
 
-    if (cols.length === 0 || this._visibleRowCount === 0) return;
+    if (cols.length === 0) return;
 
     // The grid's cell keys belong to the grid itself (the host holds focus for it). A key pressed on a
     // control inside it — a column menu button, a row checkbox, a button a cell renders — is that
     // control's: Enter and Space activate it rather than editing the active cell. Ctrl/Cmd shortcuts
     // (copy, undo, fill…) still apply.
     if (e.composedPath()[0] !== this && !e.ctrlKey && !e.metaKey) return;
+
+    if (this._headerCol !== null) {
+      this._onHeaderKeyDown(e, cols);
+      return;
+    }
+    // An empty body leaves the header row as the grid's only keyboard position.
+    if (this._visibleRowCount === 0) {
+      if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault();
+        this._headerCol = 0;
+      }
+      return;
+    }
 
     // Enter/F2 to start editing; Enter on a non-editable cell fires `row-activate` instead
     if ((e.key === 'Enter' || e.key === 'F2') && this._activeCell && !isImeComposing(e)) {
@@ -1871,7 +1904,7 @@ export class FlexTable extends LitElement {
 
     // If no active cell, set to first cell on any nav key
     if (!this._selection.activeCell) {
-      if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'].includes(e.key)) {
+      if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
         this._selection.setActive(0, 0);
         this._syncActiveCell();
         e.preventDefault();
@@ -1909,6 +1942,13 @@ export class FlexTable extends LitElement {
       return;
     }
 
+    // ArrowUp from the first row moves onto its column's header cell.
+    if (e.key === 'ArrowUp' && !e.shiftKey && !e.altKey && this._activeCell?.row === 0) {
+      e.preventDefault();
+      this._enterHeader(this._activeCell.col);
+      return;
+    }
+
     const handled = this._handleNavigation(e);
 
     if (handled) {
@@ -1916,6 +1956,74 @@ export class FlexTable extends LitElement {
       this._syncActiveCell();
     }
   }
+
+  /**
+   * The keyboard on the header row: arrows / Home / End move along it, ArrowDown returns to the body,
+   * Enter or Space sorts (Shift adds to the sort), Alt+ArrowDown opens the column menu, Alt+Arrow
+   * resizes. Tab leaves the grid.
+   */
+  private _onHeaderKeyDown(e: KeyboardEvent, cols: ColumnDefinition[]): void {
+    if (e.ctrlKey || e.metaKey) return;
+    const at = Math.min(this._headerCol ?? 0, cols.length - 1);
+    const col = cols[at];
+    let next: number;
+    switch (e.key) {
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        if (e.altKey) {
+          e.preventDefault();
+          this._resizeColumnBy(col.key, e.key === 'ArrowRight' ? COLUMN_RESIZE_STEP : -COLUMN_RESIZE_STEP);
+          return;
+        }
+        next = e.key === 'ArrowLeft' ? Math.max(0, at - 1) : Math.min(cols.length - 1, at + 1);
+        break;
+      case 'Home': next = 0; break;
+      case 'End': next = cols.length - 1; break;
+      case 'ArrowDown':
+        e.preventDefault();
+        if (e.altKey) this._openColumnMenu(col);
+        else if (this._visibleRowCount > 0) {
+          this._selection.setActive(0, at);
+          this._syncActiveCell();
+        }
+        return;
+      case 'Enter':
+      case ' ':
+        if (isImeComposing(e)) return;
+        e.preventDefault();
+        if (col.sortable !== false) this._toggleSort(col, e.shiftKey);
+        return;
+      default:
+        return;
+    }
+    e.preventDefault();
+    this._headerCol = next;
+    this._scrollColumnIntoView(next);
+  }
+
+  /** Move the keyboard from the body onto the header cell of visible column `colIndex`. */
+  private _enterHeader(colIndex: number): void {
+    this._selection.clear();
+    this._syncActiveCell();
+    this._headerCol = colIndex;
+    this._scrollColumnIntoView(colIndex);
+  }
+
+  /**
+   * Keyboard focus arriving on a grid with nothing active places it on the first cell (the first header
+   * cell when the body is empty), so the first arrow already moves and Tab is not spent entering. A
+   * pointer focus places the cell it pressed instead.
+   */
+  private _onHostFocus = (e: FocusEvent): void => {
+    if (e.composedPath()[0] !== this || this._activeCell || this._headerCol !== null) return;
+    if (this.visibleColumns.length === 0 || !this.matches(':focus-visible')) return;
+    if (this._visibleRowCount > 0) {
+      this._selection.setActive(0, 0);
+      this._syncActiveCell();
+    } else {
+      this._headerCol = 0;
+    }
+  };
 
   private _handleCtrlKey(e: KeyboardEvent): boolean {
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return false;
@@ -2008,9 +2116,13 @@ export class FlexTable extends LitElement {
       case 'ArrowRight':
         e.shiftKey ? this._selection.shiftMoveRight() : this._selection.moveRight();
         return true;
-      case 'Tab':
-        e.shiftKey ? this._selection.movePrev() : this._selection.moveNext();
-        return true;
+      case 'Tab': {
+        // Tab walks the cells and, past the last (Shift+Tab: before the first), leaves the grid like
+        // any other Tab stop — the grid never keeps the focus (WCAG 2.1.2).
+        const from = this._selection.activeCell;
+        const to = e.shiftKey ? this._selection.movePrev() : this._selection.moveNext();
+        return !(from && to && from.row === to.row && from.col === to.col);
+      }
       case 'Home':
         e.ctrlKey ? this._selection.moveToStart() : this._selection.moveToRowStart();
         return true;
@@ -2320,9 +2432,12 @@ export class FlexTable extends LitElement {
       this.scrollTop = rowBottom - this.clientHeight;
     }
 
-    // Horizontal scroll — use cached column offsets
+    this._scrollColumnIntoView(this._activeCell.col);
+  }
+
+  /** Scroll horizontally so the visible column at `colIndex` is in view — cached column offsets. */
+  private _scrollColumnIntoView(colIndex: number): void {
     const cols = this.visibleColumns;
-    const colIndex = this._activeCell.col;
     const colLeft = this._colLeftOffsets[colIndex] ?? 0;
     const colWidth = this._getColWidth(cols[colIndex]);
     const colRight = colLeft + colWidth;
@@ -2356,7 +2471,12 @@ export class FlexTable extends LitElement {
     }
 
     if (col.sortable === false) return;
-    this._sortCriteria = toggleSort(this._sortCriteria, col.key, e.shiftKey);
+    this._toggleSort(col, e.shiftKey);
+  }
+
+  /** Cycle `col`'s sort (asc → desc → none); `multi` adds it to the existing criteria (Shift). */
+  private _toggleSort(col: ColumnDefinition, multi: boolean): void {
+    this._sortCriteria = toggleSort(this._sortCriteria, col.key, multi);
 
     // In server mode, only dispatch the event — don't recompute locally
     if (this.dataMode !== 'server') {
@@ -2457,6 +2577,7 @@ export class FlexTable extends LitElement {
       isPinned ? 'ft-pinned' : '',
       headerAlign === 'center' ? 'ft-header-align-center' : '',
       headerAlign === 'end' ? 'ft-header-align-end' : '',
+      this._headerCol === colIndex ? 'ft-header-active' : '',
     ].filter(Boolean).join(' ');
 
     const ariaSortValue = sortable
@@ -2507,7 +2628,7 @@ export class FlexTable extends LitElement {
         @mousedown=${(e: MouseEvent) => this._onHeaderMouseDown(e, col, colIndex)}
         @click=${sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined}>
         ${showHiddenIndicator ? html`
-          <button class="ft-hidden-col-indicator"
+          <button class="ft-hidden-col-indicator" tabindex="-1"
             title=${t('showHiddenColumns')}
             @click=${(e: MouseEvent) => { e.stopPropagation(); this._showHiddenBefore(col); }}>&#x276F;</button>
         ` : ''}
@@ -2516,6 +2637,7 @@ export class FlexTable extends LitElement {
         ${sortIndex >= 0 ? html`<span class="ft-sort-order">${sortIndex + 1}</span>` : ''}
         <button class="ft-column-menu-btn ${hasFilter ? 'ft-filter-active' : ''}"
           type="button"
+          tabindex="-1"
           data-key=${col.key}
           title=${t('columnMenu')}
           aria-label=${t('columnMenuFor', { header: col.label })}
@@ -2571,9 +2693,14 @@ export class FlexTable extends LitElement {
       this._headerMenu = null;
       return;
     }
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    this._openColumnMenu(col, e.currentTarget as HTMLElement);
+  }
+
+  /** Open `col`'s column menu under `anchor` (its menu button by default) and focus the first item. */
+  private _openColumnMenu(col: ColumnDefinition, anchor = this._columnMenuButton(col.key)): void {
+    const rect = anchor?.getBoundingClientRect();
     this._openFilterKey = null;
-    this._headerMenu = { key: col.key, x: rect.left, y: rect.bottom, hiddenNeighbors: this._hiddenNeighbors(col) };
+    this._headerMenu = { key: col.key, x: rect?.left ?? 0, y: rect?.bottom ?? 0, hiddenNeighbors: this._hiddenNeighbors(col) };
     requestAnimationFrame(() => {
       document.addEventListener('click', this._onDocumentClick, { once: true });
     });
@@ -2594,7 +2721,10 @@ export class FlexTable extends LitElement {
   private _closeHeaderMenu(returnFocus: boolean): void {
     const key = this._headerMenu?.key;
     this._headerMenu = null;
-    if (returnFocus && key) this._columnMenuButton(key)?.focus();
+    if (!returnFocus || !key) return;
+    // Opened from the header row → back to the grid, which keeps the header cell; from the button → the button.
+    if (this._headerCol !== null) this.focus();
+    else this._columnMenuButton(key)?.focus();
   }
 
   private _onHeaderMenuKeydown(e: KeyboardEvent): void {
@@ -2872,6 +3002,10 @@ export class FlexTable extends LitElement {
     const key = this._openFilterKey;
     this._openFilterKey = null;
     if (!restoreFocus || key === null) return;
+    if (this._headerCol !== null) {
+      this.focus();
+      return;
+    }
     void this.updateComplete.then(() => {
       const btn = [...(this.shadowRoot?.querySelectorAll<HTMLButtonElement>('.ft-column-menu-btn') ?? [])]
         .find((b) => b.dataset.key === key);

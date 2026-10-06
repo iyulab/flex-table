@@ -166,8 +166,8 @@ describe('flex-table keyboard — row selection', () => {
     expect(boxes.every((b) => b.tabIndex === -1)).toBe(true);
     expect(boxes.every((b) => (b.getAttribute('aria-label') ?? '') !== '')).toBe(true);
 
-    // Forward Tab is the grid's own key (next cell), so the exposed path is Shift+Tab from what follows the
-    // table: sequential focus walks back into the shadow tree and lands on the last tabbable control in it.
+    // Shift+Tab from what follows the table walks back into it: sequential focus would land on the last
+    // tabbable control in the shadow tree, and there is none — the grid is the one stop.
     const after = document.createElement('button');
     table.after(after);
     after.focus();
@@ -222,6 +222,120 @@ describe('flex-table keyboard — header and column menu', () => {
     await press('{Escape}');
     expect(menuOpen()).toBe(false);
     expect(table.shadowRoot!.activeElement).toBe(menuButton(1));
+  });
+});
+
+describe('flex-table keyboard — the grid is one Tab stop and never keeps the focus', () => {
+  // Before 0.50 Tab past the last cell (Shift+Tab before the first) stayed on that cell: focus could never
+  // leave the grid by keyboard (WCAG 2.1.2), and every column menu button was a Tab stop of its own.
+  let before: HTMLButtonElement;
+  let after: HTMLButtonElement;
+  const small = async () => {
+    table = document.createElement('flex-table') as FlexTable;
+    table.style.display = 'block';
+    table.style.width = '500px';
+    table.style.height = '240px';
+    before = document.createElement('button');
+    after = document.createElement('button');
+    document.body.append(before, table, after);
+    table.columns = ['a', 'b'].map((key) => ({ key, label: key.toUpperCase(), width: 120 }));
+    table.data = Array.from({ length: 2 }, (_, r) => ({ a: `a${r}`, b: `b${r}` }));
+    await table.updateComplete;
+    await new Promise((r) => setTimeout(r, 120));
+  };
+  afterEach(() => { before?.remove(); after?.remove(); });
+
+  it('Tab into the grid lands on the first cell, walks the cells, and leaves after the last', async () => {
+    await small();
+    before.focus();
+    await press('{Tab}');
+    expect(document.activeElement).toBe(table);
+    expect(active(), 'the first cell is active on arrival — Tab is not spent entering').toEqual([0, 0]);
+    await press('{Tab}{Tab}{Tab}');
+    expect(active()).toEqual([1, 1]);
+    await press('{Tab}');
+    expect(document.activeElement, 'past the last cell Tab leaves the grid').toBe(after);
+  });
+
+  it('Shift+Tab before the first cell leaves the grid backwards', async () => {
+    await small();
+    after.focus();
+    await press('{Shift>}{Tab}{/Shift}');
+    expect(document.activeElement).toBe(table);
+    await at(0, 1);
+    await press('{Shift>}{Tab}{/Shift}');
+    expect(active()).toEqual([0, 0]);
+    await press('{Shift>}{Tab}{/Shift}');
+    expect(document.activeElement).toBe(before);
+  });
+
+  it('the column menu buttons are not Tab stops', async () => {
+    await small();
+    const buttons = [...table.shadowRoot!.querySelectorAll<HTMLElement>('.ft-column-menu-btn')];
+    expect(buttons.length).toBe(2);
+    expect(buttons.every((b) => b.tabIndex === -1)).toBe(true);
+  });
+});
+
+describe('flex-table keyboard — the header row', () => {
+  const header = (col: number) =>
+    table.shadowRoot!.querySelector<HTMLElement>(`.ft-header-cell[data-col-index="${col}"]`)!;
+  const activeHeader = () =>
+    [...table.shadowRoot!.querySelectorAll<HTMLElement>('.ft-header-cell.ft-header-active')].map((h) => h.dataset.colIndex);
+  const menuOpen = () => !!table.shadowRoot!.querySelector('.ft-header-menu');
+
+  it('ArrowUp from the first row moves onto the header; arrows / Home / End move along it; ArrowDown returns', async () => {
+    await mount();
+    await at(0, 1);
+    await press('{ArrowUp}');
+    expect(activeHeader()).toEqual(['1']);
+    expect(table.activeCell, 'no body cell is active while the header is').toBeNull();
+    await press('{ArrowRight}');
+    expect(activeHeader()).toEqual(['2']);
+    await press('{End}');
+    expect(activeHeader()).toEqual(['3']);
+    await press('{Home}{ArrowRight}');
+    expect(activeHeader()).toEqual(['1']);
+    await press('{ArrowDown}');
+    expect(activeHeader()).toEqual([]);
+    expect(active()).toEqual([0, 1]);
+  });
+
+  it('Enter on a header cell sorts it (ascending, then descending); Shift+Enter adds a second column', async () => {
+    await mount();
+    const sorts: unknown[] = [];
+    table.addEventListener('sort-change', (e) => sorts.push((e as CustomEvent).detail.criteria));
+    await at(0, 0);
+    await press('{ArrowUp}{Enter}');
+    expect(header(0).getAttribute('aria-sort')).toBe('ascending');
+    await press('{Enter}');
+    expect(header(0).getAttribute('aria-sort')).toBe('descending');
+    await press('{ArrowRight}{Shift>}{Enter}{/Shift}');
+    expect(sorts.at(-1)).toEqual([{ key: 'a', direction: 'desc' }, { key: 'b', direction: 'asc' }]);
+    expect(activeHeader(), 'sorting keeps the keyboard on the header').toEqual(['1']);
+  });
+
+  it('Alt+ArrowDown opens the column menu; Escape closes it and returns to the grid on the same header cell', async () => {
+    await mount();
+    await at(0, 2);
+    await press('{ArrowUp}{Alt>}{ArrowDown}{/Alt}');
+    expect(menuOpen()).toBe(true);
+    expect(table.shadowRoot!.activeElement?.getAttribute('role')).toBe('menuitem');
+    await press('{Escape}');
+    expect(menuOpen()).toBe(false);
+    expect(document.activeElement).toBe(table);
+    expect(table.shadowRoot!.activeElement, 'focus is the grid itself, not the menu button').toBeNull();
+    expect(activeHeader()).toEqual(['2']);
+  });
+
+  it('an empty table keeps the header row reachable by keyboard', async () => {
+    await mount();
+    table.data = [];
+    await settle();
+    table.focus();
+    await press('{ArrowDown}{ArrowRight}{Enter}');
+    expect(activeHeader()).toEqual(['1']);
+    expect(header(1).getAttribute('aria-sort')).toBe('ascending');
   });
 });
 

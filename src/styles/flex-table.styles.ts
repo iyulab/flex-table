@@ -151,6 +151,11 @@ export const flexTableStyles = css`
 
   .ft-header-cell.ft-sortable { cursor: pointer; }
   .ft-header-cell.ft-sortable:hover { background: var(--ft-header-hover-bg); }
+  /* The header cell the keyboard is on (ArrowUp from the first row) — same ring as the active body cell. */
+  .ft-header-cell.ft-header-active {
+    outline: 2px solid var(--ft-active-color);
+    outline-offset: -2px;
+  }
 
   .ft-header-cell.ft-header-align-center { justify-content: center; }
   .ft-header-cell.ft-header-align-end { justify-content: flex-end; }

@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.50.0] - 2026-10-06
+
+### Fixed
+
+- **Tab no longer traps the focus in the table.** Tab past the last cell (Shift+Tab before the first)
+  stayed on that cell, so keyboard focus could never leave the table (WCAG 2.1.2). Tab still walks the
+  cells; at either end it now moves on to the next (previous) control on the page.
+
+### Added
+
+- **The header row is reachable by keyboard.** ArrowUp from the first row moves onto the column's header
+  cell; ArrowLeft / ArrowRight / Home / End move along the header and ArrowDown returns to the body. On a
+  header cell, Enter or Space sorts (Shift adds the column to the sort), Alt+ArrowDown or the context-menu
+  key opens the column menu, and Alt+ArrowLeft / Alt+ArrowRight resize the column. Escape from that menu
+  returns to the same header cell. An empty table keeps the header row reachable.
+- Keyboard focus arriving on a table with nothing active activates the first cell, so the first arrow
+  key already moves and no Tab is spent entering.
+
+### Changed
+
+- **The column menu buttons are no longer Tab stops** (`tabindex="-1"`, like the row checkboxes) — the
+  table is one Tab stop and the header row reaches each column's menu. Pages that relied on tabbing to a
+  menu button reach it from the header row instead.
+
 ## [0.49.1] - 2026-10-06
 
 ### Fixed

@@ -437,8 +437,8 @@ package dependency; CSS custom properties are resolved at render time, not impor
 
 | Key | Action |
 |-----|--------|
-| Arrow keys | Navigate cells |
-| Tab / Shift+Tab | Move to next/previous cell |
+| Arrow keys | Navigate cells (ArrowUp from the first row moves onto the header row) |
+| Tab / Shift+Tab | Move to next/previous cell; past the last (before the first) cell, leave the table |
 | Enter / F2 | Start editing (Enter on a non-editable cell fires `row-activate`) |
 | Typing a printable character | Start editing an editable cell with that character |
 | Escape | Cancel edit / clear selection / close the find panel |
@@ -455,9 +455,15 @@ package dependency; CSS custom properties are resolved at render time, not impor
 | Ctrl+Shift+Z / Ctrl+Y | Redo |
 | Alt+ArrowLeft / Alt+ArrowRight | Resize current column (±20px) |
 | Ctrl+Click header | Select entire column |
+| ArrowLeft / ArrowRight / Home / End (header row) | Move along the header; ArrowDown returns to the first row |
+| Enter / Space (header row) | Sort the column (ascending → descending → none); with Shift, add it to the sort |
+| Alt+ArrowDown or the context-menu key (header row) | Open the column menu |
 | Enter / Space on a column menu button | Open the column menu |
 | ArrowUp / ArrowDown / Home / End (column menu) | Move between menu items |
-| Escape (column menu) | Close the menu and return focus to its button |
+| Escape (column menu) | Close the menu and return focus to where it was opened from |
+
+The table is one Tab stop: keyboard focus arriving on it activates the first cell (the first header cell
+when there are no rows), and the column menu buttons and row checkboxes are reached by keys, not Tab.
 
 ## Localization
 
