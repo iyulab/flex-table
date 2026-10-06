@@ -2889,7 +2889,7 @@ export class FlexTable extends LitElement {
       <div class="ft-comment-popup"
         style="position: fixed; left: ${adjustedX}px; top: ${adjustedY}px; z-index: calc(var(--u-layer-floating, 1000) + 1);"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}>
-        <textarea class="ft-comment-popup-textarea"
+        <textarea class="ft-comment-popup-textarea" aria-label=${t('addComment')}
           rows="4"
           placeholder=${t('addCommentPlaceholder')}
           @keydown=${onKeyDown}></textarea>

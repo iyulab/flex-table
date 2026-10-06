@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.48.6] - 2026-10-06
+
+### Fixed
+
+- **The cell-comment box is named** ("Add comment"); it had only its placeholder.
+
 ## [0.48.5] - 2026-10-06
 
 ### Fixed
