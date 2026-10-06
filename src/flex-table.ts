@@ -2968,7 +2968,8 @@ export class FlexTable extends LitElement {
     const type = col.type ?? 'text';
 
     return html`
-      <div class="ft-filter-dropdown" @click=${(e: MouseEvent) => e.stopPropagation()}>
+      <div class="ft-filter-dropdown" role="group" aria-label=${t('filterFor', { header: col.label })}
+        @click=${(e: MouseEvent) => e.stopPropagation()}>
         ${type === 'boolean' ? this._renderBooleanFilter(col)
           : type === 'number' ? this._renderNumberFilter(col)
           : type === 'date' || type === 'datetime' ? this._renderDateFilter(col)
@@ -3022,7 +3023,7 @@ export class FlexTable extends LitElement {
     return html`
       <div class="ft-filter-empty-row">
         <label>${t('blankCells')}</label>
-        <select class="ft-filter-mode-select"
+        <select class="ft-filter-mode-select" aria-label=${t('blankCells')}
           .value=${current}
           @change=${(e: Event) => {
             const val = (e.target as HTMLSelectElement).value as 'empty' | 'non-empty' | '';
@@ -3113,7 +3114,7 @@ export class FlexTable extends LitElement {
     const state = this._textFilterState.get(col.key) ?? { value: '', mode: 'contains' as TextFilterMode };
     return html`
       <div class="ft-filter-mode-row">
-        <select class="ft-filter-mode-select"
+        <select class="ft-filter-mode-select" aria-label=${t('filterMatchMode')}
           .value=${state.mode}
           @change=${(e: Event) => {
             const mode = (e.target as HTMLSelectElement).value as TextFilterMode;
@@ -3128,7 +3129,7 @@ export class FlexTable extends LitElement {
           <option value="wildcard">${t('wildcard')}</option>
         </select>
       </div>
-      <input class="ft-filter-input" type="text" placeholder=${t('searchPlaceholder')}
+      <input class="ft-filter-input" type="text" placeholder=${t('searchPlaceholder')} aria-label=${t('filterText')}
         .value=${state.value}
         @input=${(e: InputEvent) => {
           const value = (e.target as HTMLInputElement).value;
@@ -3158,7 +3159,7 @@ export class FlexTable extends LitElement {
     const cond = state[which];
     return html`
       <div class="ft-num-cond-row">
-        <select class="ft-filter-mode-select ft-num-op-select"
+        <select class="ft-filter-mode-select ft-num-op-select" aria-label=${t('conditionOperator', { n: which === 'cond1' ? 1 : 2 })}
           .value=${cond.op}
           @change=${(e: Event) => {
             const op = (e.target as HTMLSelectElement).value as NumericOp;
@@ -3173,6 +3174,7 @@ export class FlexTable extends LitElement {
             html`<option value=${op}>${NUM_OP_LABELS[op]}</option>`)}
         </select>
         <input class="ft-filter-input ft-num-cond-input" type="text" inputmode="decimal" placeholder=${t('valuePlaceholder')}
+          aria-label=${t('conditionValue', { n: which === 'cond1' ? 1 : 2 })}
           .value=${cond.text ?? (cond.value != null ? editableNumber(cond.value) : '')}
           aria-invalid=${cond.text && cond.value == null ? 'true' : 'false'}
           @input=${(e: InputEvent) => {
@@ -3193,7 +3195,7 @@ export class FlexTable extends LitElement {
     return html`
       ${this._renderNumCondRow(col.key, 'cond1')}
       <div class="ft-filter-mode-row">
-        <select class="ft-filter-mode-select"
+        <select class="ft-filter-mode-select" aria-label=${t('conditionJoin')}
           .value=${state.join}
           @change=${(e: Event) => {
             const join = (e.target as HTMLSelectElement).value as 'and' | 'or';
@@ -3295,7 +3297,7 @@ export class FlexTable extends LitElement {
 
   private _renderBooleanFilter(col: ColumnDefinition) {
     return html`
-      <select class="ft-filter-input"
+      <select class="ft-filter-input" aria-label=${t('filterFor', { header: col.label })}
         @change=${(e: Event) => {
           const value = (e.target as HTMLSelectElement).value;
           if (value === 'all') {
@@ -3925,7 +3927,7 @@ export class FlexTable extends LitElement {
           }
         }}>
         <div class="ft-find-row">
-          <input class="ft-find-input" type="text" placeholder=${t('findPlaceholder')}
+          <input class="ft-find-input" type="text" placeholder=${t('findPlaceholder')} aria-label=${t('findInput')}
             .value=${query}
             @input=${(e: Event) => {
               this._findState!.query = (e.target as HTMLInputElement).value;
@@ -3941,7 +3943,7 @@ export class FlexTable extends LitElement {
         </div>
         ${mode === 'replace' ? html`
           <div class="ft-find-row">
-            <input class="ft-find-replace-input" type="text" placeholder=${t('replaceWithPlaceholder')}
+            <input class="ft-find-replace-input" type="text" placeholder=${t('replaceWithPlaceholder')} aria-label=${t('replaceInput')}
               .value=${replaceWith}
               @input=${(e: Event) => { this._findState!.replaceWith = (e.target as HTMLInputElement).value; }}>
             <button @click=${() => this._replaceOne()} ?disabled=${count === 0}>${t('replace')}</button>
@@ -4384,7 +4386,7 @@ export class FlexTable extends LitElement {
 
     if (col.type === 'number') {
       return html`
-        <input class="ft-editor ft-editor-number" type="text" inputmode="decimal"
+        <input class="ft-editor ft-editor-number" type="text" inputmode="decimal" aria-label=${col.label}
           .value=${typeof value === 'number' ? editableNumber(value) : strValue}
           @keydown=${this._onEditorKeyDown}
           @blur=${() => this._commitEdit()}>
@@ -4398,7 +4400,7 @@ export class FlexTable extends LitElement {
       // a time are applied together (`confirm`), so picking the day does not end the edit early.
       const datetime = col.type === 'datetime';
       return html`
-        <u-date-picker class="ft-editor ft-editor-${col.type}" size="sm"
+        <u-date-picker class="ft-editor ft-editor-${col.type}" size="sm" aria-label=${col.label}
           mode=${datetime ? 'datetime' : 'date'} ?confirm=${datetime}
           .value=${pickerValue(value, datetime)}
           @keydown=${this._onEditorKeyDown}
@@ -4411,7 +4413,7 @@ export class FlexTable extends LitElement {
       const opts = col.options;
       const isStringArray = typeof opts[0] === 'string';
       return html`
-        <select class="ft-editor"
+        <select class="ft-editor" aria-label=${col.label}
           @keydown=${this._onEditorKeyDown}
           @blur=${() => this._commitEdit()}
           @change=${() => this._commitEdit()}>
@@ -4429,15 +4431,20 @@ export class FlexTable extends LitElement {
       const candidates = this._autocompleteState?.candidates ?? [];
       const activeIdx = this._autocompleteState?.activeIndex ?? -1;
       return html`
-        <input class="ft-editor" type="text"
+        <input class="ft-editor" type="text" aria-label=${col.label}
+          role="combobox" aria-autocomplete="list"
+          aria-expanded=${candidates.length > 0 ? 'true' : 'false'}
+          aria-controls="ft-autocomplete-list"
+          aria-activedescendant=${activeIdx >= 0 && candidates.length > 0 ? `ft-autocomplete-${activeIdx}` : nothing}
           .value=${strValue}
           @input=${(e: Event) => this._onAutocompleteInput(e, col)}
           @keydown=${this._onEditorKeyDown}
           @blur=${() => this._commitEdit()}>
         ${candidates.length > 0 ? html`
-          <div class="ft-autocomplete-dropdown">
+          <div class="ft-autocomplete-dropdown" id="ft-autocomplete-list" role="listbox" aria-label=${col.label}>
             ${candidates.map((c, i) => html`
               <div class="ft-autocomplete-item ${i === activeIdx ? 'ft-autocomplete-active' : ''}"
+                id=${`ft-autocomplete-${i}`} role="option" aria-selected=${i === activeIdx ? 'true' : 'false'}
                 @mousedown=${(e: MouseEvent) => { e.preventDefault(); this._selectAutocompleteCandidate(c); }}>
                 ${c}
               </div>
@@ -4447,8 +4454,9 @@ export class FlexTable extends LitElement {
       `;
     }
 
+    // 편집기의 이름은 그 열의 머리글이다(그리드 셀의 이름이 그것이듯) — 이름이 없으면 «편집 상자» 만 들린다.
     return html`
-      <input class="ft-editor" type="text"
+      <input class="ft-editor" type="text" aria-label=${col.label}
         .value=${strValue}
         @keydown=${this._onEditorKeyDown}
         @blur=${() => this._commitEdit()}>

@@ -67,6 +67,15 @@ export type FlexTableMessageKey =
   | 'replaceWithPlaceholder'
   | 'replace'
   | 'replaceAll'
+  | 'findInput'
+  | 'replaceInput'
+  // 필터 드롭다운 안 컨트롤의 이름
+  | 'filterFor'
+  | 'filterMatchMode'
+  | 'filterText'
+  | 'conditionOperator'
+  | 'conditionValue'
+  | 'conditionJoin'
   // 열 메뉴 항목 — 0.35.0 이 넣고 0.36.0 이관이 빠뜨린 묶음
   | 'sortAscending'
   | 'sortDescending'
@@ -141,6 +150,14 @@ flexTableLocale.register('en', {
   replaceWithPlaceholder: 'Replace with...',
   replace: 'Replace',
   replaceAll: 'Replace all',
+  findInput: 'Find',
+  replaceInput: 'Replace with',
+  filterFor: 'Filter {header}',
+  filterMatchMode: 'Match',
+  filterText: 'Filter text',
+  conditionOperator: 'Condition {n}',
+  conditionValue: 'Condition {n} value',
+  conditionJoin: 'Combine conditions',
 
   sortAscending: 'Sort ascending',
   sortDescending: 'Sort descending',
@@ -211,6 +228,14 @@ flexTableLocale.register('ko', {
   replaceWithPlaceholder: '바꿀 내용...',
   replace: '바꾸기',
   replaceAll: '모두 바꾸기',
+  findInput: '찾을 내용',
+  replaceInput: '바꿀 내용',
+  filterFor: '{header} 필터',
+  filterMatchMode: '일치 방식',
+  filterText: '필터 텍스트',
+  conditionOperator: '조건 {n}',
+  conditionValue: '조건 {n} 값',
+  conditionJoin: '조건 결합',
 
   sortAscending: '오름차순 정렬',
   sortDescending: '내림차순 정렬',

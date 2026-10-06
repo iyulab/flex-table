@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.48.5] - 2026-10-06
+
+### Fixed
+
+- **The form controls the grid draws are named.** Cell editors (text, number, select, date and the
+  autocomplete input) had no name and are now named by the column header; the autocomplete editor
+  is a combobox whose suggestions are a listbox of options, with the highlighted one announced. In
+  the filter dropdown — now a group named "Filter {column}" — the match-mode select, the filter text,
+  each numeric condition's operator and value, the condition join and the blank-cells select are
+  named (the blank-cells label sat next to its select without being tied to it). The find and
+  replace boxes were named only by their placeholder. New locale keys: `findInput`,
+  `replaceInput`, `filterFor`, `filterMatchMode`, `filterText`, `conditionOperator`,
+  `conditionValue`, `conditionJoin`.
+
 ## [0.48.4] - 2026-10-06
 
 ### Fixed

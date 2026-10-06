@@ -2481,6 +2481,54 @@ describe('FlexTable', () => {
       expect(el.columns[0].options).toEqual(['A', 'B', 'C']);
     });
 
+    it('editors are named by the column header (select · number · text · autocomplete combobox)', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [
+        { key: 'status', label: 'Status', type: 'select', options: ['A', 'B'] },
+        { key: 'qty', label: 'Qty', type: 'number' },
+        { key: 'note', label: 'Note' },
+        { key: 'city', label: 'City', autocomplete: true },
+      ];
+      el.data = [{ status: 'A', qty: 1, note: 'x', city: 'Seoul' }, { status: 'B', qty: 2, note: 'y', city: 'Busan' }];
+      await el.updateComplete;
+      const names: (string | null)[] = [];
+      for (let c = 0; c < 4; c++) {
+        (el as any)._selection.setActive(0, c);
+        (el as any)._activeCell = { row: 0, col: c };
+        (el as any)._startEdit();
+        await el.updateComplete;
+        const editor = el.shadowRoot!.querySelector('.ft-editor')!;
+        names.push(editor.getAttribute('aria-label'));
+        if (c === 3) expect(editor.getAttribute('role')).toBe('combobox');
+        (el as any)._cancelEdit?.() ?? (el as any)._commitEdit();
+        await el.updateComplete;
+      }
+      expect(names).toEqual(['Status', 'Qty', 'Note', 'City']);
+    });
+
+    it('filter dropdown is a group named for its column, and each control inside has a name', async () => {
+      const open = async (col: FlexTable['columns'][number]) => {
+        const el = createElement();
+        el.showFilters = true;
+        el.columns = [col];
+        el.data = [{ name: 'a', qty: 1 }];
+        await el.updateComplete;
+        await openFilter(el, 0);
+        return el.shadowRoot!.querySelector('.ft-filter-dropdown')!;
+      };
+      const unnamed = (root: Element) => [...root.querySelectorAll('input:not([type=checkbox]), select')]
+        .filter((c) => !c.getAttribute('aria-label') && !c.closest('label'));
+      let dd = await open({ key: 'name', label: 'Name' });
+      expect(dd.getAttribute('role')).toBe('group');
+      expect(dd.getAttribute('aria-label')).toBe('Filter Name');
+      expect(unnamed(dd)).toEqual([]);
+      dd = await open({ key: 'qty', label: 'Qty', type: 'number' });
+      expect(dd.getAttribute('aria-label')).toBe('Filter Qty');
+      expect(unnamed(dd)).toEqual([]);
+      expect([...dd.querySelectorAll('select.ft-num-op-select')].map((s) => s.getAttribute('aria-label'))).toEqual(['Condition 1', 'Condition 2']);
+    });
+
     it('should render select editor when editing a select cell', async () => {
       const el = createElement();
       el.editable = true;
@@ -2717,6 +2765,7 @@ describe('FlexTable', () => {
       const boxes = [...panel.querySelectorAll('input[type=checkbox]')];
       expect(boxes.map(b => b.getAttribute('aria-label'))).toEqual(['Match case', 'Whole cell']);
       expect(panel.querySelector('.ft-find-count')!.textContent).toBe('No results');
+      expect(panel.querySelector('.ft-find-input')!.getAttribute('aria-label'), 'a placeholder is not a name').toBe('Find');
     });
 
     it('Escape closes find panel', async () => {
