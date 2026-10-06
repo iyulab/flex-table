@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.3] - 2026-10-06
+
+### Documentation
+
+- README Quick Start looks the table up by its tag (`document.querySelector('flex-table')`), so the element is
+  typed in TypeScript and its `columns` / `data` are checked — `getElementById` gives a plain `HTMLElement`.
+
 ## [0.50.2] - 2026-10-06
 
 ### Documentation

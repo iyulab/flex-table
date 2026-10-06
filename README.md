@@ -20,12 +20,12 @@ npm install @iyulab/flex-table
 
 ```html
 <!-- The table is its own scroll container, so give it a height — see Sizing below. -->
-<flex-table id="table" style="height: 400px" row-height="32" show-row-numbers></flex-table>
+<flex-table style="height: 400px" row-height="32" show-row-numbers></flex-table>
 
 <script type="module">
   import '@iyulab/flex-table';
 
-  const table = document.getElementById('table');
+  const table = document.querySelector('flex-table'); // the tag gives the element its type
 
   table.columns = [
     { key: 'name', label: 'Name', type: 'text', width: 200 },
