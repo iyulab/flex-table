@@ -140,6 +140,45 @@ describe('flex-table keyboard — editing', () => {
   });
 });
 
+describe('flex-table keyboard — row selection', () => {
+  const selectable = async () => {
+    await mount();
+    table.selectable = true;
+    await settle();
+  };
+
+  it('Shift+Space selects the active cell’s row and toggles it back; Space alone still types', async () => {
+    await selectable();
+    await at(2, 1);
+    await press('{Shift>} {/Shift}');
+    expect(table.getSelectedRows().selectedIndices).toEqual([2]);
+    expect(editor()).toBeNull();
+    await press('{Shift>} {/Shift}');
+    expect(table.getSelectedRows().selectedIndices).toEqual([]);
+    await press(' ');
+    expect(editor(), 'Space starts editing an editable cell, as before').not.toBeNull();
+  });
+
+  it('the row checkboxes are named and are not Tab stops — Shift+Tab into the grid lands on the grid', async () => {
+    await selectable();
+    const boxes = [...table.shadowRoot!.querySelectorAll<HTMLInputElement>('.ft-checkbox-cell input, .ft-checkbox-header input')];
+    expect(boxes.length).toBeGreaterThan(2);
+    expect(boxes.every((b) => b.tabIndex === -1)).toBe(true);
+    expect(boxes.every((b) => (b.getAttribute('aria-label') ?? '') !== '')).toBe(true);
+
+    // Forward Tab is the grid's own key (next cell), so the exposed path is Shift+Tab from what follows the
+    // table: sequential focus walks back into the shadow tree and lands on the last tabbable control in it.
+    const after = document.createElement('button');
+    table.after(after);
+    after.focus();
+    await press('{Shift>}{Tab}{/Shift}');
+    const inner = table.shadowRoot!.activeElement as HTMLElement | null;
+    after.remove();
+    expect(document.activeElement).toBe(table);
+    expect(inner?.localName ?? 'host', 'Shift+Tab lands on the grid, not on a row checkbox').not.toBe('input');
+  });
+});
+
 describe('flex-table keyboard — column width', () => {
   it('Alt+ArrowRight widens and Alt+ArrowLeft narrows the current column by 20px', async () => {
     await mount();

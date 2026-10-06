@@ -1955,6 +1955,17 @@ export class FlexTable extends LitElement {
     if (this._handleCtrlKey(e)) return;
     if (this._handleAltKey(e, cols)) return;
 
+    // Shift+Space selects the active cell's row (the spreadsheet convention) — Space alone types into an
+    // editable cell. It is the keyboard path to row selection: the row checkboxes are not Tab stops.
+    if (e.key === ' ' && e.shiftKey && this.selectable && this._activeCell && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      this._rowSelection.toggle(this._activeCell.row);
+      this._lastCheckboxRowIndex = this._activeCell.row;
+      this._rowSelectionVersion++;
+      this._dispatchRowSelectionEvent();
+      return;
+    }
+
     // Printable character starts editing with that character
     if (this._activeCell && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const col = cols[this._activeCell.col];
@@ -3978,7 +3989,7 @@ export class FlexTable extends LitElement {
             style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${hdrH}px; z-index: 4;">
           ${this._rowSelection.mode === 'multi' ? html`
             <!-- 칸 전체가 누르는 자리다(라벨) — 체크 상자는 16px 그대로. -->
-            <label class="ft-checkbox-hit"><input type="checkbox"
+            <label class="ft-checkbox-hit"><input type="checkbox" tabindex="-1" aria-label=${t('selectAllRows')}
               .checked=${this._rowSelection.isAllSelected}
               .indeterminate=${this._rowSelection.isSomeSelected}
               @change=${this._onSelectAllChange}></label>
@@ -4183,7 +4194,9 @@ export class FlexTable extends LitElement {
     const checkboxCell = this.selectable ? html`
       <div class="ft-checkbox-cell"
         style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${rowH}px; z-index: 2;">
-        <label class="ft-checkbox-hit"><input type="checkbox"
+        <!-- 행 체크박스는 Tab 정지점이 아니다 — 그리드(호스트)가 하나의 정지점이고 행 선택은 Shift+Space 다.
+             렌더된 행마다 정지점이면 표 하나를 지나는 데 Tab 이 행 수만큼 든다. -->
+        <label class="ft-checkbox-hit"><input type="checkbox" tabindex="-1" aria-label=${t('selectRow')}
           .checked=${isRowSelected}
           @click=${(e: MouseEvent) => this._onRowCheckboxClick(e)}
           @change=${(e: Event) => this._onRowCheckboxChange(e, index)}></label>

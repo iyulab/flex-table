@@ -84,6 +84,9 @@ export type FlexTableMessageKey =
   | 'insertRowAbove'
   | 'insertRowBelow'
   | 'deleteRow'
+  // 행 선택 체크박스의 이름
+  | 'selectRow'
+  | 'selectAllRows'
   | 'filterByThisValue'
   | 'addComment'
   | 'editComment'
@@ -155,6 +158,8 @@ flexTableLocale.register('en', {
   insertRowAbove: 'Insert row above',
   insertRowBelow: 'Insert row below',
   deleteRow: 'Delete row',
+  selectRow: 'Select row',
+  selectAllRows: 'Select all rows',
   filterByThisValue: 'Filter by this value',
   addComment: 'Add Comment',
   editComment: 'Edit Comment',
@@ -223,6 +228,8 @@ flexTableLocale.register('ko', {
   insertRowAbove: '위에 행 삽입',
   insertRowBelow: '아래에 행 삽입',
   deleteRow: '행 삭제',
+  selectRow: '행 선택',
+  selectAllRows: '모든 행 선택',
   filterByThisValue: '이 값으로 필터',
   addComment: '메모 추가',
   editComment: '메모 편집',

@@ -435,6 +435,7 @@ package dependency; CSS custom properties are resolved at render time, not impor
 | Home / End | Row start/end |
 | Ctrl+Home / Ctrl+End | Table start/end |
 | Shift+Arrow / Shift+Click | Extend selection range |
+| Shift+Space | Select / deselect the active cell's row (when `selectable` — the row checkboxes are not Tab stops) |
 | Ctrl+C / Ctrl+X | Copy/Cut selection as TSV |
 | Ctrl+V | Paste TSV data |
 | Ctrl+D / Ctrl+R | Fill down / fill right |

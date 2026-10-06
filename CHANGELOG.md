@@ -10,6 +10,12 @@
   case", "Whole cell") and the buttons declare their keys with `aria-keyshortcuts`; the tooltips keep
   showing the key. The no-match count ("0 results") was a fixed English string and now comes from
   the locale too (new key `findNoResults`).
+- **Row selection has a keyboard path, and the row checkboxes are no longer Tab stops.** With
+  `selectable`, every rendered row checkbox was in the Tab order and none had a name, so Shift+Tab
+  from the control after the grid landed on an unnamed checkbox, and selecting rows from the
+  keyboard meant tabbing through them. Shift+Space now selects (and deselects) the active cell's row
+  — Space alone still types into an editable cell — and the checkboxes are named ("Select row",
+  "Select all rows"; new keys `selectRow`, `selectAllRows`) and kept out of the Tab order.
 - The locale values of `findPrevious`, `findNext` and `closeFind` no longer embed the key in
   parentheses — the key is added to the tooltip separately. An app that registered its own wording
   for these keys keeps it.

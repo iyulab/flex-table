@@ -71,6 +71,7 @@ flex-table {
 | Arrows / Tab / Shift+Tab | Move between cells |
 | Home / End, Ctrl+Home / Ctrl+End | Row start/end, table start/end |
 | Shift+Arrow, Shift+Click | Extend range selection |
+| Shift+Space | Select / deselect the active cell's row (`selectable`; row checkboxes are not Tab stops) |
 | Ctrl+Click header | Select column |
 | Enter / F2 | Edit (Enter on a non-editable cell fires `row-activate`) |
 | Typing a printable character | Start editing an editable cell |
