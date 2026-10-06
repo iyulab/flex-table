@@ -2702,6 +2702,23 @@ describe('FlexTable', () => {
       expect(panel!.querySelector('.ft-find-replace-input')).toBeTruthy();
     });
 
+    it('find panel controls carry names, not glyphs — and the no-match count is localized', async () => {
+      const el = makeTable(['Alice']);
+      await el.updateComplete;
+      (el as any)._openFindPanel('find');
+      (el as any)._findState.query = 'zzz';
+      (el as any)._findSearch();
+      await el.updateComplete;
+      const panel = el.shadowRoot!.querySelector('.ft-find-panel')!;
+      const buttons = [...panel.querySelectorAll('.ft-find-row:first-child button')];
+      expect(buttons.map(b => b.textContent!.trim())).toEqual(['◀', '▶', '✕']);
+      expect(buttons.map(b => b.getAttribute('aria-label'))).toEqual(['Previous match', 'Next match', 'Close find']);
+      expect(buttons.map(b => b.getAttribute('aria-keyshortcuts'))).toEqual(['Shift+Enter', 'Enter', 'Escape']);
+      const boxes = [...panel.querySelectorAll('input[type=checkbox]')];
+      expect(boxes.map(b => b.getAttribute('aria-label'))).toEqual(['Match case', 'Whole cell']);
+      expect(panel.querySelector('.ft-find-count')!.textContent).toBe('No results');
+    });
+
     it('Escape closes find panel', async () => {
       const el = makeTable(['Alice']);
       await el.updateComplete;

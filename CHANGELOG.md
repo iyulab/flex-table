@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.48.4] - 2026-10-06
+
+### Fixed
+
+- **The find panel's controls are named.** The previous, next and close buttons held only `◀`, `▶`
+  and `✕`, and the two option checkboxes were labelled `Aa` and `[ ]`, so assistive technology read
+  symbols. They are now named from the locale ("Previous match", "Next match", "Close find", "Match
+  case", "Whole cell") and the buttons declare their keys with `aria-keyshortcuts`; the tooltips keep
+  showing the key. The no-match count ("0 results") was a fixed English string and now comes from
+  the locale too (new key `findNoResults`).
+- The locale values of `findPrevious`, `findNext` and `closeFind` no longer embed the key in
+  parentheses — the key is added to the tooltip separately. An app that registered its own wording
+  for these keys keeps it.
+
 ## [0.48.3] - 2026-10-06
 
 ### Fixed

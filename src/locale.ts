@@ -63,6 +63,7 @@ export type FlexTableMessageKey =
   | 'matchCase'
   | 'wholeCell'
   | 'closeFind'
+  | 'findNoResults'
   | 'replaceWithPlaceholder'
   | 'replace'
   | 'replaceAll'
@@ -127,11 +128,13 @@ flexTableLocale.register('en', {
   toPlaceholder: 'To',
 
   findPlaceholder: 'Find...',
-  findPrevious: 'Previous (Shift+Enter)',
-  findNext: 'Next (Enter)',
+  // 키 안내(Shift+Enter 등)는 문구에 넣지 않는다 — 이름은 «무엇» 이고, 키는 `aria-keyshortcuts` 와 툴팁이 싣는다.
+  findPrevious: 'Previous match',
+  findNext: 'Next match',
   matchCase: 'Match case',
   wholeCell: 'Whole cell',
-  closeFind: 'Close (Escape)',
+  closeFind: 'Close find',
+  findNoResults: 'No results',
   replaceWithPlaceholder: 'Replace with...',
   replace: 'Replace',
   replaceAll: 'Replace all',
@@ -194,11 +197,12 @@ flexTableLocale.register('ko', {
   toPlaceholder: '끝',
 
   findPlaceholder: '찾기...',
-  findPrevious: '이전 (Shift+Enter)',
-  findNext: '다음 (Enter)',
+  findPrevious: '이전 일치',
+  findNext: '다음 일치',
   matchCase: '대/소문자 구분',
   wholeCell: '셀 전체 일치',
-  closeFind: '닫기 (Escape)',
+  closeFind: '찾기 닫기',
+  findNoResults: '결과 없음',
   replaceWithPlaceholder: '바꿀 내용...',
   replace: '바꾸기',
   replaceAll: '모두 바꾸기',

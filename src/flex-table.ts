@@ -3920,12 +3920,13 @@ export class FlexTable extends LitElement {
               this._findState!.query = (e.target as HTMLInputElement).value;
               this._findSearch();
             }}>
-          <span class="ft-find-count">${count > 0 ? `${current}/${count}` : query ? '0 results' : ''}</span>
-          <button @click=${() => this._findPrev()} title=${t('findPrevious')}>◀</button>
-          <button @click=${() => this._findNext()} title=${t('findNext')}>▶</button>
-          <label title=${t('matchCase')}><input type="checkbox" ?checked=${matchCase} @change=${(e: Event) => { this._findState!.matchCase = (e.target as HTMLInputElement).checked; this._findSearch(); }}> Aa</label>
-          <label title=${t('wholeCell')}><input type="checkbox" ?checked=${wholeCell} @change=${(e: Event) => { this._findState!.wholeCell = (e.target as HTMLInputElement).checked; this._findSearch(); }}> [ ]</label>
-          <button @click=${() => this._closeFindPanel()} title=${t('closeFind')}>✕</button>
+          <span class="ft-find-count">${count > 0 ? `${current}/${count}` : query ? t('findNoResults') : ''}</span>
+          <!-- 글리프는 이름이 아니다(«◀» 는 «black left-pointing triangle» 로 읽힌다) — 이름은 aria-label, 키는 aria-keyshortcuts -->
+          <button @click=${() => this._findPrev()} aria-label=${t('findPrevious')} aria-keyshortcuts="Shift+Enter" title=${`${t('findPrevious')} (Shift+Enter)`}>◀</button>
+          <button @click=${() => this._findNext()} aria-label=${t('findNext')} aria-keyshortcuts="Enter" title=${`${t('findNext')} (Enter)`}>▶</button>
+          <label title=${t('matchCase')}><input type="checkbox" aria-label=${t('matchCase')} ?checked=${matchCase} @change=${(e: Event) => { this._findState!.matchCase = (e.target as HTMLInputElement).checked; this._findSearch(); }}> Aa</label>
+          <label title=${t('wholeCell')}><input type="checkbox" aria-label=${t('wholeCell')} ?checked=${wholeCell} @change=${(e: Event) => { this._findState!.wholeCell = (e.target as HTMLInputElement).checked; this._findSearch(); }}> [ ]</label>
+          <button @click=${() => this._closeFindPanel()} aria-label=${t('closeFind')} aria-keyshortcuts="Escape" title=${`${t('closeFind')} (Escape)`}>✕</button>
         </div>
         ${mode === 'replace' ? html`
           <div class="ft-find-row">
