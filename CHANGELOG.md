@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.49.0] - 2026-10-06
+
+### Added
+
+- **Typed events.** `FlexTableEventMap` (exported, with `CellChange`) maps each of the 31 event names to
+  its `CustomEvent<detail>`, and `FlexTable` overloads `addEventListener`/`removeEventListener` with it:
+  `table.addEventListener('sort-change', (e) => e.detail.criteria)` type-checks without a cast. Before,
+  a TypeScript listener got a plain `Event`. The names stay off the global event map on purpose — several
+  are generic (`sort-change`, `selection-change`) and would collide with other libraries.
+- The element dispatches every event through one helper keyed on the map, so a detail that drifts from
+  the documented shape no longer compiles.
+
+### Changed
+
+- **React `on*` props carry the detail types** (they were `CustomEvent<any>`). A handler that declared a
+  detail shape the event never had now fails to type-check — that is the point; handlers typed as plain
+  `CustomEvent` keep working.
+
+### Documentation
+
+- The README's event tables list the seven events they were missing (`row-reorder`, `data-import`,
+  `fill-handle-apply`, `find-replace`, `comment-change`, `column-visibility-change`,
+  `header-context-menu`).
+
+### Fixed
+
+- The package no longer ships empty `.d.ts` files for its own tests.
+
 ## [0.48.6] - 2026-10-06
 
 ### Fixed

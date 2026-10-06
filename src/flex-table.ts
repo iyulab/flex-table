@@ -23,6 +23,7 @@ import type { SortCriteria } from './core/sorting.js';
 import type { ColumnFilter, FilterPredicate } from './core/filtering.js';
 import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './models/types.js';
 import { effectiveAlign } from './models/types.js';
+import type { FlexTableEventMap } from './events.js';
 import type { TemplateResult } from 'lit';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
@@ -435,11 +436,7 @@ export class FlexTable extends LitElement {
 
   private _dispatchRowSelectionEvent(): void {
     const { selectedIndices, selectedRows } = this.getSelectedRows();
-    this.dispatchEvent(new CustomEvent('selection-change', {
-      detail: { selectedIndices, selectedRows },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('selection-change', { selectedIndices, selectedRows });
   }
 
   // --- Public API: Filtering ---
@@ -518,20 +515,26 @@ export class FlexTable extends LitElement {
     this._dispatchUndoStateEvent();
   }
 
+  /**
+   * Dispatches one of {@link FlexTableEventMap}'s events — bubbling and composed. Every event goes
+   * through here, so a detail that drifts from the map fails to compile.
+   */
+  private _emit<K extends keyof FlexTableEventMap>(
+    type: K,
+    detail: FlexTableEventMap[K]['detail'],
+    init?: { cancelable?: boolean },
+  ): FlexTableEventMap[K] {
+    const event = new CustomEvent(type, { detail, bubbles: true, composed: true, ...init }) as FlexTableEventMap[K];
+    this.dispatchEvent(event);
+    return event;
+  }
+
   private _dispatchUndoStateEvent(): void {
-    this.dispatchEvent(new CustomEvent('undo-state-change', {
-      detail: { canUndo: this.canUndo, canRedo: this.canRedo },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('undo-state-change', { canUndo: this.canUndo, canRedo: this.canRedo });
   }
 
   private _dispatchFilterEvent(): void {
-    this.dispatchEvent(new CustomEvent('filter-change', {
-      detail: { keys: this.filterKeys, filteredCount: this.filteredRowCount },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('filter-change', { keys: this.filterKeys, filteredCount: this.filteredRowCount });
   }
 
   // --- Public API: Column Operations ---
@@ -565,11 +568,7 @@ export class FlexTable extends LitElement {
     });
 
     this.requestUpdate();
-    this.dispatchEvent(new CustomEvent('column-add', {
-      detail: { column: def, index: insertAt },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('column-add', { column: def, index: insertAt });
     this._dispatchUndoStateEvent();
 
     return def;
@@ -628,11 +627,7 @@ export class FlexTable extends LitElement {
     }
 
     this.requestUpdate();
-    this.dispatchEvent(new CustomEvent('column-delete', {
-      detail: { column: removed, key, index: colIndex },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('column-delete', { column: removed, key, index: colIndex });
     this._dispatchUndoStateEvent();
   }
 
@@ -672,11 +667,7 @@ export class FlexTable extends LitElement {
     });
 
     this.requestUpdate();
-    this.dispatchEvent(new CustomEvent('column-reorder', {
-      detail: { key, oldIndex, newIndex: clampedNew },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('column-reorder', { key, oldIndex, newIndex: clampedNew });
     this._dispatchUndoStateEvent();
   }
 
@@ -710,11 +701,7 @@ export class FlexTable extends LitElement {
     const idx = this.columns.findIndex(c => c.key === key);
     if (idx === -1) return;
     this.columns = this.columns.map((c, i) => i === idx ? { ...c, hidden } : c);
-    this.dispatchEvent(new CustomEvent('column-visibility-change', {
-      detail: { key, hidden },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('column-visibility-change', { key, hidden });
   }
 
   /** Returns all columns marked as hidden. */
@@ -747,11 +734,7 @@ export class FlexTable extends LitElement {
     });
 
     this.requestUpdate();
-    this.dispatchEvent(new CustomEvent('row-add', {
-      detail: { row: newRow, index: insertAt },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('row-add', { row: newRow, index: insertAt });
     this._dispatchUndoStateEvent();
 
     return newRow;
@@ -809,11 +792,7 @@ export class FlexTable extends LitElement {
     }
 
     this.requestUpdate();
-    this.dispatchEvent(new CustomEvent('row-delete', {
-      detail: { indices: deleted.map(d => d.index), rows: deleted.map(d => d.row) },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('row-delete', { indices: deleted.map(d => d.index), rows: deleted.map(d => d.row) });
     this._dispatchUndoStateEvent();
   }
 
@@ -852,11 +831,7 @@ export class FlexTable extends LitElement {
     });
 
     this.requestUpdate();
-    this.dispatchEvent(new CustomEvent('batch-update', {
-      detail: { changes: saved },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('batch-update', { changes: saved });
     this._dispatchUndoStateEvent();
   }
 
@@ -947,10 +922,7 @@ export class FlexTable extends LitElement {
       if (!this._comments.has(dataIndex)) this._comments.set(dataIndex, new Map());
       this._comments.get(dataIndex)!.set(colKey, text);
     }
-    this.dispatchEvent(new CustomEvent('comment-change', {
-      detail: { dataIndex, colKey, text: text ?? null },
-      bubbles: true, composed: true,
-    }));
+    this._emit('comment-change', { dataIndex, colKey, text: text ?? null });
     this.requestUpdate();
   }
 
@@ -1028,7 +1000,7 @@ export class FlexTable extends LitElement {
       undo: () => { this.data = prev; this.requestUpdate(); },
       redo: () => { this.data = imported; this.requestUpdate(); },
     });
-    this.dispatchEvent(new CustomEvent('data-import', { detail: { count: imported.length }, bubbles: true, composed: true }));
+    this._emit('data-import', { count: imported.length });
   }
 
   private _applyImportedRows(rows: string[][]): void {
@@ -1052,7 +1024,7 @@ export class FlexTable extends LitElement {
       undo: () => { this.data = prev; this.requestUpdate(); },
       redo: () => { this.data = imported; this.requestUpdate(); },
     });
-    this.dispatchEvent(new CustomEvent('data-import', { detail: { count: imported.length }, bubbles: true, composed: true }));
+    this._emit('data-import', { count: imported.length });
   }
 
   /** Map header text → column key using exact header match (case-insensitive fallback). */
@@ -1367,11 +1339,7 @@ export class FlexTable extends LitElement {
     }
 
     this._filteredIndices = computeFilteredIndices(this.data, this._filters, (error, row, filter) => {
-      this.dispatchEvent(new CustomEvent('filter-error', {
-        detail: { error, row, filterKey: filter.key },
-        bubbles: true,
-        composed: true,
-      }));
+      this._emit('filter-error', { error, row, filterKey: filter.key });
     });
     // Build filtered data subset for sorting
     if (this._filters.length === 0 && this._sortCriteria.length === 0) {
@@ -1486,21 +1454,15 @@ export class FlexTable extends LitElement {
     const col = this.visibleColumns[colIndex];
     if (!col) return;
 
-    const ctxEvent = new CustomEvent('context-menu', {
-      detail: {
-        x: e.clientX,
-        y: e.clientY,
-        row: dataIndex,
-        col: colIndex,
-        key: col.key,
-        value: this.data[dataIndex]?.[col.key],
-        rowData: this.data[dataIndex],
-      },
-      bubbles: true,
-      composed: true,
-      cancelable: true,
-    });
-    this.dispatchEvent(ctxEvent);
+    const ctxEvent = this._emit('context-menu', {
+      x: e.clientX,
+      y: e.clientY,
+      row: dataIndex,
+      col: colIndex,
+      key: col.key,
+      value: this.data[dataIndex]?.[col.key],
+      rowData: this.data[dataIndex],
+    }, { cancelable: true });
 
     // Close any open comment popup (save its content) before showing new context menu
     this._cancelCommentPopup();
@@ -1622,11 +1584,7 @@ export class FlexTable extends LitElement {
     const dataIndex = this._toDataIndex(this._activeCell.row);
     const row = this.data[dataIndex];
     if (!row) return;
-    this.dispatchEvent(new CustomEvent('row-activate', {
-      detail: { row, index: dataIndex, col: this._activeCell.col, key: col?.key },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('row-activate', { row, index: dataIndex, col: this._activeCell.col, key: col?.key });
   }
 
   private _startEdit(): void {
@@ -1648,11 +1606,7 @@ export class FlexTable extends LitElement {
     this._editing.start(this._activeCell, row[col.key]);
     this._editingCell = { ...this._activeCell };
 
-    this.dispatchEvent(new CustomEvent('cell-edit-start', {
-      detail: { row: dataRow, col: this._activeCell.col, key: col.key, value: row[col.key] },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('cell-edit-start', { row: dataRow, col: this._activeCell.col, key: col.key, value: row[col.key] });
   }
 
   private _commitEdit(): void {
@@ -1719,11 +1673,7 @@ export class FlexTable extends LitElement {
       if (!allCandidates.includes(String(newValue))) {
         const error = t('notInList');
         this._markCellInvalid(row, col, error);
-        this.dispatchEvent(new CustomEvent('validation-error', {
-          detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
-          bubbles: true,
-          composed: true,
-        }));
+        this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
         return;
       }
     }
@@ -1736,11 +1686,7 @@ export class FlexTable extends LitElement {
     if (unreadable) {
       const error = t(colDef.type === 'number' ? 'notANumber' : colDef.type === 'date' ? 'notADate' : 'notADateTime');
       this._markCellInvalid(row, col, error);
-      this.dispatchEvent(new CustomEvent('validation-error', {
-        detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
-        bubbles: true,
-        composed: true,
-      }));
+      this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
       return;
     }
 
@@ -1749,11 +1695,7 @@ export class FlexTable extends LitElement {
       const error = colDef.validator(newValue, this.data[dataRow], colDef);
       if (error) {
         this._markCellInvalid(row, col, error);
-        this.dispatchEvent(new CustomEvent('validation-error', {
-          detail: { row: dataRow, col, key: colDef.key, value: newValue, error },
-          bubbles: true,
-          composed: true,
-        }));
+        this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
         return;
       }
     }
@@ -1776,11 +1718,7 @@ export class FlexTable extends LitElement {
 
     this.requestUpdate();
 
-    this.dispatchEvent(new CustomEvent('cell-edit-commit', {
-      detail: { row: dataRow, col, key: colDef.key, oldValue, newValue },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('cell-edit-commit', { row: dataRow, col, key: colDef.key, oldValue, newValue });
     this._dispatchUndoStateEvent();
   }
 
@@ -1789,11 +1727,7 @@ export class FlexTable extends LitElement {
     const editState = this._editing.cancel();
     this._editingCell = null;
     if (editState) {
-      this.dispatchEvent(new CustomEvent('cell-edit-cancel', {
-        detail: { row: editState.position.row, col: editState.position.col },
-        bubbles: true,
-        composed: true,
-      }));
+      this._emit('cell-edit-cancel', { row: editState.position.row, col: editState.position.col });
     }
   }
 
@@ -2057,11 +1991,7 @@ export class FlexTable extends LitElement {
     const newWidth = Math.max(minW, currentWidth + delta);
     this._columnWidths.set(col.key, newWidth);
     this.requestUpdate();
-    this.dispatchEvent(new CustomEvent('column-resize', {
-      detail: { key: col.key, width: newWidth, colIndex },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('column-resize', { key: col.key, width: newWidth, colIndex });
   }
 
   private _handleNavigation(e: KeyboardEvent): boolean {
@@ -2130,11 +2060,7 @@ export class FlexTable extends LitElement {
   }
 
   private _clipboardError(action: 'copy' | 'paste', error: unknown): void {
-    this.dispatchEvent(new CustomEvent('clipboard-error', {
-      detail: { action, error },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('clipboard-error', { action, error });
   }
 
   /** Runs once the text is on the clipboard — only then is a cut range cleared. */
@@ -2142,11 +2068,7 @@ export class FlexTable extends LitElement {
     if (cut) {
       this._clearRange(range);
     }
-    this.dispatchEvent(new CustomEvent(cut ? 'clipboard-cut' : 'clipboard-copy', {
-      detail: { range, text },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit(cut ? 'clipboard-cut' : 'clipboard-copy', { range, text });
   }
 
   private _pasteText(text: string): void {
@@ -2184,11 +2106,7 @@ export class FlexTable extends LitElement {
     }
 
     this.requestUpdate();
-    this.dispatchEvent(new CustomEvent('clipboard-paste', {
-      detail: { changes, addedRows: addedRows.length },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('clipboard-paste', { changes, addedRows: addedRows.length });
   }
 
   /**
@@ -2417,11 +2335,7 @@ export class FlexTable extends LitElement {
   }
 
   private _dispatchSelectionEvent(): void {
-    this.dispatchEvent(new CustomEvent('cell-select', {
-      detail: this._activeCell ? { ...this._activeCell } : null,
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('cell-select', this._activeCell ? { ...this._activeCell } : null);
   }
 
   // --- Sorting ---
@@ -2450,11 +2364,7 @@ export class FlexTable extends LitElement {
     }
     this.requestUpdate();
 
-    this.dispatchEvent(new CustomEvent('sort-change', {
-      detail: { criteria: [...this._sortCriteria] },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('sort-change', { criteria: [...this._sortCriteria] });
   }
 
   private _selectColumn(colIndex: number): void {
@@ -2466,15 +2376,11 @@ export class FlexTable extends LitElement {
     this._activeCell = { row: 0, col: colIndex };
     this.requestUpdate();
 
-    this.dispatchEvent(new CustomEvent('column-select', {
-      detail: {
+    this._emit('column-select', {
         colIndex,
         key: this.visibleColumns[colIndex]?.key,
         rowCount,
-      },
-      bubbles: true,
-      composed: true,
-    }));
+      });
   }
 
   /** Public API: select an entire column by index. */
@@ -2646,11 +2552,7 @@ export class FlexTable extends LitElement {
     e.preventDefault();
     this._openFilterKey = null;
     this._headerMenu = { key: col.key, x: e.clientX, y: e.clientY, hiddenNeighbors: this._hiddenNeighbors(col) };
-    this.dispatchEvent(new CustomEvent('header-context-menu', {
-      detail: { key: col.key, label: col.label, x: e.clientX, y: e.clientY },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('header-context-menu', { key: col.key, label: col.label, x: e.clientX, y: e.clientY });
     requestAnimationFrame(() => {
       document.addEventListener('click', this._onDocumentClick, { once: true });
     });
@@ -2914,11 +2816,7 @@ export class FlexTable extends LitElement {
       this._recomputeView();
     }
     this.requestUpdate();
-    this.dispatchEvent(new CustomEvent('sort-change', {
-      detail: { criteria: [...this._sortCriteria] },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('sort-change', { criteria: [...this._sortCriteria] });
   }
 
   // --- Filter UI ---
@@ -3356,11 +3254,7 @@ export class FlexTable extends LitElement {
     this._columnWidths.set(col.key, newWidth);
     this.requestUpdate();
 
-    this.dispatchEvent(new CustomEvent('column-resize', {
-      detail: { key: col.key, width: newWidth, colIndex },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emit('column-resize', { key: col.key, width: newWidth, colIndex });
   }
 
   private _onResizeStart(e: MouseEvent, colIndex: number): void {
@@ -3391,11 +3285,7 @@ export class FlexTable extends LitElement {
 
       if (this._resizing) {
         const finalWidth = this._columnWidths.get(col.key) ?? DEFAULT_COL_WIDTH;
-        this.dispatchEvent(new CustomEvent('column-resize', {
-          detail: { key: col.key, width: finalWidth, colIndex },
-          bubbles: true,
-          composed: true,
-        }));
+        this._emit('column-resize', { key: col.key, width: finalWidth, colIndex });
         this._resizing = null;
       }
     };
@@ -3609,10 +3499,7 @@ export class FlexTable extends LitElement {
         redo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.newValue; this.requestUpdate(); },
       });
       this._dispatchUndoStateEvent();
-      this.dispatchEvent(new CustomEvent('fill-handle-apply', {
-        detail: { sourceRange, targetRange, cells: saved },
-        bubbles: true, composed: true,
-      }));
+      this._emit('fill-handle-apply', { sourceRange, targetRange, cells: saved });
     }
     this.requestUpdate();
   }
@@ -3767,10 +3654,7 @@ export class FlexTable extends LitElement {
       redo: () => { this.data = [...newData]; this.requestUpdate(); },
     });
     this._dispatchUndoStateEvent();
-    this.dispatchEvent(new CustomEvent('row-reorder', {
-      detail: { from: fromDataIdx, to: toDataIdx },
-      bubbles: true, composed: true,
-    }));
+    this._emit('row-reorder', { from: fromDataIdx, to: toDataIdx });
   }
 
   // --- Find / Replace ---
@@ -3876,10 +3760,7 @@ export class FlexTable extends LitElement {
         redo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.newValue; this.requestUpdate(); },
       });
       this._dispatchUndoStateEvent();
-      this.dispatchEvent(new CustomEvent('find-replace', {
-        detail: { type: 'replace-all', cells: saved.map(s => ({ row: s.dataRow, col: s.key, oldValue: s.oldValue, newValue: s.newValue })) },
-        bubbles: true, composed: true,
-      }));
+      this._emit('find-replace', { type: 'replace-all', cells: saved.map(s => ({ row: s.dataRow, col: s.key, oldValue: s.oldValue, newValue: s.newValue })) });
     }
 
     this._findState.results = [];
@@ -3902,10 +3783,7 @@ export class FlexTable extends LitElement {
       redo: () => { this.data[dataRow][key] = replaceWith; this.requestUpdate(); },
     });
     this._dispatchUndoStateEvent();
-    this.dispatchEvent(new CustomEvent('find-replace', {
-      detail: { type: 'replace', cells: [{ row: dataRow, col: key, oldValue, newValue: replaceWith }] },
-      bubbles: true, composed: true,
-    }));
+    this._emit('find-replace', { type: 'replace', cells: [{ row: dataRow, col: key, oldValue, newValue: replaceWith }] });
 
     this._findSearch();
     this._findGoTo(Math.min(currentIndex, this._findState.results.length - 1));
@@ -4488,6 +4366,20 @@ function calendarOpen(picker: Element): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Typed listeners for {@link FlexTableEventMap} — the DOM's own pattern (`HTMLMediaElement` with
+ * `HTMLMediaElementEventMap`). Element-scoped on purpose: several names are generic and would
+ * collide on the global event map.
+ */
+export interface FlexTable {
+  addEventListener<K extends keyof FlexTableEventMap>(type: K, listener: (this: FlexTable, ev: FlexTableEventMap[K]) => unknown, options?: boolean | AddEventListenerOptions): void;
+  addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: FlexTable, ev: HTMLElementEventMap[K]) => unknown, options?: boolean | AddEventListenerOptions): void;
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+  removeEventListener<K extends keyof FlexTableEventMap>(type: K, listener: (this: FlexTable, ev: FlexTableEventMap[K]) => unknown, options?: boolean | EventListenerOptions): void;
+  removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: FlexTable, ev: HTMLElementEventMap[K]) => unknown, options?: boolean | EventListenerOptions): void;
+  removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
 }
 
 declare global {

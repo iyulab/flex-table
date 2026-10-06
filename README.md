@@ -282,7 +282,10 @@ Default is `false`, matching `clear-undo-on-data-change`.
 
 ## Events
 
-All events use `CustomEvent` with `bubbles: true, composed: true`.
+All events use `CustomEvent` with `bubbles: true, composed: true`. They are typed: `FlexTableEventMap` maps
+each name to its `CustomEvent<detail>`, and `addEventListener` on a `FlexTable` (for example from
+`document.querySelector('flex-table')`) uses it — `table.addEventListener('sort-change', (e) => e.detail.criteria)`
+type-checks without a cast. The React wrapper's `on*` props carry the same types.
 
 ### Cell Events
 
@@ -302,6 +305,11 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 | `row-delete` | `{ indices, rows }` | Rows deleted |
 | `row-activate` | `{ row, index, col, key }` | Enter pressed on a non-editable cell — the grid's own contract for "activate this row" (e.g. navigate to a detail view), guaranteed even though the internal Enter handler prevents the keystroke from reliably reaching a listener the host attaches to the same element |
 | `batch-update` | `{ changes: [{ row, key, oldValue, newValue }] }` | Batch update applied |
+| `row-reorder` | `{ from, to }` | Row dragged to a new place (data indices) |
+| `data-import` | `{ count }` | Rows imported from a file |
+| `fill-handle-apply` | `{ sourceRange, targetRange, cells }` | Fill handle wrote `cells` (`{ dataRow, key, oldValue, newValue }`) |
+| `find-replace` | `{ type, cells }` | Replace (`type: 'replace'`) or replace-all from the find panel; `cells` are `{ row, col, oldValue, newValue }` with `col` the column key |
+| `comment-change` | `{ dataIndex, colKey, text }` | Cell comment set, changed or removed (`text: null`) |
 
 ### Column Events
 
@@ -312,6 +320,8 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 | `column-reorder` | `{ key, oldIndex, newIndex }` | Column moved |
 | `column-resize` | `{ key, width, colIndex }` | Column resized (drag, auto-fit, or keyboard) |
 | `column-select` | `{ colIndex, key, rowCount }` | Entire column selected |
+| `column-visibility-change` | `{ key, hidden }` | Column hidden or shown |
+| `header-context-menu` | `{ key, label, x, y }` | Right-click on a column header |
 
 ### Sort & Filter Events
 

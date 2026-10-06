@@ -134,6 +134,8 @@ Enter/Escape and blur-to-commit behavior.
 ## Events
 
 All are `CustomEvent`s with `bubbles: true, composed: true`. `row`/`index` are data indices.
+Typed by `FlexTableEventMap` (exported): `table.addEventListener('sort-change', (e) => e.detail.criteria)` needs no
+cast, and the React `on*` props carry the same types.
 
 | Event | `detail` |
 |---|---|
