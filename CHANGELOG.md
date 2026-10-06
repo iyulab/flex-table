@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.48.1] - 2026-10-06
+
+### Fixed
+
+- **Cmd+C and Cmd+X work in Safari again.** 0.48.0 moved the keys to the browser's copy/cut events
+  alone, and Safari fires no copy event without a text selection — a grid's selection is not one. The
+  keys now take the browser's event where it fires and write through the Clipboard API where it does
+  not (`copyFromKey`/`pasteFromKey` from `@iyulab/components` 2.1.0). A cut still clears only once
+  its text is on the clipboard.
+
+### Changed
+
+- `clipboard-error` again covers the keys: `'copy'` when neither path put the text on the clipboard
+  (a cut then clears nothing), `'paste'` when neither could read it.
+- Requires `@iyulab/components` 2.1.0 or later.
+
 ## [0.48.0] - 2026-10-06
 
 ### Fixed

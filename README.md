@@ -50,7 +50,7 @@ npm install @iyulab/flex-table
 - **Range Selection** — Shift+Arrow, Shift+Click for multi-cell selection
 - **Column Selection** — Ctrl+Click header or `selectColumn()` API
 - **Row Selection** — Checkbox-based row selection (`selectable`, single/multi mode)
-- **Clipboard** — Ctrl+C/X/V with TSV format (Excel/Google Sheets compatible, RFC 4180), through the browser's own copy/cut/paste — no clipboard permission needed
+- **Clipboard** — Ctrl+C/X/V with TSV format (Excel/Google Sheets compatible, RFC 4180), through the browser's own copy/cut/paste where it fires and the Clipboard API where it does not (Safari)
 - **Sorting** — Click header to sort (asc/desc/none), Shift+click for multi-sort
 - **Column Menu** — A 24×24 button in every header opens the column's menu: sort, filter, hide/show, auto-fit, wider/narrower (also opens on header right-click)
 - **Column Resize** — Drag header border, double-click to auto-fit, Alt+Arrow keyboard resize, or the column menu
@@ -334,7 +334,7 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 | `clipboard-copy` | `{ range, text }` | Range copied as TSV |
 | `clipboard-cut` | `{ range, text }` | Range cut as TSV |
 | `clipboard-paste` | `{ changes, addedRows }` | Data pasted from clipboard |
-| `clipboard-error` | `{ action, error }` | The context menu's Copy could not write to the clipboard (`action`: `'copy'`); no `clipboard-copy` follows |
+| `clipboard-error` | `{ action, error }` | Copy (`action: 'copy'`) could not put the text on the clipboard — no `clipboard-copy`/`clipboard-cut` follows and a cut clears nothing — or paste (`'paste'`) could not read it |
 
 ### State Events
 

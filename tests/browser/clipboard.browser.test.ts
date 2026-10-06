@@ -6,12 +6,23 @@ import type { FlexTable } from '../../src/flex-table.js';
 /**
  * Copy, cut and paste — pressed with real keys, so the browser runs its own clipboard commands.
  *
- * The grid used to prevent Ctrl+C/X/V and call the async Clipboard API instead. When that write was
- * refused (no permission, an insecure page, a browser without it) the table still fired
- * `clipboard-copy`/`clipboard-cut` — and **Ctrl+X cleared the cells that never reached the
- * clipboard**. The keys now go through the browser's `copy`/`cut`/`paste` events and `clipboardData`,
- * which need no permission; what a test reads is what the event carried.
+ * The grid used to prevent Ctrl+C/X/V and call the async Clipboard API alone. When that write was
+ * refused (no permission, an insecure page) the table still fired `clipboard-copy`/`clipboard-cut` —
+ * and **Ctrl+X cleared the cells that never reached the clipboard**. The keys now take the browser's
+ * `copy`/`cut`/`paste` event where it fires and the Clipboard API where it does not (Safari fires no
+ * copy event without a text selection); a cut clears only once the text is on the clipboard.
  */
+
+/** Stands in for Safari: the browser's copy/cut event never reaches the grid's handling. */
+function withoutCopyEvent(): () => void {
+  const swallow = (e: Event) => e.stopImmediatePropagation();
+  window.addEventListener('copy', swallow, true);
+  window.addEventListener('cut', swallow, true);
+  return () => {
+    window.removeEventListener('copy', swallow, true);
+    window.removeEventListener('cut', swallow, true);
+  };
+}
 
 let table: FlexTable;
 afterEach(() => table?.remove());
@@ -142,6 +153,48 @@ describe('flex-table clipboard — keys', () => {
     await press('{F2}{Control>}a{/Control}{Control>}c{/Control}');
     expect(clip).toEqual([{ type: 'copy', text: '', prevented: false }]);
     expect(events).toEqual([]);
+  });
+});
+
+describe('flex-table clipboard — where the browser fires no copy event (Safari)', () => {
+  it('Ctrl+X writes through the Clipboard API, then clears', async () => {
+    await mount();
+    const clipboard = navigator.clipboard as Clipboard & { writeText: Clipboard['writeText'] };
+    const original = clipboard.writeText;
+    const written: string[] = [];
+    clipboard.writeText = async (text: string) => { written.push(text); };
+    const restore = withoutCopyEvent();
+    try {
+      const events = recordTableEvents();
+      await selectBlock();
+      await press('{Control>}x{/Control}');
+      await new Promise((r) => setTimeout(r, 30));
+      expect(written).toEqual(['b1\tc1\nb2\tc2']);
+      expect(events).toEqual(['clipboard-cut']);
+      expect(table.data[1].b).toBe('');
+    } finally {
+      restore();
+      clipboard.writeText = original;
+    }
+  });
+
+  it('when the Clipboard API refuses too, Ctrl+X reports clipboard-error and clears nothing', async () => {
+    await mount();
+    const clipboard = navigator.clipboard as Clipboard & { writeText: Clipboard['writeText'] };
+    const original = clipboard.writeText;
+    clipboard.writeText = () => Promise.reject(new DOMException('denied', 'NotAllowedError'));
+    const restore = withoutCopyEvent();
+    try {
+      const events = recordTableEvents();
+      await selectBlock();
+      await press('{Control>}x{/Control}');
+      await new Promise((r) => setTimeout(r, 30));
+      expect(events).toEqual(['clipboard-error']);
+      expect([table.data[1].b, table.data[2].c]).toEqual(['b1', 'c2']);
+    } finally {
+      restore();
+      clipboard.writeText = original;
+    }
   });
 });
 
