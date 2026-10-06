@@ -45,6 +45,10 @@ export interface UseODataSourceOptions {
 export interface UseODataSourceResult<T> {
   data: T[];
   totalCount: number;
+  /**
+   * 조회 중이거나 아직 한 번도 답을 받지 않았으면 `true` — 첫 렌더부터 첫 응답(성공·실패)이 정착할 때까지,
+   * 그리고 `enabled: false` 인 동안. 그래서 `!loading && totalCount === 0` 이 곧 «결과 없음» 이다.
+   */
   loading: boolean;
   /**
    * 마지막 요청의 실패, 없으면 `null`. 화면에는 `error.message` 를 그린다. «어떤 실패인가» 는

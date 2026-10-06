@@ -815,7 +815,7 @@ The hook returns:
 | Field | Description |
 |---|---|
 | `data` / `totalCount` | Current page rows and the server's total (`@odata.count`). When the server pages its response (`@odata.nextLink`, e.g. a page size smaller than `pageSize`), the hook follows the link until the page is filled; a link outside the request's origin, or one that returns to a page already read, is reported through `error` instead of showing a short page |
-| `loading` | A request is in flight |
+| `loading` | A request is in flight, or none has answered yet (true from the first render until the first response settles, and while `enabled: false`) |
 | `error` | The last failed request, or `null`: `{ message, status?, code?, details?, body? }`. **Render `error.message`** — a failed request otherwise leaves the grid silently empty. Branch on `status` (HTTP), `code` (the server's rejection code, OData `error.code`) and `details` (OData `error.details`); `body` is the parsed response (or its text). A failure with no response — a network error, or a `@odata.nextLink` the hook refused — has a `message` only |
 | `page` / `setPage` | Zero-based page index |
 | `sortCriteria` / `onSortChange` | Bind `onSortChange` to the table's `sort-change` event |

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.50.4] - 2026-10-06
+
+### Fixed
+
+- **`useODataSource` reports `loading: true` from the first render** until the first response settles. The first
+  render used to return `loading: false` with no rows before the request went out, so a screen that shows an empty
+  state on `!loading && totalCount === 0` flashed "no results" for a frame on every mount. Mounting with
+  `enabled: false` already reported `loading: true`; both paths now follow one rule.
+
 ## [0.50.3] - 2026-10-06
 
 ### Documentation

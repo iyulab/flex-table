@@ -110,7 +110,7 @@ function Orders() {
 | Field | Notes |
 |---|---|
 | `data`, `totalCount` | Current page and `@odata.count`; `@odata.nextLink` is followed to fill a page |
-| `loading` | Request in flight |
+| `loading` | Request in flight, or no answer yet (true from the first render until the first response settles, and while `enabled: false`) — so `!loading && totalCount === 0` means "no results" |
 | `error` | `SourceError \| null` — `{ message, status?, code?, details?, body? }`; render `error.message`, branch on `status` / `code` (OData `error.code`) |
 | `page`, `setPage` | Zero-based |
 | `sortCriteria`, `onSortChange` | Pass `onSortChange` to the table's `sort-change` (resets to page 0) |

@@ -494,6 +494,34 @@ describe('useODataSource — enabled', () => {
     expect(h.current.loading).toBe(true);
   });
 
+  it('🔴첫 응답이 정착하기 전의 어떤 렌더도 «로딩 아님 + 0건» 을 내지 않는다', async () => {
+    const { calls, fetcher } = deferredFetcher();
+    const seen: { loading: boolean; total: number }[] = [];
+    const Probe = () => {
+      const s = useODataSource('/api/orders', { fetcher });
+      seen.push({ loading: s.loading, total: s.totalCount });
+      return null;
+    };
+    await act(async () => {
+      root.render(createElement(Probe));
+    });
+    // 첫 렌더(effect 가 조회를 내기 전)부터 loading 이다 — 빈 상태 문구가 번쩍이지 않는다.
+    expect(seen[0]).toEqual({ loading: true, total: 0 });
+    expect(seen.every((r) => r.loading)).toBe(true);
+    await act(async () => { calls[0].resolve(); });
+    expect(seen.at(-1)).toEqual({ loading: false, total: 1 });
+  });
+
+  it('🔴첫 조회가 실패해도 정착하면 loading 이 꺼진다', async () => {
+    const fetcher = () => Promise.resolve({
+      ok: false, status: 500, statusText: 'x',
+      json: () => Promise.resolve({}), text: () => Promise.resolve(''),
+    } as unknown as Response);
+    const h = await mount({ fetcher });
+    expect(h.current.loading).toBe(false);
+    expect(h.current.error?.status).toBe(500);
+  });
+
   it('NEGATIVE 생략하면 종전처럼 마운트 즉시 조회한다', async () => {
     const { calls, fetcher } = deferredFetcher();
     await mount({ fetcher });

@@ -35,7 +35,9 @@ export function useODataSource<T = Record<string, unknown>>(
 
   const [data, setData] = useState<T[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  // 아직 한 번도 답을 받지 않았으면 «불러오는 중» 이다 — 첫 렌더(effect 가 조회를 내기 전)가 «로딩 아님 + 0건» 을
+  // 내면 빈 상태 문구가 한 프레임 번쩍인다. 꺼진 채 마운트해도 같은 값이라 `enabled` 와 한 규칙이다.
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<SourceError | null>(null);
   /*
    * 초기 상태를 «옵션으로» 받는 이유: 이것들이 없으면 「목록 → 상세 → 뒤로가기」에서
