@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.48.3] - 2026-10-06
+
+### Fixed
+
+- **Enter and Space on a column menu button open the menu while a cell is active.** The grid read
+  the key as its own and started editing the active cell instead. Keys pressed on a control inside
+  the grid — a column menu button, a row checkbox, a button a cell renders — are now that control's;
+  the grid's cell keys apply while the grid itself has focus. Ctrl/Cmd shortcuts still apply.
+
 ## [0.48.2] - 2026-10-06
 
 ### Fixed

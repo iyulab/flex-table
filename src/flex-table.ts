@@ -1917,6 +1917,12 @@ export class FlexTable extends LitElement {
 
     if (cols.length === 0 || this._visibleRowCount === 0) return;
 
+    // The grid's cell keys belong to the grid itself (the host holds focus for it). A key pressed on a
+    // control inside it — a column menu button, a row checkbox, a button a cell renders — is that
+    // control's: Enter and Space activate it rather than editing the active cell. Ctrl/Cmd shortcuts
+    // (copy, undo, fill…) still apply.
+    if (e.composedPath()[0] !== this && !e.ctrlKey && !e.metaKey) return;
+
     // Enter/F2 to start editing; Enter on a non-editable cell fires `row-activate` instead
     if ((e.key === 'Enter' || e.key === 'F2') && this._activeCell && !isImeComposing(e)) {
       e.preventDefault();

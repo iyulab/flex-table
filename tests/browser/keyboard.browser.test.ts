@@ -185,3 +185,23 @@ describe('flex-table keyboard — header and column menu', () => {
     expect(table.shadowRoot!.activeElement).toBe(menuButton(1));
   });
 });
+
+describe('flex-table keyboard — keys on header controls are theirs', () => {
+  const menuButton = (col: number) =>
+    table.shadowRoot!.querySelector<HTMLElement>(`.ft-header-cell[data-col-index="${col}"] .ft-column-menu-btn`)!;
+  const menuOpen = () => !!table.shadowRoot!.querySelector('.ft-header-menu');
+  const editorOpen = () => !!table.shadowRoot!.querySelector('input.ft-editor');
+
+  for (const key of ['{Enter}', ' ']) {
+    it(`${key === ' ' ? 'Space' : 'Enter'} on a column menu button opens the menu even with an active cell — it does not edit the cell`, async () => {
+      await mount();
+      table.showFilters = true;
+      await settle();
+      await at(1, 1);
+      menuButton(2).focus();
+      await press(key);
+      expect(editorOpen()).toBe(false);
+      expect(menuOpen()).toBe(true);
+    });
+  }
+});
