@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.49.1] - 2026-10-06
+
+### Fixed
+
+- **The column filter is a dialog with a keyboard contract.** It is announced as a dialog named for its
+  column ("Filter Customer"); Tab and Shift+Tab stay inside it (it floats over the table, so focus that
+  left it would leave it open behind the next control); Escape closes it and returns focus to that
+  column's menu button — before, focus dropped to the page. A click outside still closes it without
+  moving focus.
+
 ## [0.49.0] - 2026-10-06
 
 ### Added

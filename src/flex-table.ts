@@ -2516,6 +2516,7 @@ export class FlexTable extends LitElement {
         ${sortIndex >= 0 ? html`<span class="ft-sort-order">${sortIndex + 1}</span>` : ''}
         <button class="ft-column-menu-btn ${hasFilter ? 'ft-filter-active' : ''}"
           type="button"
+          data-key=${col.key}
           title=${t('columnMenu')}
           aria-label=${t('columnMenuFor', { header: col.label })}
           aria-haspopup="menu"
@@ -2862,12 +2863,52 @@ export class FlexTable extends LitElement {
     dropdown.style.top = `${top}px`;
   }
 
+  /**
+   * Close the filter dialog. From the keyboard (Escape) focus goes back to the column's menu button — the
+   * dialog leaves the DOM, and focus inside it would otherwise drop to the page (APG dialog). A click
+   * outside closes it without moving focus: the click already put focus where the user meant.
+   */
+  private _closeFilterDropdown(restoreFocus = true): void {
+    const key = this._openFilterKey;
+    this._openFilterKey = null;
+    if (!restoreFocus || key === null) return;
+    void this.updateComplete.then(() => {
+      const btn = [...(this.shadowRoot?.querySelectorAll<HTMLButtonElement>('.ft-column-menu-btn') ?? [])]
+        .find((b) => b.dataset.key === key);
+      btn?.focus();
+    });
+  }
+
+  /**
+   * Tab stays inside the filter dialog (it floats over the table, fixed to the header — a focus that left
+   * it would leave it open and unreachable behind the next control). Capture phase: the controls stop
+   * their own keydowns from reaching the grid.
+   */
+  private _onFilterDialogKeydown(e: KeyboardEvent): void {
+    if (e.key !== 'Tab') return;
+    const dialog = e.currentTarget as HTMLElement;
+    const stops = [...dialog.querySelectorAll<HTMLElement>('input, select, textarea, button, u-date-picker')]
+      .filter((el) => !(el as HTMLInputElement).disabled && el.getClientRects().length > 0);
+    if (stops.length === 0) return;
+    const path = e.composedPath();
+    const at = stops.findIndex((el) => path.includes(el));
+    const last = stops.length - 1;
+    if (e.shiftKey && at <= 0) {
+      e.preventDefault();
+      stops[last].focus();
+    } else if (!e.shiftKey && (at === last || at === -1)) {
+      e.preventDefault();
+      stops[0].focus();
+    }
+  }
+
   private _renderFilterDropdown(col: ColumnDefinition) {
     const type = col.type ?? 'text';
 
     return html`
-      <div class="ft-filter-dropdown" role="group" aria-label=${t('filterFor', { header: col.label })}
-        @click=${(e: MouseEvent) => e.stopPropagation()}>
+      <div class="ft-filter-dropdown" role="dialog" aria-label=${t('filterFor', { header: col.label })}
+        @click=${(e: MouseEvent) => e.stopPropagation()}
+        @keydown=${{ handleEvent: (e: KeyboardEvent) => this._onFilterDialogKeydown(e), capture: true }}>
         ${type === 'boolean' ? this._renderBooleanFilter(col)
           : type === 'number' ? this._renderNumberFilter(col)
           : type === 'date' || type === 'datetime' ? this._renderDateFilter(col)
@@ -2935,7 +2976,7 @@ export class FlexTable extends LitElement {
               this._applyFilterForKey(key);
             }
           }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
           <option value="">${t('blankAll')}</option>
           <option value="empty">${t('emptyOnly')}</option>
           <option value="non-empty">${t('nonEmptyOnly')}</option>
@@ -3020,7 +3061,7 @@ export class FlexTable extends LitElement {
             this._textFilterState.set(col.key, { ...cur, mode });
             this._applyTextFilter(col.key);
           }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
           <option value="contains">${t('contains')}</option>
           <option value="starts">${t('startsWith')}</option>
           <option value="ends">${t('endsWith')}</option>
@@ -3038,7 +3079,7 @@ export class FlexTable extends LitElement {
           this._applyTextFilter(col.key);
         }}
         @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Escape') this._openFilterKey = null;
+          if (e.key === 'Escape') this._closeFilterDropdown();
           e.stopPropagation();
         }}>
       ${this._renderEmptyFilterRow(col.key, () => {
@@ -3067,7 +3108,7 @@ export class FlexTable extends LitElement {
             this._emptyFilterState.delete(key);
             this._applyFilterForKey(key);
           }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
           ${(Object.keys(NUM_OP_LABELS) as NumericOp[]).map(op =>
             html`<option value=${op}>${NUM_OP_LABELS[op]}</option>`)}
         </select>
@@ -3083,7 +3124,7 @@ export class FlexTable extends LitElement {
             this._emptyFilterState.delete(key);
             this._applyFilterForKey(key);
           }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
       </div>
     `;
   }
@@ -3103,7 +3144,7 @@ export class FlexTable extends LitElement {
             this._emptyFilterState.delete(col.key);
             this._applyFilterForKey(col.key);
           }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
           <option value="and">AND</option>
           <option value="or">OR</option>
         </select>
@@ -3158,7 +3199,7 @@ export class FlexTable extends LitElement {
       // closes it listens on the document, so that one key is let through.
       if (e.key === 'Escape' && calendarOpen(e.currentTarget as Element)) return;
       e.stopPropagation();
-      if (e.key === 'Escape') this._openFilterKey = null;
+      if (e.key === 'Escape') this._closeFilterDropdown();
     };
     return html`
       <div class="ft-filter-range ft-filter-range-dates">
@@ -3204,7 +3245,7 @@ export class FlexTable extends LitElement {
             this.setFilter(col.key, (v) => Boolean(v) === (value === 'true'));
           }
         }}
-        @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._openFilterKey = null; e.stopPropagation(); }}>
+        @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
         <option value="all">${t('all')}</option>
         <option value="true">\u2714 ${t('booleanTrue')}</option>
         <option value="false">\u2718 ${t('booleanFalse')}</option>

@@ -2507,7 +2507,7 @@ describe('FlexTable', () => {
       expect(names).toEqual(['Status', 'Qty', 'Note', 'City']);
     });
 
-    it('filter dropdown is a group named for its column, and each control inside has a name', async () => {
+    it('filter dropdown is a dialog named for its column, and each control inside has a name', async () => {
       const open = async (col: FlexTable['columns'][number]) => {
         const el = createElement();
         el.showFilters = true;
@@ -2520,7 +2520,7 @@ describe('FlexTable', () => {
       const unnamed = (root: Element) => [...root.querySelectorAll('input:not([type=checkbox]), select')]
         .filter((c) => !c.getAttribute('aria-label') && !c.closest('label'));
       let dd = await open({ key: 'name', label: 'Name' });
-      expect(dd.getAttribute('role')).toBe('group');
+      expect(dd.getAttribute('role')).toBe('dialog');
       expect(dd.getAttribute('aria-label')).toBe('Filter Name');
       expect(unnamed(dd)).toEqual([]);
       dd = await open({ key: 'qty', label: 'Qty', type: 'number' });

@@ -86,4 +86,57 @@ describe('flex-table 열 메뉴', () => {
     expect(Math.round(cell().getBoundingClientRect().width - before)).toBe(20);
     expect(el.shadowRoot!.querySelector('.ft-header-menu')).toBeTruthy();
   });
+
+  describe('필터 드롭다운 — 대화상자 계약', () => {
+    async function openFilter(el: FlexTable) {
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-column-menu-btn')!.focus();
+      await userEvent.keyboard('{Enter}');
+      await el.updateComplete;
+      await el.updateComplete;
+      await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+      await el.updateComplete;
+      await el.updateComplete;
+      return el.shadowRoot!.querySelector<HTMLElement>('.ft-filter-dropdown')!;
+    }
+    const active = (el: FlexTable) => el.shadowRoot!.activeElement as HTMLElement | null;
+
+    it('이름 있는 dialog 다', async () => {
+      const el = await mount('padding:20px;width:400px');
+      const dialog = await openFilter(el);
+      expect(dialog.getAttribute('role')).toBe('dialog');
+      expect(dialog.getAttribute('aria-label')).toBe('Filter A');
+    });
+
+    it('Tab 은 대화상자 안을 돈다 — 마지막에서 Tab 은 처음으로, 처음에서 Shift+Tab 은 마지막으로', async () => {
+      const el = await mount('padding:20px;width:400px');
+      const dialog = await openFilter(el);
+      const first = active(el)!;
+      expect(dialog.contains(first)).toBe(true);
+      // 끝까지 간 뒤 한 번 더 — 여전히 대화상자 안이고, 처음 자리로 돌아왔다.
+      for (let i = 0; i < 6; i++) {
+        await userEvent.keyboard('{Tab}');
+        expect(dialog.contains(active(el)), `Tab ${i + 1}: ${active(el)?.outerHTML.slice(0, 60)}`).toBe(true);
+      }
+      // click 이 아니라 focus — 첫 컨트롤이 select 라 클릭하면 네이티브 목록이 열려 키를 그쪽이 받는다.
+      first.focus();
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}');
+      const last = active(el)!;
+      expect(dialog.contains(last)).toBe(true);
+      expect(last).not.toBe(first);
+      await userEvent.keyboard('{Tab}');
+      expect(active(el)).toBe(first);
+    });
+
+    it('Escape 로 닫으면 포커스가 그 열의 메뉴 버튼으로 돌아온다', async () => {
+      const el = await mount('padding:20px;width:400px');
+      await openFilter(el);
+      await userEvent.keyboard('{Escape}');
+      await el.updateComplete;
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('.ft-filter-dropdown')).toBeNull();
+      const focused = active(el);
+      expect(focused?.classList.contains('ft-column-menu-btn'), `포커스: ${focused?.outerHTML.slice(0, 80)}`).toBe(true);
+      expect(focused?.dataset.key).toBe('a');
+    });
+  });
 });
