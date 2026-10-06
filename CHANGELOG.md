@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.48.0] - 2026-10-06
+
+### Fixed
+
+- **Ctrl+X no longer clears cells that never reached the clipboard.** The keys called the async
+  Clipboard API; when the write was refused — no permission, a page outside a secure context, a
+  browser without it — the table still cleared the cut range and fired `clipboard-cut`
+  (`clipboard-copy` for Ctrl+C). Ctrl+C, Ctrl+X and Ctrl+V now go through the browser's own
+  copy/cut/paste and `clipboardData`: they need no clipboard permission, work on any page, and a cut
+  range is cleared only once its text is on the clipboard.
+- The context menu's Copy, which still writes through the Clipboard API, fires `clipboard-copy` only
+  when the write succeeds; a refused write fires `clipboard-error` alone.
+
+### Changed
+
+- `clipboard-error` is now only the context menu's Copy (`action: 'copy'`). Paste no longer reads
+  through the Clipboard API, so it has no permission to be refused and never reports `'paste'`.
+- Copy, cut and paste typed in a text field inside the grid (the cell editor, the find panel) are
+  that field's own and leave the cells alone.
+
+### Documentation
+
+- README: the keyboard table covers every key the grid handles, and the column example uses
+  `appearance="plain"` (the `variant` attribute was removed in `@iyulab/components` 2.0).
+
+### Tests
+
+- Real key input for Ctrl+C/X/V, Ctrl+Click on a header, and the column menu's Space / Home / End /
+  Escape, alongside the rest of the keyboard table.
+
 ## [0.47.0] - 2026-10-05
 
 ### Changed

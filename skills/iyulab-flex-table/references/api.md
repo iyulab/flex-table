@@ -159,7 +159,7 @@ All are `CustomEvent`s with `bubbles: true, composed: true`. `row`/`index` are d
 | `selection-change` | `{ selectedIndices, selectedRows }` |
 | `clipboard-copy` / `clipboard-cut` | `{ range, text }` (TSV) |
 | `clipboard-paste` | `{ changes, addedRows }` |
-| `clipboard-error` | `{ action: 'copy' \| 'paste', error }` |
+| `clipboard-error` | `{ action: 'copy', error }` — the context menu's Copy could not write; no `clipboard-copy` follows |
 | `fill-handle-apply` | `{ sourceRange, targetRange, cells }` |
 | `find-replace` | `{ type: 'replace' \| 'replace-all', cells }` |
 | `comment-change` | `{ dataIndex, colKey, text }` |

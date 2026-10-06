@@ -568,15 +568,13 @@ describe('FlexTable', () => {
   // A real paste: Ctrl+V reads the clipboard, writes the block, appends the rows it needs, and leaves
   // the written cells selected (spreadsheet convention) with the active cell where the paste began.
   // This test used to call addRow() «to simulate» the paste — it exercised nothing of it.
+  /** The browser's paste on the grid — the event Ctrl+V produces (jsdom has no `ClipboardEvent`/`DataTransfer`). */
   async function pasteAtFirstCell(el: FlexTable, text: string): Promise<void> {
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { readText: async () => text, writeText: async () => {} },
-      configurable: true,
-    });
     (el.shadowRoot!.querySelector('.ft-cell') as HTMLElement).click();
     await el.updateComplete;
-    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true }));
-    await new Promise(r => setTimeout(r, 0));
+    const paste = new Event('paste', { bubbles: true, composed: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', { value: { getData: () => text } });
+    el.dispatchEvent(paste);
     await el.updateComplete;
   }
 

@@ -50,7 +50,7 @@ npm install @iyulab/flex-table
 - **Range Selection** — Shift+Arrow, Shift+Click for multi-cell selection
 - **Column Selection** — Ctrl+Click header or `selectColumn()` API
 - **Row Selection** — Checkbox-based row selection (`selectable`, single/multi mode)
-- **Clipboard** — Ctrl+C/X/V with TSV format (Excel/Google Sheets compatible, RFC 4180)
+- **Clipboard** — Ctrl+C/X/V with TSV format (Excel/Google Sheets compatible, RFC 4180), through the browser's own copy/cut/paste — no clipboard permission needed
 - **Sorting** — Click header to sort (asc/desc/none), Shift+click for multi-sort
 - **Column Menu** — A 24×24 button in every header opens the column's menu: sort, filter, hide/show, auto-fit, wider/narrower (also opens on header right-click)
 - **Column Resize** — Drag header border, double-click to auto-fit, Alt+Arrow keyboard resize, or the column menu
@@ -208,7 +208,7 @@ hover) always show them, and they are not printed.
 
 ```ts
 { key: 'actions', label: '', width: 72, editable: false, reveal: 'hover',
-  render: (_, row) => html`<u-button size="sm" variant="ghost" aria-label="Edit">…</u-button>` }
+  render: (_, row) => html`<u-button size="sm" appearance="plain" aria-label="Edit">…</u-button>` }
 ```
 
 ### Merging Repeated Values
@@ -334,7 +334,7 @@ All events use `CustomEvent` with `bubbles: true, composed: true`.
 | `clipboard-copy` | `{ range, text }` | Range copied as TSV |
 | `clipboard-cut` | `{ range, text }` | Range cut as TSV |
 | `clipboard-paste` | `{ changes, addedRows }` | Data pasted from clipboard |
-| `clipboard-error` | `{ action, error }` | Clipboard API failed (`action`: `'copy'` or `'paste'`) |
+| `clipboard-error` | `{ action, error }` | The context menu's Copy could not write to the clipboard (`action`: `'copy'`); no `clipboard-copy` follows |
 
 ### State Events
 

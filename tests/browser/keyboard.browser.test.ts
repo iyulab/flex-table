@@ -151,3 +151,37 @@ describe('flex-table keyboard — column width', () => {
     expect(widths).toEqual([140, 120, 100]);
   });
 });
+
+describe('flex-table keyboard — header and column menu', () => {
+  const header = (col: number) =>
+    table.shadowRoot!.querySelector<HTMLElement>(`.ft-header-cell[data-col-index="${col}"]`)!;
+  const menuButton = (col: number) => header(col).querySelector<HTMLElement>('.ft-column-menu-btn')!;
+  const focusedAction = () => table.shadowRoot!.activeElement?.getAttribute('data-action');
+  const menuOpen = () => !!table.shadowRoot!.querySelector('.ft-header-menu');
+
+  it('Ctrl+Click on a header selects the whole column', async () => {
+    await mount();
+    await userEvent.click(header(2), { modifiers: ['Control'] });
+    await settle();
+    expect(selectedCount(), 'every row of column C').toBe(8);
+    const cells = Array.from(table.shadowRoot!.querySelectorAll('.ft-cell.ft-selected'));
+    expect(cells.every((c) => c.getAttribute('aria-colindex') === '3')).toBe(true);
+  });
+
+  it('Space on a column menu button opens the menu; Home / End move to the first / last item; Escape returns to the button', async () => {
+    await mount();
+    table.showFilters = true;
+    await settle();
+    menuButton(1).focus();
+    await press(' ');
+    expect(menuOpen()).toBe(true);
+    const items = Array.from(table.shadowRoot!.querySelectorAll<HTMLElement>('.ft-header-menu [data-action]'));
+    await press('{End}');
+    expect(focusedAction()).toBe(items[items.length - 1].getAttribute('data-action'));
+    await press('{Home}');
+    expect(focusedAction()).toBe(items[0].getAttribute('data-action'));
+    await press('{Escape}');
+    expect(menuOpen()).toBe(false);
+    expect(table.shadowRoot!.activeElement).toBe(menuButton(1));
+  });
+});

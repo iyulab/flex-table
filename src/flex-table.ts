@@ -26,6 +26,8 @@ import { effectiveAlign } from './models/types.js';
 import type { TemplateResult } from 'lit';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 
+const CLIPBOARD_EVENTS = ['copy', 'cut', 'paste'] as const;
+
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
 type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
 /** How a `mergeRepeated` cell joins the cells above and below it in its column. */
@@ -1171,8 +1173,10 @@ export class FlexTable extends LitElement {
     this._onDragover = this._onDragover.bind(this);
     this._onDragleave = this._onDragleave.bind(this);
     this._onDrop = this._onDrop.bind(this);
+    this._onClipboard = this._onClipboard.bind(this);
     this.addEventListener('scroll', this._onScroll, { passive: true });
     this.addEventListener('keydown', this._onKeyDown);
+    for (const type of CLIPBOARD_EVENTS) this.addEventListener(type, this._onClipboard as EventListener);
     this.addEventListener('contextmenu', this._onContextMenu);
     this.addEventListener('dragover', this._onDragover as unknown as EventListener);
     this.addEventListener('dragleave', this._onDragleave as unknown as EventListener);
@@ -1198,6 +1202,7 @@ export class FlexTable extends LitElement {
     super.disconnectedCallback();
     this.removeEventListener('scroll', this._onScroll);
     this.removeEventListener('keydown', this._onKeyDown);
+    for (const type of CLIPBOARD_EVENTS) this.removeEventListener(type, this._onClipboard as EventListener);
     this.removeEventListener('contextmenu', this._onContextMenu);
     this.removeEventListener('dragover', this._onDragover as unknown as EventListener);
     this.removeEventListener('dragleave', this._onDragleave as unknown as EventListener);
@@ -1977,17 +1982,12 @@ export class FlexTable extends LitElement {
         e.preventDefault();
         this.redo();
         return true;
+      // Copy, cut and paste are the browser's own commands: the key is not prevented, so the browser
+      // fires `copy`/`cut`/`paste` and `_onClipboard` fills or reads `clipboardData` there — synchronous,
+      // needing no clipboard permission and working outside secure contexts.
       case 'c':
-        e.preventDefault();
-        this._handleCopy(false);
-        return true;
       case 'x':
-        e.preventDefault();
-        this._handleCopy(this.editable);
-        return true;
       case 'v':
-        e.preventDefault();
-        if (this.editable) this._handlePaste();
         return true;
       case 'd':
         e.preventDefault();
@@ -2080,40 +2080,72 @@ export class FlexTable extends LitElement {
 
   // --- Clipboard ---
 
-  private async _handleCopy(cut: boolean): Promise<void> {
+  /**
+   * The selection as TSV in display (sorted) order, or `null` without a selection.
+   */
+  private _selectionTsv(): { range: CellRange; text: string } | null {
     const range = this._selection.getEffectiveRange();
-    if (!range) return;
-    const cols = this.visibleColumns;
-    // Use sorted data view for copy so visual order matches
+    if (!range) return null;
     const sortedData = this._sortedIndices.map(i => this.data[i]);
-    const tsv = copyToClipboard(sortedData, cols, range);
+    return { range, text: copyToClipboard(sortedData, this.visibleColumns, range) };
+  }
 
+  /**
+   * The browser's copy / cut / paste on the grid. Events from a text field inside the grid (the cell
+   * editor, the find panel, a filter input) are that field's own and pass through untouched.
+   */
+  private _onClipboard(e: ClipboardEvent): void {
+    const origin = e.composedPath()[0];
+    if (origin instanceof HTMLInputElement || origin instanceof HTMLTextAreaElement
+      || (origin instanceof HTMLElement && origin.isContentEditable)) return;
+    if (!e.clipboardData) return;
+
+    if (e.type === 'paste') {
+      if (!this.editable || !this._activeCell) return;
+      e.preventDefault();
+      this._pasteText(e.clipboardData.getData('text/plain'));
+      return;
+    }
+
+    const copied = this._selectionTsv();
+    if (!copied) return;
+    e.preventDefault();
+    e.clipboardData.setData('text/plain', copied.text);
+    this._afterCopy(copied.range, copied.text, e.type === 'cut' && this.editable);
+  }
+
+  /** The context menu's Copy — no clipboard event to fill, so it goes through the async Clipboard API. */
+  private async _copyFromMenu(): Promise<void> {
+    const copied = this._selectionTsv();
+    if (!copied) return;
     try {
-      await navigator.clipboard.writeText(tsv);
+      await navigator.clipboard.writeText(copied.text);
     } catch (err) {
+      // Nothing reached the clipboard: report the failure and stop — no `clipboard-copy`.
       this.dispatchEvent(new CustomEvent('clipboard-error', {
         detail: { action: 'copy', error: err },
         bubbles: true,
         composed: true,
       }));
+      return;
     }
+    this._afterCopy(copied.range, copied.text, false);
+  }
 
+  /** Runs once the text is on the clipboard — only then is a cut range cleared. */
+  private _afterCopy(range: CellRange, text: string, cut: boolean): void {
     if (cut) {
       this._clearRange(range);
     }
-
     this.dispatchEvent(new CustomEvent(cut ? 'clipboard-cut' : 'clipboard-copy', {
-      detail: { range, text: tsv },
+      detail: { range, text },
       bubbles: true,
       composed: true,
     }));
   }
 
-  private async _handlePaste(): Promise<void> {
+  private _pasteText(text: string): void {
     if (!this._activeCell) return;
-
-    const text = await this._readClipboardText();
-    if (text == null) return;
 
     const parsed = decodeTsv(text);
     if (parsed.length === 0) return;
@@ -2152,19 +2184,6 @@ export class FlexTable extends LitElement {
       bubbles: true,
       composed: true,
     }));
-  }
-
-  private async _readClipboardText(): Promise<string | null> {
-    try {
-      return await navigator.clipboard.readText();
-    } catch (err) {
-      this.dispatchEvent(new CustomEvent('clipboard-error', {
-        detail: { action: 'paste', error: err },
-        bubbles: true,
-        composed: true,
-      }));
-      return null;
-    }
   }
 
   /**
@@ -2798,7 +2817,7 @@ export class FlexTable extends LitElement {
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: var(--u-layer-floating, 1000);"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}
         @keydown=${(e: KeyboardEvent) => this._onMenuKeydown(e, '.ft-body-context-menu', close)}>
-        ${item(t('copy'), () => this._handleCopy(false))}
+        ${item(t('copy'), () => this._copyFromMenu())}
         ${separator}
         ${item(t('insertRowAbove'), () => this.addRow(undefined, dataIndex))}
         ${item(t('insertRowBelow'), () => this.addRow(undefined, dataIndex + 1))}
