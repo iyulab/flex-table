@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.50.1] - 2026-10-06
+
+### Fixed
+
+- **Screen readers hear the active cell.** The table kept the focus on itself and marked the active cell
+  with a class only, so assistive technology announced the grid and nothing as the arrow keys moved
+  (the host cannot point `aria-activedescendant` into its own shadow tree). The focus now sits on the
+  active cell — or the active header cell — while the table has it (roving focus): each move is announced
+  with the cell's row, column and content. `document.activeElement` is still the table.
+- When scrolling moves the focused cell out of the rendered window, the focus waits on the table instead
+  of staying on a recycled cell that now shows another row; the next key brings it back onto the active
+  cell.
+
 ## [0.50.0] - 2026-10-06
 
 ### Fixed

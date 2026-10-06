@@ -87,7 +87,8 @@ flex-table {
 | Alt+ArrowLeft / Alt+ArrowRight | Resize current column |
 | Enter / Space on a column menu button | Open the column menu (arrows, Home/End navigate; Escape closes) |
 
-The table is one Tab stop — keyboard focus arriving on it activates the first cell; the column menu
+The table is one Tab stop with roving focus — the focus sits on the active cell or header cell (screen
+readers announce each move); keyboard focus arriving on it activates the first cell; the column menu
 buttons are not Tab stops (the header row reaches them).
 
 Ctrl also matches Cmd on macOS. Editing shortcuts are ignored when `editable` is `false`.

@@ -260,6 +260,9 @@ export class FlexTable extends LitElement {
   @state()
   private _headerCol: number | null = null;
 
+  /** The cell (body or header) that last held the keyboard focus — to take it back if a re-render drops it. */
+  private _focusedCellEl: HTMLElement | null = null;
+
   @state()
   private _editingCell: CellPosition | null = null;
 
@@ -1154,6 +1157,8 @@ export class FlexTable extends LitElement {
     this.addEventListener('scroll', this._onScroll, { passive: true });
     this.addEventListener('keydown', this._onKeyDown);
     this.addEventListener('focus', this._onHostFocus);
+    this.renderRoot.addEventListener('focusin', this._onFocusIn as EventListener);
+    this.renderRoot.addEventListener('focusout', this._onFocusOut as EventListener);
     this.addEventListener('contextmenu', this._onContextMenu);
     this.addEventListener('dragover', this._onDragover as unknown as EventListener);
     this.addEventListener('dragleave', this._onDragleave as unknown as EventListener);
@@ -1180,6 +1185,8 @@ export class FlexTable extends LitElement {
     this.removeEventListener('scroll', this._onScroll);
     this.removeEventListener('keydown', this._onKeyDown);
     this.removeEventListener('focus', this._onHostFocus);
+    this.renderRoot.removeEventListener('focusin', this._onFocusIn as EventListener);
+    this.renderRoot.removeEventListener('focusout', this._onFocusOut as EventListener);
     this.removeEventListener('contextmenu', this._onContextMenu);
     this.removeEventListener('dragover', this._onDragover as unknown as EventListener);
     this.removeEventListener('dragleave', this._onDragleave as unknown as EventListener);
@@ -1308,6 +1315,7 @@ export class FlexTable extends LitElement {
     // 호출 시 @state 갱신 → 무한 update 루프 위험 (위 connectedCallback의 ResizeObserver 주석 참조).
     // 크기 변화는 ResizeObserver가 비동기로 처리한다.
     this._focusEditor();
+    this._syncGridFocus();
     this._adjustFilterDropdown();
     if (changedProps.has('_headerMenu')) this._keepMenuInView('.ft-header-menu');
     if (changedProps.has('_bodyContextMenu') && this._bodyContextMenu) {
@@ -1875,7 +1883,7 @@ export class FlexTable extends LitElement {
     // control inside it — a column menu button, a row checkbox, a button a cell renders — is that
     // control's: Enter and Space activate it rather than editing the active cell. Ctrl/Cmd shortcuts
     // (copy, undo, fill…) still apply.
-    if (e.composedPath()[0] !== this && !e.ctrlKey && !e.metaKey) return;
+    if (!this._isGridSurface(e.composedPath()[0]) && !e.ctrlKey && !e.metaKey) return;
 
     if (this._headerCol !== null) {
       this._onHeaderKeyDown(e, cols);
@@ -2024,6 +2032,95 @@ export class FlexTable extends LitElement {
       this._headerCol = 0;
     }
   };
+
+  /**
+   * The grid's own keyboard surface: the host, the active body cell, the active header cell. Keys on
+   * anything else inside it (an editor, a menu, a button a cell renders) belong to that control.
+   */
+  private _isGridSurface(target: EventTarget | undefined): boolean {
+    if (target === this) return true;
+    return target instanceof HTMLElement
+      && (target.classList.contains('ft-cell') || target.classList.contains('ft-header-cell'))
+      && !target.classList.contains('ft-editing');
+  }
+
+  /**
+   * The element the keyboard is on — the active header cell, else the active body cell — when it is
+   * rendered (the body scrolls it out of the virtual window), else `null`.
+   */
+  private _keyboardCellEl(): HTMLElement | null {
+    const root = this.shadowRoot;
+    if (!root) return null;
+    if (this._headerCol !== null) {
+      return root.querySelector<HTMLElement>(`.ft-header-cell[data-col-index="${this._headerCol}"]`);
+    }
+    const ac = this._activeCell;
+    if (!ac) return null;
+    return root.querySelector<HTMLElement>(
+      `.ft-row[aria-rowindex="${ac.row + 2}"] .ft-cell[data-col-index="${ac.col}"]`);
+  }
+
+  /**
+   * Roving focus: while the grid holds the focus, the focus sits on the cell the keyboard is on, so
+   * assistive technology announces each move (the host cannot point `aria-activedescendant` into its
+   * own shadow tree). It moves only between the host and the grid's cells — never out of an editor,
+   * a menu or a control that holds it.
+   */
+  private _syncGridFocus(): void {
+    const root = this.shadowRoot;
+    if (!root) return;
+    const current = root.activeElement as HTMLElement | null;
+    const hasFocus = document.activeElement === this;
+    if (!hasFocus) {
+      // A re-render dropped the focused cell (scrolled out of the virtual window): the focus fell to the
+      // page. Take it back onto the grid.
+      if (this._focusedCellEl && !this._focusedCellEl.isConnected
+        && (document.activeElement === document.body || document.activeElement === null)) {
+        this._focusedCellEl = null;
+        (this._keyboardCellEl() ?? this).focus({ preventScroll: true });
+      }
+      return;
+    }
+    if (current && !this._isGridSurface(current)) return;
+    // Scrolled out of the virtual window, the cell's element is reused for another row: the focus waits
+    // on the host rather than on a cell that now means something else.
+    const target = this._keyboardCellEl() ?? this;
+    if (target !== (current ?? this)) target.focus({ preventScroll: true });
+  }
+
+  private _onFocusIn = (e: FocusEvent): void => {
+    const target = e.composedPath()[0];
+    if (target !== this && this._isGridSurface(target)) {
+      this._focusedCellEl = target as HTMLElement;
+      // The host steps out of the Tab order while a cell holds the focus, so Shift+Tab leaves the grid
+      // instead of landing on the host. Restored when the focus leaves.
+      if (this.tabIndex === 0) {
+        this._hostTabIndexLowered = true;
+        this.tabIndex = -1;
+      }
+    }
+  };
+
+  private _onFocusOut = (e: FocusEvent): void => {
+    const next = e.relatedTarget as Node | null;
+    if (next && (next === this || this.contains(next) || this.shadowRoot?.contains(next))) return;
+    const left = e.composedPath()[0];
+    requestAnimationFrame(() => {
+      // Removed by a re-render: `_syncGridFocus` takes the focus back. Otherwise the focus really left.
+      if (left instanceof HTMLElement && left === this._focusedCellEl && !left.isConnected) {
+        this._syncGridFocus();
+        return;
+      }
+      if (document.activeElement === this) return;
+      this._focusedCellEl = null;
+      if (this._hostTabIndexLowered) {
+        this._hostTabIndexLowered = false;
+        this.tabIndex = 0;
+      }
+    });
+  };
+
+  private _hostTabIndexLowered = false;
 
   private _handleCtrlKey(e: KeyboardEvent): boolean {
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return false;
@@ -2620,6 +2717,7 @@ export class FlexTable extends LitElement {
     return html`
       <div class=${dragClasses}
         role="columnheader"
+        tabindex="-1"
         aria-colindex=${colIndex + 1}
         data-col-index=${colIndex}
         style=${cellStyle}
@@ -4411,6 +4509,7 @@ export class FlexTable extends LitElement {
     return html`
       <div class=${hasComment ? classes + ' ft-has-comment' : classes}
         role="gridcell"
+        tabindex="-1"
         aria-colindex=${colIndex + 1}
         data-col-index=${colIndex}
         aria-selected=${selected ? 'true' : 'false'}

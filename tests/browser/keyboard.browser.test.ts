@@ -324,7 +324,7 @@ describe('flex-table keyboard — the header row', () => {
     await press('{Escape}');
     expect(menuOpen()).toBe(false);
     expect(document.activeElement).toBe(table);
-    expect(table.shadowRoot!.activeElement, 'focus is the grid itself, not the menu button').toBeNull();
+    expect(table.shadowRoot!.activeElement, 'focus is back on the header cell, not the menu button').toBe(header(2));
     expect(activeHeader()).toEqual(['2']);
   });
 
@@ -336,6 +336,51 @@ describe('flex-table keyboard — the header row', () => {
     await press('{ArrowDown}{ArrowRight}{Enter}');
     expect(activeHeader()).toEqual(['1']);
     expect(header(1).getAttribute('aria-sort')).toBe('ascending');
+  });
+});
+
+describe('flex-table keyboard — the focus is on the cell the keyboard is on', () => {
+  // Before 0.50 the host kept the focus and marked the active cell with a class only: assistive
+  // technology heard «grid» and nothing as the arrows moved (the host cannot point
+  // aria-activedescendant into its own shadow tree). Roving focus puts the focus on the cell.
+  const focused = () => table.shadowRoot!.activeElement as HTMLElement | null;
+  const header = (col: number) =>
+    table.shadowRoot!.querySelector<HTMLElement>(`.ft-header-cell[data-col-index="${col}"]`)!;
+
+  it('clicks and arrow keys move the focus onto the active cell; ArrowUp onto the header cell', async () => {
+    await mount();
+    await at(2, 1);
+    expect(focused()).toBe(cell(2, 1));
+    await press('{ArrowRight}{ArrowDown}');
+    expect(focused()).toBe(cell(3, 2));
+    expect(focused()?.getAttribute('role')).toBe('gridcell');
+    await press('{Control>}{Home}{/Control}{ArrowUp}');
+    expect(focused()).toBe(header(0));
+    expect(focused()?.getAttribute('role')).toBe('columnheader');
+    expect(document.activeElement, 'the page sees the grid as focused').toBe(table);
+  });
+
+  it('a cell scrolled out of the virtual window hands the focus to the grid; the next key brings it back', async () => {
+    await mount();
+    table.data = Array.from({ length: 300 }, (_, r) => ({ a: `a${r}`, b: `b${r}`, c: `c${r}`, d: `d${r}` }));
+    await settle();
+    await at(0, 0);
+    table.scrollTop = 5000;
+    await new Promise((r) => setTimeout(r, 250));
+    expect(document.activeElement, 'the focus did not fall to the page').toBe(table);
+    expect(focused(), 'not a recycled cell that now shows another row').toBeNull();
+    await press('{ArrowDown}');
+    await new Promise((r) => setTimeout(r, 250));
+    expect(focused()).toBe(cell(1, 0));
+  });
+
+  it('after an edit the focus returns to the grid cell', async () => {
+    await mount();
+    await at(1, 0);
+    await press('{F2}');
+    expect(focused()?.localName).toBe('input');
+    await press('X{Enter}');
+    expect(focused()).toBe(cell(2, 0));
   });
 });
 

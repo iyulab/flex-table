@@ -67,7 +67,7 @@ npm install @iyulab/flex-table
 - **Data Mode** — Client-side or server-side sorting/filtering (`dataMode`)
 - **Context Menu** — `context-menu` event for custom right-click menus
 - **React Wrapper** — `@iyulab/flex-table/react` subpath for idiomatic React usage
-- **ARIA** — `role="grid"`, `aria-sort`, `aria-selected`, `aria-readonly`, `aria-invalid`, `aria-rowcount`, `aria-colcount`, `aria-rowindex`, `aria-colindex`
+- **ARIA** — `role="grid"` with roving focus (the focus sits on the active cell or header cell, so screen readers announce each move), `aria-sort`, `aria-selected`, `aria-readonly`, `aria-invalid`, `aria-rowcount`, `aria-colcount`, `aria-rowindex`, `aria-colindex`
 
 ## Sizing
 
@@ -464,6 +464,8 @@ package dependency; CSS custom properties are resolved at render time, not impor
 
 The table is one Tab stop: keyboard focus arriving on it activates the first cell (the first header cell
 when there are no rows), and the column menu buttons and row checkboxes are reached by keys, not Tab.
+While the table has the focus, the focus sits on the active cell (or header cell) itself — `document.activeElement`
+is the table, and its `shadowRoot.activeElement` is that cell.
 
 ## Localization
 
