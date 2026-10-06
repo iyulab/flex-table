@@ -109,7 +109,10 @@ export type FlexTableMessageKey =
   | 'notANumber'
   | 'notADate'
   | 'notADateTime'
-  | 'notInList';
+  | 'notInList'
+  // 데이터 소스 실패 — 서버가 메시지를 주지 않았을 때 이 패키지가 채우는 문장
+  | 'requestFailed'
+  | 'networkFailed';
 
 /** 이 패키지의 chrome 문자열 묶음. 소비자가 `register()` 로 언어를 더하거나 문구를 덮을 수 있다. */
 export const flexTableLocale = Locale.namespace<FlexTableMessageKey>('flex-table');
@@ -191,6 +194,9 @@ flexTableLocale.register('en', {
   notADate: 'Enter a date as YYYY-MM-DD',
   notADateTime: 'Enter a date and time as YYYY-MM-DD HH:mm',
   notInList: 'Value must be from the existing list',
+
+  requestFailed: 'Request failed ({status})',
+  networkFailed: 'Could not reach the server.',
 });
 
 flexTableLocale.register('ko', {
@@ -269,6 +275,9 @@ flexTableLocale.register('ko', {
   notADate: '날짜를 YYYY-MM-DD 로 입력하세요',
   notADateTime: '날짜와 시간을 YYYY-MM-DD HH:mm 으로 입력하세요',
   notInList: '목록에 있는 값이어야 합니다',
+
+  requestFailed: '요청이 실패했습니다 ({status})',
+  networkFailed: '서버에 연결하지 못했습니다.',
 });
 
 /** 짧은 조회 별칭 — 렌더 코드가 읽히게 유지한다. */

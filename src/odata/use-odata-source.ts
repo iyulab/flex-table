@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SortCriteria } from '../core/sorting.js';
 import type { UseODataSourceOptions, UseODataSourceResult } from './types.js';
 import { buildODataQuery, resolveInitialState } from './query.js';
-import { readFailedResponse, SourceRequestError, toSourceError, type SourceError } from '../core/source-error.js';
+import { networkFailure, readFailedResponse, SourceRequestError, toSourceError, type SourceError } from '../core/source-error.js';
 
 /**
  * OData v4 서버 사이드 데이터소스 React 훅.
@@ -122,7 +122,14 @@ export function useODataSource<T = Record<string, unknown>>(
      * 조용히 멈추면 잘린 페이지가 온전한 페이지처럼 보인다.
      */
     const fetchPage = async (pageUrl: string) => {
-      const res = await fetcher(pageUrl, { signal: controller.signal });
+      let res: Response;
+      try {
+        res = await fetcher(pageUrl, { signal: controller.signal });
+      } catch (err) {
+        // 거둔 요청은 실패가 아니다 — 아래 catch 가 조용히 넘긴다.
+        if ((err as Error)?.name === 'AbortError') throw err;
+        throw networkFailure(err);
+      }
       if (!res.ok) {
         // 401 만 — 403 은 세션이 살아 있는 거절이라 «재인증» 훅의 사건이 아니다. 이어지는 에러 상태가 알린다.
         if (res.status === 401 && onUnauthorized) {

@@ -613,7 +613,9 @@ describe('useODataSource — 구조화된 실패', () => {
 
   it('NEGATIVE 응답이 없던 실패(네트워크)는 상태 없이 메시지만', async () => {
     const view = await mount({ fetcher: () => Promise.reject(new TypeError('Failed to fetch')) });
-    expect(view.current.error).toEqual({ message: 'Failed to fetch' });
+    // 문장은 브라우저 예외 문구가 아니라 로케일 문장이다(예외는 `cause` 에) — 기본 오류 문장의 로케일 시험 참조.
+    expect(view.current.error).toEqual({ message: 'Could not reach the server.', cause: expect.any(TypeError) });
+    expect(view.current.error?.status).toBeUndefined();
   });
 
   it('NEGATIVE 성공한 다음 요청은 실패를 지운다', async () => {

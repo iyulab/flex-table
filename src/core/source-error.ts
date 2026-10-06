@@ -1,4 +1,5 @@
 // src/core/source-error.ts
+import { t } from '../locale.js';
 
 /** OData v4 오류 봉투의 `error.details` 항목 — 필드별 검증 실패 상세. */
 export interface SourceErrorDetail {
@@ -16,7 +17,10 @@ export interface SourceErrorDetail {
  * 엿보는 것 말고는 길이 없다.
  */
 export interface SourceError {
-  /** 보여 줄 문장 — 서버가 준 메시지가 있으면 그것, 없으면 `Request failed (<status>)`. */
+  /**
+   * 보여 줄 문장 — 서버가 준 메시지가 있으면 그것. 없으면 이 패키지가 채우는 문장이고 로케일(`flexTableLocale`)을
+   * 따른다: 응답은 있었으면 `requestFailed`(`Request failed ({status})`), 응답이 없었으면 `networkFailed`.
+   */
   message: string;
   /** HTTP 상태. 응답이 없던 실패(네트워크 오류 · `@odata.nextLink` 검사)에는 없다. */
   status?: number;
@@ -26,14 +30,16 @@ export interface SourceError {
   details?: SourceErrorDetail[];
   /** 응답 본문 — JSON 이면 파싱한 값, 아니면 텍스트. 비어 있으면 없다. */
   body?: unknown;
+  /** 응답이 없던 실패에서 전송(`fetcher`)이 던진 예외 — 진단용. 화면에는 `message` 를 그린다. */
+  cause?: unknown;
 }
 
 /** 실패 응답을 `SourceError` 로 읽는다. 본문을 읽을 수 없어도 상태와 기본 문장은 남긴다. */
 export async function readFailedResponse(res: Response): Promise<SourceError> {
   const text = await res.text().catch(() => '');
-  // ⚠영어 리터럴은 의도한 것이다 — 서버가 아무것도 말해 주지 않은 때만 남는 진단 문장이다
-  // (서버 메시지가 있으면 그쪽이 이긴다). 이 패키지의 로케일 묶음은 chrome 문자열 용이다.
-  const failure: SourceError = { message: `Request failed (${res.status})`, status: res.status };
+  // 서버가 아무 말도 하지 않은 때 이 패키지가 채우는 문장 — 서버 문장(서버의 언어)이 있으면 그쪽이 이기고, 없으면
+  // 표 chrome 과 같은 로케일을 따른다. 소비자가 `error.message` 를 그대로 그리라고 안내하는 자리라서다.
+  const failure: SourceError = { message: t('requestFailed', { status: res.status }), status: res.status };
   if (!text) return failure;
 
   let body: unknown = text;
@@ -73,6 +79,11 @@ export class SourceRequestError extends Error {
     this.name = 'SourceRequestError';
     this.failure = failure;
   }
+}
+
+/** 전송이 응답 없이 던진 실패(네트워크 · 오프라인)를 `SourceError` 로 — 브라우저마다 다른 예외 문구 대신 로케일 문장. */
+export function networkFailure(cause: unknown): SourceRequestError {
+  return new SourceRequestError({ message: t('networkFailed'), cause });
 }
 
 /** 잡힌 예외를 `SourceError` 로 — 응답이 있던 실패는 그 구조 그대로, 나머지는 메시지만. */

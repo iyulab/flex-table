@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.51.0] - 2026-10-06
+
+### Fixed
+
+- **A data-source failure the server said nothing about is described in the table's language.** With no message in
+  the response, `SourceError.message` was a fixed English `Request failed (<status>)`; with no response at all it was
+  the transport's exception text, which differs by browser (`Failed to fetch`, `NetworkError when attempting to fetch
+  resource.`). Both rendered in English in any locale, and telling them from a server sentence meant matching the
+  string's shape. They now come from `flexTableLocale` — `requestFailed` (`{status}` parameter) and `networkFailed`
+  (en and ko built in, others via `register`). A server sentence still wins.
+
+### Added
+
+- `SourceError.cause` — on a failure with no response, the exception the transport threw (for diagnostics).
+
 ## [0.50.4] - 2026-10-06
 
 ### Fixed
