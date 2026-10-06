@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { flexTableStyles } from './styles/flex-table.styles.js';
 import { renderCell } from './renderers/cell-renderer.js';
 import { t } from './locale.js';
+import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 import { SelectionState } from './core/selection.js';
 import { EditingState } from './core/editing.js';
 import { RowSelectionState } from './core/row-selection.js';
@@ -1145,8 +1146,16 @@ export class FlexTable extends LitElement {
     return { start, end };
   }
 
+  /** 런타임 로캘 전환 구독 — 이 요소는 `LitElement` 를 직접 잇기에 `@iyulab/components` 의 `UElement` 구독을 받지 못한다. */
+  private _unsubscribeLocale?: () => void;
+  private _detachedLocaleRevision?: number;
+
   connectedCallback(): void {
     super.connectedCallback();
+    // 이미 그려진 문장(머리 메뉴 · 필터 · 빈 상태 · 셀 오류)을 새 언어로 다시 그린다. 떨어져 있던 동안의 전환은 지금 따라간다.
+    this._unsubscribeLocale = Locale.subscribe(() => this.requestUpdate());
+    if (this._detachedLocaleRevision !== undefined && this._detachedLocaleRevision !== Locale.revision) this.requestUpdate();
+    this._detachedLocaleRevision = undefined;
     this._onScroll = this._onScroll.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onDocumentClick = this._onDocumentClick.bind(this);
@@ -1182,6 +1191,9 @@ export class FlexTable extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._unsubscribeLocale?.();
+    this._unsubscribeLocale = undefined;
+    this._detachedLocaleRevision = Locale.revision;
     this.removeEventListener('scroll', this._onScroll);
     this.removeEventListener('keydown', this._onKeyDown);
     this.removeEventListener('focus', this._onHostFocus);
@@ -1699,7 +1711,7 @@ export class FlexTable extends LitElement {
       const allCandidates = this._getAutocompleteCandidates(colDef, '');
       if (!allCandidates.includes(String(newValue))) {
         const error = t('notInList');
-        this._markCellInvalid(row, col, error);
+        this._markCellInvalid(row, col, () => t('notInList'));
         this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
         return;
       }
@@ -1711,8 +1723,9 @@ export class FlexTable extends LitElement {
       || (colDef.type === 'date' && typeof newValue === 'string' && parseDate(newValue) === null)
       || (colDef.type === 'datetime' && typeof newValue === 'string' && parseDateTime(newValue) === null);
     if (unreadable) {
-      const error = t(colDef.type === 'number' ? 'notANumber' : colDef.type === 'date' ? 'notADate' : 'notADateTime');
-      this._markCellInvalid(row, col, error);
+      const key = colDef.type === 'number' ? 'notANumber' : colDef.type === 'date' ? 'notADate' : 'notADateTime';
+      const error = t(key);
+      this._markCellInvalid(row, col, () => t(key));
       this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
       return;
     }
@@ -3388,13 +3401,14 @@ export class FlexTable extends LitElement {
     `;
   }
 
-  private _invalidCells: Map<string, { error: string; timer: ReturnType<typeof setTimeout> }> = new Map();
+  /** 셀 오류 표시 — 우리 문장은 «그릴 때 찾는» 함수로(로캘 전환에 따라오게), 소비자 `validator` 문장은 그대로. */
+  private _invalidCells: Map<string, { error: string | (() => string); timer: ReturnType<typeof setTimeout> }> = new Map();
 
   private _cellKey(row: number, col: number): string {
     return `${row}:${col}`;
   }
 
-  private _markCellInvalid(row: number, col: number, error: string): void {
+  private _markCellInvalid(row: number, col: number, error: string | (() => string)): void {
     const key = this._cellKey(row, col);
     const existing = this._invalidCells.get(key);
     if (existing) clearTimeout(existing.timer);
@@ -3409,7 +3423,8 @@ export class FlexTable extends LitElement {
 
   private _isCellInvalid(row: number, col: number): string | null {
     const entry = this._invalidCells.get(this._cellKey(row, col));
-    return entry ? entry.error : null;
+    if (!entry) return null;
+    return typeof entry.error === 'function' ? entry.error() : entry.error;
   }
   private _textFilterState: Map<string, { value: string; mode: TextFilterMode }> = new Map();
   private _numberFilterState: Map<string, NumberAdvState> = new Map();

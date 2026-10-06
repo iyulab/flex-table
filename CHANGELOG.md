@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.52.0] - 2026-10-07
+
+### Changed
+
+- **Requires `@iyulab/components` 2.8.0** (peer `>=2.8.0`) — for its locale change notification.
+
+### Fixed
+
+- **`flex-table` follows a runtime locale switch.** `Locale.set()` or registering strings (`flexTableLocale.register`)
+  re-renders the table at once — menus, filters, empty states and a cell's error marker (now looked up when drawn). It
+  kept the old language until a scroll or data change redrew it. A table detached during the switch catches up when
+  attached again.
+
 ## [0.51.0] - 2026-10-06
 
 ### Fixed
