@@ -65,7 +65,7 @@ npm install @iyulab/flex-table
 - **Row Numbers** — Optional `show-row-numbers` attribute with sticky positioning
 - **Footer Row** — Summary/aggregate row via `footer-data` property
 - **Data Mode** — Client-side or server-side sorting/filtering (`dataMode`)
-- **Context Menu** — `context-menu` event for custom right-click menus
+- **Context Menu** — `context-menu` event for custom right-click menus; Shift+F10 or the context-menu key opens it on the active cell
 - **React Wrapper** — `@iyulab/flex-table/react` subpath for idiomatic React usage
 - **ARIA** — `role="grid"` with roving focus (the focus sits on the active cell or header cell, so screen readers announce each move), `aria-sort`, `aria-selected`, `aria-readonly`, `aria-invalid`, `aria-rowcount`, `aria-colcount`, `aria-rowindex`, `aria-colindex`
 
@@ -351,7 +351,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 | Event | Detail | Description |
 |-------|--------|-------------|
 | `undo-state-change` | `{ canUndo, canRedo }` | Undo/redo availability changed |
-| `context-menu` | `{ x, y, row, col, key, value, rowData }` | Right-click on cell. Cancelable — `preventDefault()` suppresses the built-in menu |
+| `context-menu` | `{ x, y, row, col, key, value, rowData }` | Right-click on a cell, or Shift+F10 / the context-menu key on the active cell. Cancelable — `preventDefault()` suppresses the built-in menu |
 
 ## CSS Custom Properties
 
@@ -458,6 +458,7 @@ package dependency; CSS custom properties are resolved at render time, not impor
 | ArrowLeft / ArrowRight / Home / End (header row) | Move along the header; ArrowDown returns to the first row |
 | Enter / Space (header row) | Sort the column (ascending → descending → none); with Shift, add it to the sort |
 | Alt+ArrowDown or the context-menu key (header row) | Open the column menu |
+| Shift+F10 or the context-menu key (a body cell) | Open the cell menu (`show-context-menu`) at the active cell / fire `context-menu` |
 | Enter / Space on a column menu button | Open the column menu |
 | ArrowUp / ArrowDown / Home / End (column menu) | Move between menu items |
 | Escape (column menu) | Close the menu and return focus to where it was opened from |

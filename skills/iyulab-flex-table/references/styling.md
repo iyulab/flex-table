@@ -72,6 +72,7 @@ flex-table {
 | ArrowUp on the first row | Move onto the header row (arrows / Home / End along it, ArrowDown back) |
 | Enter / Space on a header cell | Sort (Shift adds to the sort) |
 | Alt+ArrowDown or context-menu key on a header cell | Open the column menu |
+| Shift+F10 or context-menu key on a body cell | Open the cell menu at the active cell (fires `context-menu`) |
 | Home / End, Ctrl+Home / Ctrl+End | Row start/end, table start/end |
 | Shift+Arrow, Shift+Click | Extend range selection |
 | Shift+Space | Select / deselect the active cell's row (`selectable`; row checkboxes are not Tab stops) |

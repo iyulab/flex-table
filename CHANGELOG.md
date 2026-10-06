@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Documentation
+
+- Shift+F10 and the context-menu key on the active cell open the cell menu at that cell (and fire
+  `context-menu`) — documented and covered by a test. It works since 0.50.1, whose roving focus puts the
+  focus on the cell the browser opens the menu for.
+
 ## [0.50.1] - 2026-10-06
 
 ### Fixed

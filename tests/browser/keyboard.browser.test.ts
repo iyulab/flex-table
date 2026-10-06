@@ -374,6 +374,26 @@ describe('flex-table keyboard — the focus is on the cell the keyboard is on', 
     expect(focused()).toBe(cell(1, 0));
   });
 
+  it('Shift+F10 on the active cell opens the cell menu at that cell; Escape returns to the cell', async () => {
+    await mount();
+    table.showContextMenu = true;
+    const opened: { row: number; col: number }[] = [];
+    table.addEventListener('context-menu', (e) => opened.push({ row: e.detail.row, col: e.detail.col }));
+    await settle();
+    await at(2, 1);
+    await press('{Shift>}{F10}{/Shift}');
+    expect(opened, 'the keyboard path reports the active cell, like a right-click on it').toEqual([{ row: 2, col: 1 }]);
+    const menu = table.shadowRoot!.querySelector<HTMLElement>('.ft-body-context-menu');
+    expect(menu).not.toBeNull();
+    const rect = cell(2, 1).getBoundingClientRect();
+    const left = parseFloat(menu!.style.left);
+    expect(left >= rect.left && left <= rect.right, 'the menu opens at the cell, not at the pointer').toBe(true);
+    expect(focused()?.getAttribute('role')).toBe('menuitem');
+    await press('{Escape}');
+    expect(table.shadowRoot!.querySelector('.ft-body-context-menu')).toBeNull();
+    expect(focused()).toBe(cell(2, 1));
+  });
+
   it('after an edit the focus returns to the grid cell', async () => {
     await mount();
     await at(1, 0);
