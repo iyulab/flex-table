@@ -144,6 +144,17 @@ describe('flex-table clipboard — keys', () => {
     expect([table.data[4].a, table.data[4].b, table.data[5].a, table.data[5].b]).toEqual(['b1', 'c1', 'b2', 'c2']);
   });
 
+  it('Ctrl+C still copies the cells while a row checkbox has focus — a checkbox is not a text field', async () => {
+    await mount();
+    table.selectable = true;
+    await settle();
+    const clip = recordClipboard();
+    await selectBlock();
+    table.shadowRoot!.querySelector<HTMLInputElement>('.ft-checkbox-cell input[type="checkbox"]')!.focus();
+    await press('{Control>}c{/Control}');
+    expect(clip.map((c) => c.text)).toEqual(['b1\tc1\nb2\tc2']);
+  });
+
   it('Ctrl+C inside the cell editor copies the editor text, not the cells', async () => {
     await mount();
     const clip = recordClipboard();

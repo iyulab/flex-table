@@ -25,12 +25,7 @@ import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './model
 import { effectiveAlign } from './models/types.js';
 import type { TemplateResult } from 'lit';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
-import { copyFromKey, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
-
-/** A text field keeps its own clipboard — the cell editor, the find panel, a filter input. */
-const isTextField = (node: EventTarget | undefined): boolean =>
-  node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement
-  || (node instanceof HTMLElement && node.isContentEditable);
+import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
 
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
 type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
@@ -1988,7 +1983,7 @@ export class FlexTable extends LitElement {
       // (Safari, which fires no copy event without a text selection).
       case 'c':
       case 'x': {
-        if (isTextField(e.composedPath()[0])) return true;
+        if (isTextEntry(e.composedPath()[0])) return true;
         const copied = this._selectionTsv();
         if (!copied) return true;
         const cut = e.key.toLowerCase() === 'x' && this.editable;
@@ -1999,7 +1994,7 @@ export class FlexTable extends LitElement {
         return true;
       }
       case 'v':
-        if (isTextField(e.composedPath()[0]) || !this.editable || !this._activeCell) return true;
+        if (isTextEntry(e.composedPath()[0]) || !this.editable || !this._activeCell) return true;
         pasteFromKey().then((text) => this._pasteText(text), (err) => this._clipboardError('paste', err));
         return true;
       case 'd':

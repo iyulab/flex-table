@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.48.2] - 2026-10-06
+
+### Fixed
+
+- **Ctrl+C / Ctrl+X / Ctrl+V apply again while a row checkbox has focus.** 0.48.0 treated every
+  `<input>` as a text field with its own clipboard, so with focus on a row checkbox the keys did
+  nothing. Only text fields (the cell editor, the find panel's search box, a filter input) keep
+  their own clipboard now (`isTextEntry` from `@iyulab/components` 2.2.0).
+
+### Changed
+
+- Requires `@iyulab/components` 2.2.0 or later.
+
 ## [0.48.1] - 2026-10-06
 
 ### Fixed
