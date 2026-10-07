@@ -306,7 +306,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 | `cell-select` | `{ row, col }` or `null` | Cell focus changed (`null` when no cell is active) |
 | `cell-edit-start` | `{ row, col, key, value }` | Cell editing started |
 | `cell-edit-commit` | `{ row, col, key, oldValue, newValue }` | Cell value committed |
-| `cell-edit-cancel` | `{ row, col }` | Cell edit cancelled (Escape) |
+| `cell-edit-cancel` | `{ row, col }` | Cell edit cancelled (Escape, or its row left `data`). `row` is the data index (`-1` once the row is gone) |
 | `validation-error` | `{ row, col, key, value, error }` | Cell validator rejected value, or a `number` cell got text that is not a number |
 
 ### Data Events
@@ -321,7 +321,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 | `data-import` | `{ count }` | Rows imported from a file |
 | `fill-handle-apply` | `{ sourceRange, targetRange, cells }` | Fill handle wrote `cells` (`{ dataRow, key, oldValue, newValue }`) |
 | `find-replace` | `{ type, cells }` | Replace (`type: 'replace'`) or replace-all from the find panel; `cells` are `{ row, col, oldValue, newValue }` with `col` the column key |
-| `comment-change` | `{ dataIndex, colKey, text }` | Cell comment set, changed or removed (`text: null`) |
+| `comment-change` | `{ dataIndex, id, colKey, text }` | Cell comment set, changed or removed (`text: null`). Comments stay on their rows (`id`) when rows move |
 
 ### Column Events
 

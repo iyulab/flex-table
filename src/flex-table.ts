@@ -88,6 +88,7 @@ export class FlexTable extends LitElement {
       if (this.clearUndoOnDataChange) {
         this._undo.clear();
       }
+      if (this._comments.size > 0) this._pruneGoneUnkeyedComments();
       if (this._rowSelection.selectedCount > 0) {
         // A keyed row stays selected across a replacement (another server page — the selection accumulates).
         // A row named only by its object cannot come back once `data` no longer holds it.
@@ -373,7 +374,8 @@ export class FlexTable extends LitElement {
   private _columnWidths: Map<string, number> = new Map();
   private _hostResizeObserver: ResizeObserver | null = null;
   /** Keyed by dataIndex → colKey → comment text */
-  private _comments: Map<number, Map<string, string>> = new Map();
+  /** Cell comments by row id (`getRowId`) and column key — they stay on their rows when rows move. */
+  private _comments: Map<string, Map<string, string>> = new Map();
 
   @state()
   private _isDragOver = false;
@@ -528,6 +530,15 @@ export class FlexTable extends LitElement {
     }
     this._visibleIdsCache = { order: this._sortedIndices, data: this.data, key: this.rowKey, ids };
     return ids;
+  }
+
+  /** Drops comments on `#n` rows `data` no longer holds — such a row cannot come back. */
+  private _pruneGoneUnkeyedComments(): void {
+    if (![...this._comments.keys()].some((id) => id.startsWith('#'))) return;
+    const present = new Set(this.data.map((row) => this.getRowId(row)));
+    for (const id of [...this._comments.keys()]) {
+      if (id.startsWith('#') && !present.has(id)) this._comments.delete(id);
+    }
   }
 
   /** Drops selected `#n` ids whose rows `data` no longer holds. Returns whether anything was dropped. */
@@ -864,12 +875,24 @@ export class FlexTable extends LitElement {
     // Reverse so undo re-inserts in original order (ascending index)
     deleted.reverse();
 
+    // A deleted row's comments leave with it (and come back with it on undo).
+    const removedComments = new Map<string, Map<string, string>>();
+    for (const { row } of deleted) {
+      const id = this.getRowId(row);
+      const c = this._comments.get(id);
+      if (c) {
+        removedComments.set(id, c);
+        this._comments.delete(id);
+      }
+    }
+
     this._undo.push({
       label: 'row-delete',
       undo: () => {
         for (const { index, row } of deleted) {
           this.data.splice(index, 0, row);
         }
+        for (const [id, c] of removedComments) this._comments.set(id, c);
         this.requestUpdate();
       },
       redo: () => {
@@ -877,6 +900,7 @@ export class FlexTable extends LitElement {
         for (const { index } of re) {
           this.data.splice(index, 1);
         }
+        for (const id of removedComments.keys()) this._comments.delete(id);
         this.requestUpdate();
       },
     });
@@ -911,12 +935,15 @@ export class FlexTable extends LitElement {
     if (changes.length === 0) return;
 
     const saved: Array<{ row: number; key: string; oldValue: unknown; newValue: unknown }> = [];
+    // Undo writes the row objects, not positions: `data` can change between the edit and its undo.
+    const targets: DataRow[] = [];
 
     for (const change of changes) {
       if (change.row < 0 || change.row >= this.data.length) continue;
       const oldValue = this.data[change.row][change.key];
       this.data[change.row][change.key] = change.value;
       saved.push({ row: change.row, key: change.key, oldValue, newValue: change.value });
+      targets.push(this.data[change.row]);
     }
 
     if (saved.length === 0) return;
@@ -924,15 +951,11 @@ export class FlexTable extends LitElement {
     this._undo.push({
       label: 'batch-update',
       undo: () => {
-        for (const s of saved) {
-          this.data[s.row][s.key] = s.oldValue;
-        }
+        saved.forEach((s, i) => { targets[i][s.key] = s.oldValue; });
         this.requestUpdate();
       },
       redo: () => {
-        for (const s of saved) {
-          this.data[s.row][s.key] = s.newValue;
-        }
+        saved.forEach((s, i) => { targets[i][s.key] = s.newValue; });
         this.requestUpdate();
       },
     });
@@ -1009,27 +1032,32 @@ export class FlexTable extends LitElement {
    * Pass an empty string or null to remove the comment.
    */
   setComment(dataIndex: number, colKey: string, text: string | null): void {
-    const prev = this.getComment(dataIndex, colKey);
-    this._applyComment(dataIndex, colKey, text);
+    const row = this.data[dataIndex];
+    if (!row) return;
+    // The comment belongs to the row, so undo finds it wherever the row has moved since.
+    const id = this.getRowId(row);
+    const prev = this._comments.get(id)?.get(colKey) ?? null;
+    this._applyComment(id, colKey, text);
     this._undo.push({
       label: 'comment',
-      undo: () => { this._applyComment(dataIndex, colKey, prev); },
-      redo: () => { this._applyComment(dataIndex, colKey, text); },
+      undo: () => { this._applyComment(id, colKey, prev); },
+      redo: () => { this._applyComment(id, colKey, text); },
     });
   }
 
-  private _applyComment(dataIndex: number, colKey: string, text: string | null): void {
+  private _applyComment(id: string, colKey: string, text: string | null): void {
     if (!text) {
-      const row = this._comments.get(dataIndex);
+      const row = this._comments.get(id);
       if (row) {
         row.delete(colKey);
-        if (row.size === 0) this._comments.delete(dataIndex);
+        if (row.size === 0) this._comments.delete(id);
       }
     } else {
-      if (!this._comments.has(dataIndex)) this._comments.set(dataIndex, new Map());
-      this._comments.get(dataIndex)!.set(colKey, text);
+      if (!this._comments.has(id)) this._comments.set(id, new Map());
+      this._comments.get(id)!.set(colKey, text);
     }
-    this._emit('comment-change', { dataIndex, colKey, text: text ?? null });
+    const dataIndex = this.data.findIndex(r => this.getRowId(r) === id);
+    this._emit('comment-change', { dataIndex, id, colKey, text: text ?? null });
     this.requestUpdate();
   }
 
@@ -1037,19 +1065,20 @@ export class FlexTable extends LitElement {
    * Get the comment for a cell (by data index and column key). Returns null if none.
    */
   getComment(dataIndex: number, colKey: string): string | null {
-    return this._comments.get(dataIndex)?.get(colKey) ?? null;
+    const row = this.data[dataIndex];
+    return row ? this._comments.get(this.getRowId(row))?.get(colKey) ?? null : null;
   }
 
   /**
-   * Get all comments as a flat array.
+   * Every comment on a row `data` holds, in `data` order — with the row's current index and its id.
    */
-  getAllComments(): Array<{ dataIndex: number; colKey: string; text: string }> {
-    const result: Array<{ dataIndex: number; colKey: string; text: string }> = [];
-    for (const [dataIndex, colMap] of this._comments) {
-      for (const [colKey, text] of colMap) {
-        result.push({ dataIndex, colKey, text });
-      }
-    }
+  getAllComments(): Array<{ dataIndex: number; id: string; colKey: string; text: string }> {
+    const result: Array<{ dataIndex: number; id: string; colKey: string; text: string }> = [];
+    if (this._comments.size === 0) return result;
+    this.data.forEach((row, dataIndex) => {
+      const id = this.getRowId(row);
+      for (const [colKey, text] of this._comments.get(id) ?? []) result.push({ dataIndex, id, colKey, text });
+    });
     return result;
   }
 
@@ -1412,6 +1441,7 @@ export class FlexTable extends LitElement {
     if (!scrollOnly || this._viewDirty) {
       this._recomputeView();
       this._viewDirty = false;
+      this._followEditingRow();
     }
     this._updateColOffsets();
     this._selection.setDimensions(this._visibleRowCount, this.visibleColumns.length);
@@ -1422,6 +1452,7 @@ export class FlexTable extends LitElement {
     // 호출 시 @state 갱신 → 무한 update 루프 위험 (위 connectedCallback의 ResizeObserver 주석 참조).
     // 크기 변화는 ResizeObserver가 비동기로 처리한다.
     this._focusEditor();
+    this._editorMoving = false;
     this._syncGridFocus();
     this._adjustFilterDropdown();
     if (changedProps.has('_headerMenu')) this._keepMenuInView('.ft-header-menu');
@@ -1479,14 +1510,59 @@ export class FlexTable extends LitElement {
     }
   }
 
+  /**
+   * Keeps an open editor on the row it was started on after the view changed under it (a refresh put
+   * rows above it, a sort moved it). A row that left `data`, or that a filter hid, ends the edit.
+   */
+  private _followEditingRow(): void {
+    const ed = this._editing.current;
+    if (!ed) return;
+    const dataIndex = this.data.indexOf(ed.row);
+    const visual = dataIndex < 0 ? -1 : this._sortedIndices.indexOf(dataIndex);
+    if (visual < 0) {
+      this._cancelEdit();
+      return;
+    }
+    if (visual === ed.position.row) return;
+    // The editor is drawn again in the row's new place — carry what was typed so far into it.
+    const editor = this.shadowRoot?.querySelector<HTMLElement & { value?: unknown }>('.ft-editor');
+    if (editor && 'value' in editor) ed.draft = editor.value;
+    this._editorMoving = true;
+    ed.position = { row: visual, col: ed.position.col };
+    this._editingCell = { ...ed.position };
+    this._activeCell = this._selection.setActive(visual, ed.position.col);
+  }
+
   /** Map visual row index to data row index */
   private _toDataIndex(visualRow: number): number {
     return this._sortedIndices[visualRow] ?? visualRow;
   }
 
+  /** Set while the edited row's editor is drawn again in the row's new place (cleared after that update). */
+  private _editorMoving = false;
+
+  /**
+   * Blur commits the edit — except the blur of the editor the update is replacing because its row
+   * moved (Chromium fires it while removing the element) or of one already gone.
+   */
+  private _onEditorBlur = (e: FocusEvent): void => {
+    if (this._editorMoving || !(e.currentTarget as Element | null)?.isConnected) return;
+    this._commitEdit();
+  };
+
   private _focusEditor(): void {
     if (!this._editingCell) return;
     const input = this.shadowRoot?.querySelector('.ft-editor') as HTMLInputElement | null;
+    // The editor was drawn again because its row moved: give it the text typed so far, keep the caret at the end.
+    const ed = this._editing.current;
+    if (input && ed?.draft !== undefined) {
+      const draft = ed.draft;
+      ed.draft = undefined;
+      input.value = draft as string;
+      input.focus();
+      if (input.type === 'text') input.setSelectionRange(input.value.length, input.value.length);
+      return;
+    }
     // Once, when editing starts: this runs on every update, and the editor lives in this shadow
     // tree — `document.activeElement` is the host there, so comparing with it re-selected the text
     // on each update and the next typed key replaced what was typed (an autocomplete list updates
@@ -1737,7 +1813,7 @@ export class FlexTable extends LitElement {
 
     const dataRow = this._toDataIndex(this._activeCell.row);
     const row = this.data[dataRow];
-    this._editing.start(this._activeCell, row[col.key]);
+    this._editing.start(this._activeCell, row[col.key], row);
     this._editingCell = { ...this._activeCell };
 
     this._emit('cell-edit-start', { row: dataRow, col: this._activeCell.col, key: col.key, value: row[col.key] });
@@ -1796,8 +1872,15 @@ export class FlexTable extends LitElement {
     this._editingCell = null;
     if (!editState) return;
 
-    const { row, col } = editState.position;
-    const dataRow = this._toDataIndex(row);
+    // The edit belongs to the row it was started on, wherever `data` has moved it since — and a row
+    // `data` no longer holds has nothing to write to.
+    const { col } = editState.position;
+    const target = editState.row;
+    const dataRow = this.data.indexOf(target);
+    if (dataRow < 0) {
+      this._emit('cell-edit-cancel', { row: -1, col });
+      return;
+    }
     const colDef = this.visibleColumns[col];
     const oldValue = editState.originalValue;
 
@@ -1806,7 +1889,7 @@ export class FlexTable extends LitElement {
       const allCandidates = this._getAutocompleteCandidates(colDef, '');
       if (!allCandidates.includes(String(newValue))) {
         const error = t('notInList');
-        this._markCellInvalid(row, col, () => t('notInList'));
+        this._markCellInvalid(target, colDef, () => t('notInList'));
         this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
         return;
       }
@@ -1820,33 +1903,33 @@ export class FlexTable extends LitElement {
     if (unreadable) {
       const key = colDef.type === 'number' ? 'notANumber' : colDef.type === 'date' ? 'notADate' : 'notADateTime';
       const error = t(key);
-      this._markCellInvalid(row, col, () => t(key));
+      this._markCellInvalid(target, colDef, () => t(key));
       this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
       return;
     }
 
     // Run validator if present
     if (colDef.validator) {
-      const error = colDef.validator(newValue, this.data[dataRow], colDef);
+      const error = colDef.validator(newValue, target, colDef);
       if (error) {
-        this._markCellInvalid(row, col, error);
+        this._markCellInvalid(target, colDef, error);
         this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
         return;
       }
     }
 
-    // Mutate data
-    this.data[dataRow][colDef.key] = newValue;
+    // Mutate data — the row object, which undo and redo write too (`data` can change in between)
+    target[colDef.key] = newValue;
 
     // Push undo action
     this._undo.push({
       label: 'cell-edit',
       undo: () => {
-        this.data[dataRow][colDef.key] = oldValue;
+        target[colDef.key] = oldValue;
         this.requestUpdate();
       },
       redo: () => {
-        this.data[dataRow][colDef.key] = newValue;
+        target[colDef.key] = newValue;
         this.requestUpdate();
       },
     });
@@ -1862,7 +1945,7 @@ export class FlexTable extends LitElement {
     const editState = this._editing.cancel();
     this._editingCell = null;
     if (editState) {
-      this._emit('cell-edit-cancel', { row: editState.position.row, col: editState.position.col });
+      this._emit('cell-edit-cancel', { row: this.data.indexOf(editState.row), col: editState.position.col });
     }
   }
 
@@ -2402,23 +2485,22 @@ export class FlexTable extends LitElement {
     this._selectPastedRange(this._activeCell, parsed);
 
     if (changes.length > 0 || addedRows.length > 0) {
-      const addedCount = addedRows.length;
+      // Row objects, not positions: `data` can change between the paste and its undo.
+      const targets = changes.map(c => this.data[c.row]);
+      const added = addedRows.map(i => this.data[i]);
       this._undo.push({
         label: 'paste',
         undo: () => {
-          for (const c of changes) { this.data[c.row][c.key] = c.oldValue; }
-          if (addedCount > 0) {
-            this.data.splice(this.data.length - addedCount, addedCount);
+          changes.forEach((c, i) => { targets[i][c.key] = c.oldValue; });
+          for (const row of added) {
+            const at = this.data.indexOf(row);
+            if (at >= 0) this.data.splice(at, 1);
           }
           this.requestUpdate();
         },
         redo: () => {
-          if (addedCount > 0) {
-            for (let i = 0; i < addedCount; i++) {
-              this.data.push(this._createEmptyRow());
-            }
-          }
-          for (const c of changes) { this.data[c.row][c.key] = c.newValue; }
+          for (const row of added) this.data.push(row);
+          changes.forEach((c, i) => { targets[i][c.key] = c.newValue; });
           this.requestUpdate();
         },
       });
@@ -2554,7 +2636,7 @@ export class FlexTable extends LitElement {
 
   private _clearRanges(ranges: Array<{ startRow: number; startCol: number; endRow: number; endCol: number }>): void {
     const cols = this.visibleColumns;
-    const saved: Array<{ dataRow: number; key: string; oldValue: unknown; clearValue: unknown }> = [];
+    const saved: Array<{ target: DataRow; key: string; oldValue: unknown; clearValue: unknown }> = [];
     const visited = new Set<string>();
 
     for (const range of ranges) {
@@ -2568,7 +2650,7 @@ export class FlexTable extends LitElement {
           const oldValue = this.data[dataRow][col.key];
           const clearValue = col.type === 'boolean' ? false : col.type === 'number' ? 0 : '';
           this.data[dataRow][col.key] = clearValue;
-          saved.push({ dataRow, key: col.key, oldValue, clearValue });
+          saved.push({ target: this.data[dataRow], key: col.key, oldValue, clearValue });
         }
       }
     }
@@ -2577,11 +2659,11 @@ export class FlexTable extends LitElement {
       this._undo.push({
         label: 'clear',
         undo: () => {
-          for (const s of saved) { this.data[s.dataRow][s.key] = s.oldValue; }
+          for (const s of saved) { s.target[s.key] = s.oldValue; }
           this.requestUpdate();
         },
         redo: () => {
-          for (const s of saved) { this.data[s.dataRow][s.key] = s.clearValue; }
+          for (const s of saved) { s.target[s.key] = s.clearValue; }
           this.requestUpdate();
         },
       });
@@ -2593,7 +2675,7 @@ export class FlexTable extends LitElement {
 
   private _clearRange(range: { startRow: number; startCol: number; endRow: number; endCol: number }): void {
     const cols = this.visibleColumns;
-    const saved: Array<{ dataRow: number; key: string; oldValue: unknown; clearValue: unknown }> = [];
+    const saved: Array<{ target: DataRow; key: string; oldValue: unknown; clearValue: unknown }> = [];
 
     for (let r = range.startRow; r <= range.endRow; r++) {
       const dataRow = this._toDataIndex(r);
@@ -2602,7 +2684,7 @@ export class FlexTable extends LitElement {
         const oldValue = this.data[dataRow][col.key];
         const clearValue = col.type === 'boolean' ? false : col.type === 'number' ? 0 : '';
         this.data[dataRow][col.key] = clearValue;
-        saved.push({ dataRow, key: col.key, oldValue, clearValue });
+        saved.push({ target: this.data[dataRow], key: col.key, oldValue, clearValue });
       }
     }
 
@@ -2610,11 +2692,11 @@ export class FlexTable extends LitElement {
       this._undo.push({
         label: 'clear',
         undo: () => {
-          for (const s of saved) { this.data[s.dataRow][s.key] = s.oldValue; }
+          for (const s of saved) { s.target[s.key] = s.oldValue; }
           this.requestUpdate();
         },
         redo: () => {
-          for (const s of saved) { this.data[s.dataRow][s.key] = s.clearValue; }
+          for (const s of saved) { s.target[s.key] = s.clearValue; }
           this.requestUpdate();
         },
       });
@@ -3502,11 +3584,12 @@ export class FlexTable extends LitElement {
   /** 셀 오류 표시 — 우리 문장은 «그릴 때 찾는» 함수로(로캘 전환에 따라오게), 소비자 `validator` 문장은 그대로. */
   private _invalidCells: Map<string, { error: string | (() => string); timer: ReturnType<typeof setTimeout> }> = new Map();
 
-  private _cellKey(row: number, col: number): string {
-    return `${row}:${col}`;
+  /** A cell named by its row's id and its column's key — so the mark stays on the cell when the view reorders. */
+  private _cellKey(row: DataRow, col: ColumnDefinition): string {
+    return `${this.getRowId(row)}\u0000${col.key}`;
   }
 
-  private _markCellInvalid(row: number, col: number, error: string | (() => string)): void {
+  private _markCellInvalid(row: DataRow, col: ColumnDefinition, error: string | (() => string)): void {
     const key = this._cellKey(row, col);
     const existing = this._invalidCells.get(key);
     if (existing) clearTimeout(existing.timer);
@@ -3519,7 +3602,7 @@ export class FlexTable extends LitElement {
     this.requestUpdate();
   }
 
-  private _isCellInvalid(row: number, col: number): string | null {
+  private _isCellInvalid(row: DataRow, col: ColumnDefinition): string | null {
     const entry = this._invalidCells.get(this._cellKey(row, col));
     if (!entry) return null;
     return typeof entry.error === 'function' ? entry.error() : entry.error;
@@ -3850,6 +3933,7 @@ export class FlexTable extends LitElement {
   _applyFillHandle(sourceRange: CellRange, targetRange: CellRange): void {
     const cols = this.visibleColumns;
     const saved: Array<{ dataRow: number; key: string; oldValue: unknown; newValue: unknown }> = [];
+    const targets: DataRow[] = [];
 
     for (let c = targetRange.startCol; c <= targetRange.endCol; c++) {
       const col = cols[c];
@@ -3875,14 +3959,15 @@ export class FlexTable extends LitElement {
         }
         this.data[dataRow][col.key] = newValue;
         saved.push({ dataRow, key: col.key, oldValue, newValue });
+        targets.push(this.data[dataRow]);
       }
     }
 
     if (saved.length > 0) {
       this._undo.push({
         label: 'fill-handle',
-        undo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.oldValue; this.requestUpdate(); },
-        redo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.newValue; this.requestUpdate(); },
+        undo: () => { saved.forEach((s, i) => { targets[i][s.key] = s.oldValue; }); this.requestUpdate(); },
+        redo: () => { saved.forEach((s, i) => { targets[i][s.key] = s.newValue; }); this.requestUpdate(); },
       });
       this._dispatchUndoStateEvent();
       this._emit('fill-handle-apply', { sourceRange, targetRange, cells: saved });
@@ -4130,6 +4215,7 @@ export class FlexTable extends LitElement {
     const { results, replaceWith } = this._findState;
     const cols = this.visibleColumns;
     const saved: Array<{ dataRow: number; key: string; oldValue: unknown; newValue: unknown }> = [];
+    const targets: DataRow[] = [];
 
     for (const { row, col } of results) {
       const dataRow = this._toDataIndex(row);
@@ -4137,13 +4223,14 @@ export class FlexTable extends LitElement {
       const oldValue = this.data[dataRow][key];
       this.data[dataRow][key] = replaceWith;
       saved.push({ dataRow, key, oldValue, newValue: replaceWith });
+      targets.push(this.data[dataRow]);
     }
 
     if (saved.length > 0) {
       this._undo.push({
         label: 'replace-all',
-        undo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.oldValue; this.requestUpdate(); },
-        redo: () => { for (const s of saved) this.data[s.dataRow][s.key] = s.newValue; this.requestUpdate(); },
+        undo: () => { saved.forEach((s, i) => { targets[i][s.key] = s.oldValue; }); this.requestUpdate(); },
+        redo: () => { saved.forEach((s, i) => { targets[i][s.key] = s.newValue; }); this.requestUpdate(); },
       });
       this._dispatchUndoStateEvent();
       this._emit('find-replace', { type: 'replace-all', cells: saved.map(s => ({ row: s.dataRow, col: s.key, oldValue: s.oldValue, newValue: s.newValue })) });
@@ -4160,13 +4247,14 @@ export class FlexTable extends LitElement {
     const { row, col } = results[currentIndex];
     const dataRow = this._toDataIndex(row);
     const key = this.visibleColumns[col].key;
-    const oldValue = this.data[dataRow][key];
-    this.data[dataRow][key] = replaceWith;
+    const target = this.data[dataRow];
+    const oldValue = target[key];
+    target[key] = replaceWith;
 
     this._undo.push({
       label: 'replace',
-      undo: () => { this.data[dataRow][key] = oldValue; this.requestUpdate(); },
-      redo: () => { this.data[dataRow][key] = replaceWith; this.requestUpdate(); },
+      undo: () => { target[key] = oldValue; this.requestUpdate(); },
+      redo: () => { target[key] = replaceWith; this.requestUpdate(); },
     });
     this._dispatchUndoStateEvent();
     this._emit('find-replace', { type: 'replace', cells: [{ row: dataRow, col: key, oldValue, newValue: replaceWith }] });
@@ -4598,7 +4686,7 @@ export class FlexTable extends LitElement {
     }
 
     const selected = isActive || isSelected;
-    const validationError = this._isCellInvalid(rowIndex, colIndex);
+    const validationError = this._isCellInvalid(row, col);
     const findResults = this._findState?.results ?? [];
     const findMatchIdx = findResults.findIndex(r => r.row === rowIndex && r.col === colIndex);
     const isFindMatch = findMatchIdx >= 0;
@@ -4618,8 +4706,7 @@ export class FlexTable extends LitElement {
       col.reveal === 'hover' ? 'ft-reveal-hover' : '',
     ].filter(Boolean).join(' ');
 
-    const dataIdx = this._toDataIndex(rowIndex);
-    const commentText = this._comments.get(dataIdx)?.get(col.key) ?? null;
+    const commentText = this._comments.size > 0 ? this._comments.get(this.getRowId(row))?.get(col.key) ?? null : null;
     const hasComment = commentText !== null;
     const commentTooltip = hasComment
       ? html`<div class="ft-comment-indicator" title=${commentText}></div>`
@@ -4660,7 +4747,7 @@ export class FlexTable extends LitElement {
         <input class="ft-editor ft-editor-number" type="text" inputmode="decimal" aria-label=${col.label}
           .value=${typeof value === 'number' ? editableNumber(value) : strValue}
           @keydown=${this._onEditorKeyDown}
-          @blur=${() => this._commitEdit()}>
+          @blur=${this._onEditorBlur}>
       `;
     }
 
@@ -4676,7 +4763,7 @@ export class FlexTable extends LitElement {
           .value=${pickerValue(value, datetime)}
           @keydown=${this._onEditorKeyDown}
           @change=${() => this._commitEdit()}
-          @blur=${() => this._commitEdit()}></u-date-picker>
+          @blur=${this._onEditorBlur}></u-date-picker>
       `;
     }
 
@@ -4686,7 +4773,7 @@ export class FlexTable extends LitElement {
       return html`
         <select class="ft-editor" aria-label=${col.label}
           @keydown=${this._onEditorKeyDown}
-          @blur=${() => this._commitEdit()}
+          @blur=${this._onEditorBlur}
           @change=${() => this._commitEdit()}>
           ${isStringArray
             ? (opts as string[]).map(o => html`<option value=${o} ?selected=${o === value}>${o}</option>`)
@@ -4710,7 +4797,7 @@ export class FlexTable extends LitElement {
           .value=${strValue}
           @input=${(e: Event) => this._onAutocompleteInput(e, col)}
           @keydown=${this._onEditorKeyDown}
-          @blur=${() => this._commitEdit()}>
+          @blur=${this._onEditorBlur}>
         ${candidates.length > 0 ? html`
           <div class="ft-autocomplete-dropdown" id="ft-autocomplete-list" role="listbox" aria-label=${col.label}>
             ${candidates.map((c, i) => html`
@@ -4730,7 +4817,7 @@ export class FlexTable extends LitElement {
       <input class="ft-editor" type="text" aria-label=${col.label}
         .value=${strValue}
         @keydown=${this._onEditorKeyDown}
-        @blur=${() => this._commitEdit()}>
+        @blur=${this._onEditorBlur}>
     `;
   }
 }

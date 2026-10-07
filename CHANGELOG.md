@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.56.1] - 2026-10-07
+
+### Fixed
+
+- **An edit is written to the row it was started on.** The open editor remembered a screen position and the commit
+  wrote whatever row stood there, so a refresh that put a row above the one being edited (or a sort while editing)
+  sent the typed value into another row. The editor now follows its row — drawn again in the row's new place with
+  what was typed and the focus — and an edit whose row left `data` (or a filter hid) is cancelled.
+- **Undo and redo write the rows they changed** (cell edits, `updateRows`, paste, clear, fill, replace). They wrote
+  `data` positions, so after `data` changed in between they changed other rows.
+- **Comments stay on their rows.** They were kept by `data` index, so inserting or deleting a row moved every comment
+  below it onto the neighbouring row. A deleted row's comments leave with it (and come back on undo).
+- **Validation marks stay on their cells** when the view reorders while one is shown.
+- `cell-edit-cancel` reports `row` as the data index, like the other edit events (it was the screen position) —
+  `-1` when the row is no longer in `data`.
+
+### Added
+
+- `comment-change` and `getAllComments()` carry the row's `id`.
+
 ## [0.56.0] - 2026-10-07
 
 ### Fixed

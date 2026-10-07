@@ -3115,7 +3115,7 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       (el as any)._editingCell = { row: 0, col: 0 };
-      (el as any)._editing.start({ row: 0, col: 0 }, 'apple');
+      (el as any)._editing.start({ row: 0, col: 0 }, 'apple', el.data[0]);
       (el as any)._applyEdit('mango');
       await el.updateComplete;
 
@@ -3128,7 +3128,7 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       (el as any)._editingCell = { row: 0, col: 0 };
-      (el as any)._editing.start({ row: 0, col: 0 }, 'apple');
+      (el as any)._editing.start({ row: 0, col: 0 }, 'apple', el.data[0]);
       (el as any)._applyEdit('banana');
       await el.updateComplete;
 
@@ -4190,6 +4190,82 @@ describe('FlexTable', () => {
       await el.updateComplete;
       el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
       expect(detail?.id).toBe('7');
+    });
+  });
+
+  describe('per-row state follows the row (editing · comments · invalid marks)', () => {
+    function makeEl(data: DataRow[]) {
+      const el = createElement();
+      el.columns = [{ key: 'name', label: 'Name' }];
+      el.data = data;
+      return el;
+    }
+    async function startEditFirstCell(el: FlexTable) {
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-cell')!.click();
+      await el.updateComplete;
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await el.updateComplete;
+      return el.shadowRoot!.querySelector('.ft-editor') as HTMLInputElement;
+    }
+
+    it('🔴an edit commits to the row it was started on when a refresh puts a row above it', async () => {
+      const a = { name: 'a' };
+      const b = { name: 'b' };
+      const el = makeEl([a, b]);
+      await el.updateComplete;
+      const editor = await startEditFirstCell(el); // editing «a»
+      expect(editor).toBeTruthy();
+      editor.value = 'A!';
+      editor.dispatchEvent(new Event('input'));
+      el.data = [{ name: 'new' }, a, b]; // a refresh with a new row on top arrives while typing
+      await el.updateComplete;
+      el.shadowRoot!.querySelector('.ft-editor')?.dispatchEvent(new Event('blur'));
+      await el.updateComplete;
+      expect(el.data.map((r) => r.name)).toEqual(['new', 'A!', 'b']);
+    });
+
+    it('🔴an edit whose row a refresh removed is cancelled, not written to another row', async () => {
+      const el = makeEl([{ name: 'a' }, { name: 'b' }]);
+      await el.updateComplete;
+      await startEditFirstCell(el);
+      let cancelled: { row: number } | undefined;
+      el.addEventListener('cell-edit-cancel', (e) => { cancelled = (e as CustomEvent).detail; });
+      el.data = [{ name: 'x' }, { name: 'y' }];
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('.ft-editor')).toBeNull();
+      expect(el.data.map((r) => r.name)).toEqual(['x', 'y']);
+      expect(cancelled).toBeTruthy();
+    });
+
+    it('🔴a comment stays on its row when a row is inserted above it', async () => {
+      const el = makeEl([{ name: 'a' }, { name: 'b' }]);
+      await el.updateComplete;
+      el.setComment(1, 'name', 'check b');
+      el.addRow({ name: 'z' }, 0);
+      await el.updateComplete;
+      expect(el.getComment(2, 'name')).toBe('check b');
+      expect(el.getComment(1, 'name')).toBeNull();
+      expect(el.getAllComments()).toEqual([{ dataIndex: 2, id: expect.any(String), colKey: 'name', text: 'check b' }]);
+    });
+
+    it('🔴a comment leaves with its row when the row is deleted', async () => {
+      const el = makeEl([{ name: 'a' }, { name: 'b' }]);
+      await el.updateComplete;
+      el.setComment(0, 'name', 'on a');
+      el.deleteRows([0]);
+      expect(el.getComment(0, 'name')).toBeNull();
+      expect(el.getAllComments()).toEqual([]);
+    });
+
+    it('🔴undo of an edit writes the row that was edited, after a row was inserted above', async () => {
+      const el = makeEl([{ name: 'a' }, { name: 'b' }]);
+      await el.updateComplete;
+      el.updateRows([{ row: 1, key: 'name', value: 'B' }]);
+      const b = el.data[1];
+      el.data = [{ name: 'top' }, ...el.data]; // an external replacement keeping the objects
+      el.undo();
+      expect(b.name).toBe('b');
+      expect(el.data[0].name).toBe('top');
     });
   });
 

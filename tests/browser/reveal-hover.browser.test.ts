@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { html } from 'lit';
 import '../../src/index.js';
 import type { FlexTable } from '../../src/flex-table.js';
@@ -29,6 +30,8 @@ function mount(): FlexTable {
 
 async function settle(el: FlexTable): Promise<void> {
   await el.updateComplete;
+  // «At rest» means no pointer over a row — a file run before this one may have left the mouse where a row now is.
+  await userEvent.unhover(el);
   await new Promise((r) => setTimeout(r, 150));
   await el.updateComplete;
 }

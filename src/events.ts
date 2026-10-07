@@ -55,7 +55,8 @@ export interface FlexTableEventMap {
   'cell-edit-cancel': CustomEvent<{ row: number; col: number }>;
   /** An edit was rejected (type, `required` or `validator`); the value was not written. */
   'validation-error': CustomEvent<{ row: number; col: number; key: string; value: unknown; error: string }>;
-  'comment-change': CustomEvent<{ dataIndex: number; colKey: string; text: string | null }>;
+  /** `id` — the row's id (comments stay on their rows); `dataIndex` — its position in `data` now (-1 when not loaded). */
+  'comment-change': CustomEvent<{ dataIndex: number; id: string; colKey: string; text: string | null }>;
   /** Rows were imported from a file; `count` is how many. */
   'data-import': CustomEvent<{ count: number }>;
   'sort-change': CustomEvent<{ criteria: SortCriteria[] }>;

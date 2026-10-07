@@ -146,7 +146,7 @@ cast, and the React `on*` props carry the same types.
 | `cell-select` | `{ row, col }` (or `null`) |
 | `cell-edit-start` | `{ row, col, key, value }` |
 | `cell-edit-commit` | `{ row, col, key, oldValue, newValue }` |
-| `cell-edit-cancel` | `{ row, col }` |
+| `cell-edit-cancel` | `{ row, col }` — `row`: data index (`-1` once the row left `data`) |
 | `validation-error` | `{ row, col, key, value, error }` |
 | `row-add` | `{ row, index }` |
 | `row-delete` | `{ indices, rows }` |
@@ -168,7 +168,7 @@ cast, and the React `on*` props carry the same types.
 | `clipboard-error` | `{ action: 'copy' \| 'paste', error }` — copy could not put the text on the clipboard (no `clipboard-copy`/`clipboard-cut` follows; a cut clears nothing), or paste could not read it |
 | `fill-handle-apply` | `{ sourceRange, targetRange, cells }` |
 | `find-replace` | `{ type: 'replace' \| 'replace-all', cells }` |
-| `comment-change` | `{ dataIndex, colKey, text }` |
+| `comment-change` | `{ dataIndex, id, colKey, text }` |
 | `data-import` | `{ count }` |
 | `undo-state-change` | `{ canUndo, canRedo }` |
 | `context-menu` | `{ x, y, row, col, key, value, rowData }` — cancelable; `preventDefault()` suppresses the built-in menu |
