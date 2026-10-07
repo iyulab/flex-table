@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.54.0] - 2026-10-07
+
+### Added
+
+- **`error`** property — the last load failure (`{ message }`, so a data source's `SourceError` goes in as is). While
+  set, the grid shows `error.message` as an alert where the rows or the empty state would be; a failed query used to
+  look like "No data" unless the app drew its own message beside the grid.
+
 ## [0.53.0] - 2026-10-07
 
 ### Added

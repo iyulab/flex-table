@@ -71,12 +71,12 @@ function Orders() {
   return (
     <>
       <input value={source.search} onChange={(e) => source.setSearch(e.target.value)} />
-      {source.error && <p role="alert">{source.error.message}</p>}
       <FlexTableReact<Order>
         dataMode="server"
         columns={columns}
         data={source.data}
         loading={source.loading}
+        error={source.error}
         onSortChange={source.onSortChange}
         clearSelectionOnDataChange
       />
@@ -109,7 +109,7 @@ function Orders() {
 |---|---|
 | `data`, `totalCount` | Current page and `@odata.count`; `@odata.nextLink` is followed to fill a page |
 | `loading` | Request in flight, or no answer yet (true from the first render until the first response settles, and while `enabled: false`) — so `!loading && totalCount === 0` means "no results" |
-| `error` | `SourceError \| null` — `{ message, status?, code?, details?, body?, cause? }`; render `error.message`, branch on `status` / `code` (OData `error.code`). `message` is the server's sentence when it sent one; otherwise this package's, in the `flexTableLocale` language — `requestFailed` (`Request failed ({status})`) when a response came back, `networkFailed` when none did (the transport's exception is in `cause`) |
+| `error` | `SourceError \| null` — `{ message, status?, code?, details?, body?, cause? }`; pass it to the table (`error`) or render `error.message`; branch on `status` / `code` (OData `error.code`). `message` is the server's sentence when it sent one; otherwise this package's, in the `flexTableLocale` language — `requestFailed` (`Request failed ({status})`) when a response came back, `networkFailed` when none did (the transport's exception is in `cause`) |
 | `page`, `setPage` | Zero-based |
 | `sortCriteria`, `onSortChange` | Pass `onSortChange` to the table's `sort-change` (resets to page 0) |
 | `search`, `setSearch` | Literal text (resets to page 0) |
@@ -170,8 +170,7 @@ class OrdersPage extends LitElement {
   private orders = new ODataSourceController<Order>(this, '/api/orders', { pageSize: 20 });
   render() {
     const { data, loading, error } = this.orders.state;
-    return html`${error ? html`<p role="alert">${error.message}</p>` : ''}
-      <flex-table data-mode="server" .data=${data} .loading=${loading}
+    return html`<flex-table data-mode="server" .data=${data} .loading=${loading} .error=${error}
         @sort-change=${(e: CustomEvent) => this.orders.source.setSort(e.detail.criteria)}></flex-table>`;
   }
 }

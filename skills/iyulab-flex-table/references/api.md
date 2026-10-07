@@ -23,6 +23,7 @@ All names below are members of the `FlexTable` class (`<flex-table>`).
 | `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Summary row keyed by column key |
 | `emptyMessage` | `empty-message` | `string` | `'No data'` | |
 | `noMatchingMessage` | `no-matching-message` | `string` | `'No matching data'` | All rows hidden by filters |
+| `error` | — | `{ message: string } \| null` | `null` | Load failure shown as an alert instead of rows / empty state (a source's `error` as is) |
 | `loading` | `loading` | `boolean` | `false` | Loading overlay + `aria-busy` |
 | `importEnabled` | `import-enabled` | `boolean` | `false` | Drag-and-drop `.xlsx` / `.csv` import |
 | `clearUndoOnDataChange` | `clear-undo-on-data-change` | `boolean` | `false` | Replacing `data` clears undo history |

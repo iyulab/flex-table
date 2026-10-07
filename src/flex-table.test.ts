@@ -149,6 +149,29 @@ describe('FlexTable', () => {
     expect(empty!.textContent).toContain('데이터가 없습니다');
   });
 
+  // 실패한 조회가 «데이터 없음» 으로 보이지 않게 — 소스의 `error` 를 그대로 받아 경고 줄로 그린다.
+  it('🔴error 가 있으면 행·빈 상태 대신 그 문장을 경고로 그린다', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', label: 'Name' }];
+    el.data = [{ name: 'stale' }];
+    el.error = { message: 'Request failed (500)' };
+    await el.updateComplete;
+    const alert = el.shadowRoot!.querySelector('[role="alert"]');
+    expect(alert?.textContent).toBe('Request failed (500)');
+    expect(el.shadowRoot!.textContent).not.toContain('stale');
+    expect(el.shadowRoot!.textContent).not.toContain('No data');
+  });
+
+  it('NEGATIVE error 가 null 이면 종전대로 빈 상태다', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', label: 'Name' }];
+    el.data = [];
+    el.error = null;
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('[role="alert"]')).toBeNull();
+    expect(el.shadowRoot!.querySelector('.ft-empty')!.textContent).toContain('No data');
+  });
+
   it.skipIf(!supportsAdoptedStyleSheets)('should adopt a custom stylesheet into the shadow root without dropping the grid\'s own styles', async () => {
     const el = createElement();
     await el.updateComplete;

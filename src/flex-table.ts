@@ -183,6 +183,14 @@ export class FlexTable extends LitElement {
   noMatchingMessage: string = 'No matching data';
 
   /**
+   * The last load failure, or `null`. While set, the grid shows `error.message` in an alert where rows or the empty
+   * state would be — a failed query otherwise looks like "no data". Takes a data source's `error` as is
+   * (`useODataSource`/`createODataSource`, a `SourceError`): any `{ message }`.
+   */
+  @property({ attribute: false })
+  error: { message: string } | null = null;
+
+  /**
    * True일 때 그리드 위에 로딩 오버레이를 표시하고 host에 `aria-busy="true"`를 반영한다.
    * `useODataSource()`가 반환하는 `loading`과 자연 연동하도록 설계됨:
    * `<FlexTableReact loading={source.loading} .../>`.
@@ -4185,8 +4193,10 @@ export class FlexTable extends LitElement {
       ? html`<div class="ft-drop-indicator" style="left:${this._colDragIndicatorLeft}px"></div>`
       : '';
 
-    if (this.data.length === 0 || this._visibleRowCount === 0) {
-      const msg = this.data.length === 0 ? this.emptyMessage : this.noMatchingMessage;
+    if (this.error || this.data.length === 0 || this._visibleRowCount === 0) {
+      const msg = this.error
+        ? html`<div class="ft-empty ft-error" role="alert">${this.error.message}</div>`
+        : html`<div class="ft-empty">${this.data.length === 0 ? this.emptyMessage : this.noMatchingMessage}</div>`;
       return html`
         ${loadingOverlay}
         <div class="ft-header" role="row" aria-rowindex="1" style="width: ${tw}px; height: ${hdrH}px;">
@@ -4194,7 +4204,7 @@ export class FlexTable extends LitElement {
           ${headerCells}
           ${dropIndicator}
         </div>
-        <div class="ft-empty">${msg}</div>
+        ${msg}
       `;
     }
 

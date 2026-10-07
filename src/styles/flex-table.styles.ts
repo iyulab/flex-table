@@ -383,6 +383,10 @@ export const flexTableStyles = css`
     color: var(--ft-empty-color);
   }
 
+  .ft-error {
+    color: var(--ft-invalid-color);
+  }
+
   .ft-has-comment {
     position: relative;
   }

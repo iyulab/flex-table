@@ -126,7 +126,7 @@ Server paging from OData or an in-memory array uses the same binding — see `re
 - `--ft-row-height` is read once at first render; change row height later via `rowHeight` / `row-height`.
 - Styles for elements returned by `render` must be passed through the `stylesheets` property
   (constructable `CSSStyleSheet[]`); document CSS does not cross the shadow boundary.
-- Always render `error.message` from `useODataSource`; a failed request otherwise leaves the grid empty. Branch on `error.status` / `error.code` rather than parsing the message.
+- Always show `error` from `useODataSource` — pass it to the table (`error={source.error}`); a failed request otherwise leaves the grid empty. Branch on `error.status` / `error.code` rather than parsing the message.
 
 ## References
 

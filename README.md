@@ -113,6 +113,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Footer/summary row data (keys match column keys) |
 | `emptyMessage` | `empty-message` | `string` | `'No data'` | Shown when `data` is empty |
 | `noMatchingMessage` | `no-matching-message` | `string` | `'No matching data'` | Shown when `data` has rows but every one is hidden by an active column filter |
+| `error` | — | `{ message: string } \| null` | `null` | The last load failure. While set, `error.message` is shown as an alert where the rows or the empty state would be, so a failed query does not look like "no data". Pass a data source's `error` as is |
 | `stylesheets` | — | `CSSStyleSheet[]` | `[]` | Constructable stylesheets adopted into the shadow root alongside the grid's own styles — the escape hatch for styling content a `render` function inserts, since document CSS doesn't cross the shadow boundary. Reassigning swaps the previous set, it doesn't accumulate |
 
 ### Read-only Properties
@@ -816,7 +817,7 @@ The hook returns:
 |---|---|
 | `data` / `totalCount` | Current page rows and the server's total (`@odata.count`). When the server pages its response (`@odata.nextLink`, e.g. a page size smaller than `pageSize`), the hook follows the link until the page is filled; a link outside the request's origin, or one that returns to a page already read, is reported through `error` instead of showing a short page |
 | `loading` | A request is in flight, or none has answered yet (true from the first render until the first response settles, and while `enabled: false`) |
-| `error` | The last failed request, or `null`: `{ message, status?, code?, details?, body? }`. **Render `error.message`** — a failed request otherwise leaves the grid silently empty. Branch on `status` (HTTP), `code` (the server's rejection code, OData `error.code`) and `details` (OData `error.details`); `body` is the parsed response (or its text). A failure with no response — a network error, or a `@odata.nextLink` the hook refused — has a `message` only |
+| `error` | The last failed request, or `null`: `{ message, status?, code?, details?, body? }`. **Pass it to the table** (`error={source.error}`) or render `error.message` yourself — a failed request otherwise leaves the grid silently empty. Branch on `status` (HTTP), `code` (the server's rejection code, OData `error.code`) and `details` (OData `error.details`); `body` is the parsed response (or its text). A failure with no response — a network error, or a `@odata.nextLink` the hook refused — has a `message` only |
 | `page` / `setPage` | Zero-based page index |
 | `sortCriteria` / `onSortChange` | Bind `onSortChange` to the table's `sort-change` event |
 | `search` / `setSearch` | Current search term and its setter (resets to page 0) |
@@ -888,8 +889,7 @@ class OrdersPage extends LitElement {
   render() {
     const { data, loading, error } = this.orders.state;
     return html`
-      ${error ? html`<p role="alert">${error.message}</p>` : ''}
-      <flex-table data-mode="server" .data=${data} .loading=${loading}
+      <flex-table data-mode="server" .data=${data} .loading=${loading} .error=${error}
         @sort-change=${(e: CustomEvent) => this.orders.source.setSort(e.detail.criteria)}></flex-table>`;
   }
 }
