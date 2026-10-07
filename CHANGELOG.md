@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.61.0] - 2026-10-07
+
+### Added
+
+- **`sortCriteria` is settable.** It was a getter only, so the sort a data source holds — the initial sort, or one
+  restored from a saved view — could not be shown on a server-paged table (`u-rich-table` takes it as a property).
+  Setting it shows that sort on the headers and re-sorts in client mode; it does not fire `sort-change`, which stays
+  the user's act. A binding that writes a source's state to the table (`bindSource` of `@iyulab/enterprise`) needs it.
+
 ## [0.60.0] - 2026-10-07
 
 ### Added

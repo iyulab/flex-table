@@ -424,8 +424,20 @@ export class FlexTable extends LitElement {
     return this._editingCell;
   }
 
+  /**
+   * The active sort — `[{ key, direction }]`, the first is the primary. Setting it shows that sort (the header
+   * indicators) and, in client mode, re-sorts; it does not fire `sort-change`, which is the user's act. A data
+   * source's `sortCriteria` goes here as is — the initial or restored sort of a server-paged list, the same as
+   * `u-rich-table`'s `sortCriteria`.
+   */
   get sortCriteria(): SortCriteria[] {
     return [...this._sortCriteria];
+  }
+
+  set sortCriteria(criteria: SortCriteria[]) {
+    this._sortCriteria = [...(criteria ?? [])];
+    if (this.dataMode !== 'server') this._recomputeView();
+    this.requestUpdate();
   }
 
   /** Number of rows after filtering (before pagination). */

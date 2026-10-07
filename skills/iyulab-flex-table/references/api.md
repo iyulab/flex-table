@@ -40,7 +40,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `visibleColumns` | `ColumnDefinition[]` (non-hidden) |
 | `filteredRowCount` | `number` |
 | `filterKeys` | `string[]` |
-| `sortCriteria` | `SortCriteria[]` — `{ key, direction: 'asc' \| 'desc' }` |
+| `sortCriteria` | `SortCriteria[]` — `{ key, direction: 'asc' \| 'desc' }`. Settable too (no `sort-change`): a source's sort goes in as is |
 | `activeCell` / `editingCell` | `CellPosition \| null` — `{ row, col }` |
 | `canUndo` / `canRedo` | `boolean` |
 

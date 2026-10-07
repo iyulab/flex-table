@@ -127,7 +127,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `canRedo` | `boolean` | Whether redo is available |
 | `activeCell` | `CellPosition \| null` | Currently focused cell `{ row, col }` |
 | `editingCell` | `CellPosition \| null` | Currently editing cell `{ row, col }` |
-| `sortCriteria` | `SortCriteria[]` | Active sort criteria `[{ key, direction }]` |
+| `sortCriteria` | `SortCriteria[]` | Active sort criteria `[{ key, direction }]`. Also settable: shows that sort on the headers and re-sorts in client mode, without firing `sort-change` — give it a data source's `sortCriteria` (the initial or restored sort of a server-paged list) |
 | `filterKeys` | `string[]` | Column keys with active filters |
 
 ## Column Definition

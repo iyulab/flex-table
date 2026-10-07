@@ -823,6 +823,37 @@ describe('FlexTable', () => {
     expect(cells[0].textContent).toContain('Alice');
   });
 
+  // --- sortCriteria is writable (a data source's sort goes in as is) ---
+
+  describe('sortCriteria setter', () => {
+    it('🔴shows the given sort on the header and re-sorts in client mode — without firing sort-change', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', label: 'Name' }];
+      el.data = [{ name: 'b' }, { name: 'c' }, { name: 'a' }];
+      await el.updateComplete;
+      let fired = 0;
+      el.addEventListener('sort-change', () => fired++);
+      el.sortCriteria = [{ key: 'name', direction: 'desc' }];
+      await el.updateComplete;
+      expect(el.sortCriteria).toEqual([{ key: 'name', direction: 'desc' }]);
+      expect(el.shadowRoot!.querySelector('[aria-sort]')?.getAttribute('aria-sort')).toBe('descending');
+      expect(el.exportToString('csv')).toBe(['Name', 'c', 'b', 'a'].join('\n'));
+      expect(fired).toBe(0);
+    });
+
+    it('server mode shows the sort but leaves the rows as the source gave them', async () => {
+      const el = createElement();
+      el.dataMode = 'server';
+      el.columns = [{ key: 'name', label: 'Name' }];
+      el.data = [{ name: 'b' }, { name: 'a' }];
+      await el.updateComplete;
+      el.sortCriteria = [{ key: 'name', direction: 'asc' }];
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('[aria-sort]')?.getAttribute('aria-sort')).toBe('ascending');
+      expect(el.exportToString('csv')).toBe(['Name', 'b', 'a'].join('\n'));
+    });
+  });
+
   // --- row-activate (a plain click, or Enter on a non-editable cell) ---
 
   describe('row-activate by pointer', () => {
