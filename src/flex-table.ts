@@ -46,9 +46,16 @@ const NUM_OP_LABELS: Record<NumericOp, string> = {
  * 표 내보내기의 대상 — 선택 범위(`selectionOnly`) 또는 바깥에서 준 행(`rows`, 예: `await source.fetchAll()`). 둘은
  * 함께 쓰지 않는다(바깥 행에는 표의 선택 범위가 없다).
  */
-export type TableExportOptions =
+export type TableExportOptions = (
   | { selectionOnly?: boolean; rows?: undefined }
-  | { rows: DataRow[]; selectionOnly?: undefined };
+  | { rows: DataRow[]; selectionOnly?: undefined }
+) & {
+  /**
+   * CSV/TSV — start with a UTF-8 byte order mark so spreadsheet apps (Excel) read non-ASCII text correctly.
+   * Default: `true` for `exportToFile` (a file a person opens), `false` for `exportToString`/`exportToBlob`.
+   */
+  bom?: boolean;
+};
 
 const DEFAULT_COL_WIDTH = 120;
 const MIN_COL_WIDTH = 40;
@@ -1017,7 +1024,7 @@ export class FlexTable extends LitElement {
     options?: TableExportOptions
   ): string | Uint8Array<ArrayBuffer> {
     const slice = this._exportSlice(options);
-    return slice ? exportData(slice.rows, slice.cols, format) : '';
+    return slice ? exportData(slice.rows, slice.cols, format, { bom: options?.bom }) : '';
   }
 
   /**
@@ -1026,7 +1033,7 @@ export class FlexTable extends LitElement {
    */
   async exportToBlob(format: ExportFormat, options?: TableExportOptions): Promise<Blob> {
     const slice = this._exportSlice(options) ?? { rows: [], cols: [] };
-    return exportDataBlob(slice.rows, slice.cols, format);
+    return exportDataBlob(slice.rows, slice.cols, format, { bom: options?.bom });
   }
 
   /**
@@ -1035,7 +1042,8 @@ export class FlexTable extends LitElement {
    * @param options - `selectionOnly` or `rows`, as for `exportToString`
    */
   async exportToFile(format: ExportFormat, filename?: string, options?: TableExportOptions): Promise<void> {
-    const blob = await this.exportToBlob(format, options);
+    // 내려받는 파일은 사람이 스프레드시트로 연다 — CSV/TSV 는 BOM 을 기본으로 붙인다(없으면 Excel 이 시스템 코드 페이지로 읽는다).
+    const blob = await this.exportToBlob(format, { ...options, bom: options?.bom ?? true } as TableExportOptions);
     downloadBlob(blob, filename ?? `export${getExportExtension(format)}`);
   }
 

@@ -133,11 +133,14 @@ Enter/Escape and blur-to-commit behavior.
 | `importFromFile(file)` | `Promise<void>`; `.xlsx`, `.csv`, `.tsv`; fires `data-import` |
 | `exportToString(format, { selectionOnly? } \| { rows })` | `string \| Uint8Array`; format `'csv' \| 'tsv' \| 'json' \| 'xlsx'` (xlsx returns uncompressed bytes — synchronous). `rows`: export these rows with the visible columns |
 | `exportToBlob(format, options?)` | `Promise<Blob>` typed with the format's MIME; xlsx is DEFLATE-compressed |
-| `exportToFile(format, filename?, options?)` | `Promise<void>` — triggers a download (xlsx compressed) |
+| `exportToFile(format, filename?, options?)` | `Promise<void>` — triggers a download (xlsx compressed); CSV/TSV start with a UTF-8 BOM unless `{ bom: false }` |
 
 A server-paged table holds one page. Export the list's whole result with
 `table.exportToFile('xlsx', 'x.xlsx', { rows: await source.fetchAll() })` — never the table's own rows there.
-Table-less: `exportDataBlob(rows, columns, format)` + `downloadBlob(blob, name)` from the root entry.
+Table-less: `exportDataBlob(rows, columns, format, { bom? })` + `downloadBlob(blob, name)` from the root entry.
+
+A column's `exportValue(value, row)` is what export writes for it (default: the raw value — `format`/`render` do not
+apply). In XLSX a `date`/`datetime` column's ISO strings become date cells, at the wall-clock time the table shows.
 
 ## Events
 

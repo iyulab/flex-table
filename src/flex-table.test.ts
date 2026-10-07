@@ -1284,6 +1284,34 @@ describe('FlexTable', () => {
     expect(await blob.text()).toBe(el.exportToString('csv'));
   });
 
+  it('exportToFile writes a CSV with a BOM by default (a file a person opens in Excel) — exportToBlob does not', async () => {
+    const el = createElement();
+    el.columns = [{ key: 'name', label: '이름' }];
+    el.data = [{ name: '홍길동' }];
+    await el.updateComplete;
+
+    // `Blob.text()` 는 UTF-8 BOM 을 걷어 내므로 바이트로 잰다.
+    const head = async (b: Blob) => [...new Uint8Array(await b.arrayBuffer()).slice(0, 3)];
+    const BOM = [0xef, 0xbb, 0xbf];
+    expect(await head(await el.exportToBlob('csv'))).not.toEqual(BOM);
+    expect(await head(await el.exportToBlob('csv', { bom: true }))).toEqual(BOM);
+
+    const urlApi = URL as unknown as { createObjectURL?: (b: Blob) => string; revokeObjectURL?: (u: string) => void };
+    const saved = { create: urlApi.createObjectURL, revoke: urlApi.revokeObjectURL };
+    let downloaded: Blob | undefined;
+    urlApi.createObjectURL = (b: Blob) => { downloaded = b; return 'blob:test'; };
+    urlApi.revokeObjectURL = () => {};
+    try {
+      await el.exportToFile('csv', 'x.csv');
+      expect(await head(downloaded!)).toEqual(BOM);
+      await el.exportToFile('csv', 'x.csv', { bom: false });
+      expect(await head(downloaded!)).not.toEqual(BOM);
+    } finally {
+      urlApi.createObjectURL = saved.create;
+      urlApi.revokeObjectURL = saved.revoke;
+    }
+  });
+
   it('exportToBlob compresses XLSX — smaller than the synchronous workbook', async () => {
     const el = createElement();
     el.columns = [{ key: 'name', label: 'Name' }];

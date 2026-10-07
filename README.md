@@ -148,6 +148,7 @@ interface ColumnDefinition {
   options?: string[] | SelectOption[]; // Allowed values for type: 'select' (SelectOption = { label, value })
   autocomplete?: boolean | 'strict'; // Suggest existing column values while editing; 'strict' rejects values not in the list
   format?: string | ((value, row, col) => string); // Display format, see "format vs render" below
+  exportValue?: (value, row) => string | number | boolean | Date | null; // What export writes for this column (default: the raw value)
   render?: CellRenderer;   // Custom cell render: (value, row, col) => TemplateResult | string
   editor?: CellEditor;     // Custom cell editor: (value, row, col) => TemplateResult
   validator?: CellValidator; // Validate before commit: (value, row, col) => string | null
@@ -169,7 +170,7 @@ A `date` column's built-in editor is `u-date-picker` from `@iyulab/components`: 
 
 Both control how a cell's raw value is displayed, but they differ in what they replace:
 
-- **`format`**: a plain string pattern (Excel-style, e.g. `'#,##0.00'`, `'0.00%'`, `'$#,##0'`, `'yyyy-MM-dd'`) or a `(value, row, col) => string` function. Only the *displayed text* changes — editing, sorting, filtering, and export all keep operating on the raw underlying value. Use this for number/date/currency display formatting.
+- **`format`**: a plain string pattern (Excel-style, e.g. `'#,##0.00'`, `'0.00%'`, `'$#,##0'`, `'yyyy-MM-dd'`) or a `(value, row, col) => string` function. Only the *displayed text* changes — editing, sorting, filtering, and export all keep operating on the raw underlying value (give the column an `exportValue` when the file should carry what the list shows, see Export). Use this for number/date/currency display formatting.
 - **`render`**: a `(value, row, col) => TemplateResult | string` function that replaces the cell's rendered content entirely — badges, links, icons, multi-field composites. Sorting/filtering still use the raw value, but the visual output is fully custom.
 
 ```typescript
@@ -290,7 +291,17 @@ Default is `false`, matching `clear-undo-on-data-change`.
 |--------|---------|-------------|
 | `exportToString(format, options?)` | `string \| Uint8Array` | Export to `'csv'` / `'tsv'` / `'json'` (a string) or `'xlsx'` (bytes, uncompressed). Pass `{ selectionOnly: true }` for selection range, or `{ rows }` to export rows the table does not hold (see below) |
 | `exportToBlob(format, options?)` | `Promise<Blob>` | The same export as a `Blob` of the format's MIME type — `'xlsx'` is DEFLATE-compressed |
-| `exportToFile(format, filename?, options?)` | `Promise<void>` | Export and trigger browser file download (`'xlsx'` compressed) |
+| `exportToFile(format, filename?, options?)` | `Promise<void>` | Export and trigger browser file download (`'xlsx'` compressed). CSV/TSV start with a UTF-8 BOM by default — pass `{ bom: false }` for a file another program loads |
+
+What goes into the file:
+
+- **Values**: the raw value of each visible column, or the column's `exportValue(value, row)` when it has one — e.g. a
+  status code shown as a label: `{ key: 'status', render: …, exportValue: (v) => statusLabel(v) }`.
+- **Dates**: in XLSX a `date`/`datetime` column is a date cell — a `Date`, or an ISO string as JSON sources (OData) send
+  it (`YYYY-MM-DD` is that day; a full ISO string is read with its offset), the same rule the cells display with. The
+  cell holds the wall-clock time the table shows. A string that does not read as a date stays text.
+- **BOM**: `{ bom: true }` starts CSV/TSV with a UTF-8 byte order mark so Excel on a non-UTF-8 system code page reads
+  non-ASCII text correctly — the default for `exportToFile`, off for `exportToString`/`exportToBlob`.
 
 The table exports the rows it holds — the filtered rows in sort order, or the selection. **A server-paged table
 (`data-mode="server"`) holds one page**, so its export is one page. To export what the list shows — the whole result

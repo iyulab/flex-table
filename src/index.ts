@@ -9,7 +9,7 @@ export type { ColumnFilter, FilterPredicate, FilterErrorCallback } from './core/
 export { RowSelectionState } from './core/row-selection.js';
 export { UndoStack } from './core/undo.js';
 export type { UndoAction } from './core/undo.js';
-export type { ExportFormat } from './export/export.js';
+export type { ExportFormat, ExportOptions } from './export/export.js';
 export { exportData, exportDataBlob, downloadBlob } from './export/export.js';
 export { renderCell } from './renderers/cell-renderer.js';
 export { flexTableLocale } from './locale.js';

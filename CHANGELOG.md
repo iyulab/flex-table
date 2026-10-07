@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`ColumnDefinition.exportValue(value, row)`** — what export writes for the column (CSV, TSV, JSON, XLSX). Without
+  it export writes the raw value as before; a column that shows a label for a code can now say so once instead of the
+  consumer rewriting the rows before `{ rows }`. A returned `Date` is a date cell in XLSX.
+- **CSV/TSV byte order mark** — `{ bom: true }` on `exportToString`/`exportToBlob`/`exportData`/`exportDataBlob`, and
+  `exportToFile` adds it by default (a downloaded file is opened in a spreadsheet; Excel on a non-UTF-8 system code page
+  garbled Korean without it). `{ bom: false }` turns it off.
+
+### Fixed
+
+- XLSX: an ISO string in a `date`/`datetime` column is a date cell — JSON sources (OData) send dates as strings, so the
+  file had text where the list showed dates. Strings that do not read as a date stay text.
+- XLSX: date serials are the wall-clock time the table shows. They were counted from UTC, so a local-midnight date in
+  a timezone ahead of UTC (Korea, +09) went in as the afternoon of the day before and a date format showed that day.
+
 ## [0.61.0] - 2026-10-07
 
 ### Added

@@ -1,7 +1,20 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { buildXlsx, buildXlsxDeflated } from './xlsx-writer.js';
+import { exportCellValue, exportDate } from './values.js';
 
 export type ExportFormat = 'csv' | 'tsv' | 'json' | 'xlsx';
+
+/** Options for `exportData` / `exportDataBlob`. */
+export interface ExportOptions {
+  /**
+   * CSV/TSV only — start the text with a UTF-8 byte order mark. Spreadsheet apps (Excel on a non-UTF-8 system
+   * code page, e.g. Korean Windows) read a CSV without one in the system code page and garble non-ASCII text.
+   * Leave it off for files another program loads. Default: `false`.
+   */
+  bom?: boolean;
+}
+
+const BOM = '\uFEFF';
 
 /**
  * Export data to the specified format.
@@ -10,13 +23,15 @@ export type ExportFormat = 'csv' | 'tsv' | 'json' | 'xlsx';
 export function exportData(
   data: DataRow[],
   columns: ColumnDefinition[],
-  format: ExportFormat
+  format: ExportFormat,
+  options: ExportOptions = {}
 ): string | Uint8Array<ArrayBuffer> {
+  const bom = options.bom ? BOM : '';
   switch (format) {
     case 'csv':
-      return exportDelimited(data, columns, ',');
+      return bom + exportDelimited(data, columns, ',');
     case 'tsv':
-      return exportDelimited(data, columns, '\t');
+      return bom + exportDelimited(data, columns, '\t');
     case 'json':
       return exportJson(data, columns);
     case 'xlsx':
@@ -31,17 +46,17 @@ export function exportData(
 export async function exportDataBlob(
   data: DataRow[],
   columns: ColumnDefinition[],
-  format: ExportFormat
+  format: ExportFormat,
+  options: ExportOptions = {}
 ): Promise<Blob> {
-  const content = format === 'xlsx' ? await buildXlsxDeflated(data, columns) : exportData(data, columns, format);
+  const content = format === 'xlsx' ? await buildXlsxDeflated(data, columns) : exportData(data, columns, format, options);
   return new Blob([content], { type: getExportMimeType(format) });
 }
 
-function formatValueForExport(value: unknown, col: ColumnDefinition): string {
+function formatValueForExport(value: unknown): string {
   if (value == null) return '';
-  if ((col.type === 'date' || col.type === 'datetime') && value instanceof Date) {
-    return value.toISOString();
-  }
+  // 글자 형식은 `Date` 를 ISO 로 쓴다 — 날짜 열의 문자열은 이미 글자라 그대로 둔다.
+  if (value instanceof Date) return value.toISOString();
   return String(value);
 }
 
@@ -53,7 +68,7 @@ function exportDelimited(
   const header = columns.map(col => escapeDelimited(col.label, delimiter)).join(delimiter);
   const rows = data.map(row =>
     columns.map(col => {
-      const formatted = formatValueForExport(row[col.key], col);
+      const formatted = formatValueForExport(exportCellValue(row, col));
       return escapeDelimited(formatted, delimiter);
     }).join(delimiter)
   );
@@ -72,12 +87,8 @@ function exportJson(data: DataRow[], columns: ColumnDefinition[]): string {
   const filtered = data.map(row => {
     const obj: DataRow = {};
     for (const col of columns) {
-      const value = row[col.key];
-      if ((col.type === 'date' || col.type === 'datetime') && value instanceof Date) {
-        obj[col.key] = value.toISOString();
-      } else {
-        obj[col.key] = value ?? null;
-      }
+      const value = exportCellValue(row, col);
+      obj[col.key] = value instanceof Date ? (exportDate(value, col)?.toISOString() ?? null) : (value ?? null);
     }
     return obj;
   });

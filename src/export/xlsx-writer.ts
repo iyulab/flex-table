@@ -5,6 +5,7 @@
  */
 
 import type { ColumnDefinition, DataRow } from '../models/types.js';
+import { exportCellValue, exportDate, excelSerial } from './values.js';
 
 // ---------------------------------------------------------------------------
 // CRC32
@@ -177,10 +178,6 @@ function cellRef(row: number, col: number): string {
 }
 
 /** Excel date: days since 1900-01-00 (with Lotus 1-2-3 bug: 1900 is treated as leap year) */
-function dateToExcelSerial(d: Date): number {
-  const base = Date.UTC(1899, 11, 30);
-  return (d.getTime() - base) / 86400000;
-}
 
 const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -242,7 +239,7 @@ function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
   data.forEach((row, ri) => {
     const cells = columns.map((col, ci) => {
       const ref = cellRef(ri + 1, ci);
-      const value = row[col.key];
+      const value = exportCellValue(row, col);
 
       if (value == null) return `<c r="${ref}" t="str"><v></v></c>`;
 
@@ -252,8 +249,10 @@ function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
         return `<c r="${ref}"><v>${value}</v></c>`;
       }
 
-      if ((type === 'date' || type === 'datetime') && value instanceof Date) {
-        const serial = dateToExcelSerial(value).toFixed(6);
+      // 날짜 열의 ISO 문자열도 날짜 셀이다(표가 그것을 날짜로 보이듯) · `exportValue` 가 돌려준 `Date` 도.
+      const date = exportDate(value, col);
+      if (date) {
+        const serial = excelSerial(date).toFixed(6);
         return `<c r="${ref}" s="1"><v>${serial}</v></c>`;
       }
 

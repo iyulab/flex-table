@@ -126,6 +126,12 @@ export interface ColumnDefinition<T = DataRow> {
    * - Function: custom formatter receiving (value, row, col)
    */
   format?: string | ((value: unknown, row: T, col: ColumnDefinition<T>) => string);
+  /**
+   * The value export writes for this column — CSV/TSV/JSON/XLSX. Without it export writes the raw value (as
+   * `format`/`render` do not apply to export). Give it where the file should say what the list shows, e.g. a status
+   * code shown as a label: `exportValue: (v) => statusLabel(v)`. A returned `Date` becomes a date cell in XLSX.
+   */
+  exportValue?: (value: unknown, row: T) => string | number | boolean | Date | null | undefined;
   /** Per-column conditional formatting rules applied during cell rendering */
   conditionalRules?: ConditionalRule<T>[];
   /**
