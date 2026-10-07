@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.53.0] - 2026-10-07
+
+### Added
+
+- **`createODataSource(url, options)`** (`@iyulab/flex-table/odata`) — the OData source without React. It is what
+  `useODataSource` now runs on: the same options and state, the request, `@odata.nextLink` following, the page
+  fallback, the `fixedFilter` reset, `enabled`, cancellation and the structured `error`. `getState()` · `subscribe()` ·
+  `setPage` · `setSort` · `setSearch` · `refresh` · `update(url, options)`. Requests go out while someone is subscribed,
+  and changes in the same tick become one request.
+- **`ODataSourceController`** — a Lit reactive controller over that source: subscribes when the element connects,
+  cancels when it disconnects, re-renders it on every change. A custom-element list page gets the same server paging
+  a React page gets from the hook.
+
+### Changed
+
+- `useODataSource` reads `fetcher` and `onUnauthorized` when each request starts. A fresh function on every render no
+  longer needs `useCallback`; before, the one captured by the last request kept being used.
+
 ## [0.52.0] - 2026-10-07
 
 ### Changed

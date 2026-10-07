@@ -27,7 +27,7 @@ npm install @lit/react react
 |---|---|
 | `@iyulab/flex-table` | Registers `<flex-table>`; exports `FlexTable`, types, `exportData`, `renderCell`, `flexTableLocale`, `RowSelectionState`, `UndoStack`, `effectiveAlign` |
 | `@iyulab/flex-table/react` | `FlexTableReact`, `useODataSource`, `useArraySource` |
-| `@iyulab/flex-table/odata` | Pure helpers, no React: `buildODataQuery`, `buildSearchExpression`, `parseOrderBy` |
+| `@iyulab/flex-table/odata` | No React: `createODataSource` (the source `useODataSource` adapts), `ODataSourceController` (Lit), `buildODataQuery`, `buildSearchExpression`, `parseOrderBy` |
 | `@iyulab/flex-table/array` | Pure helper, no React: `computeArrayView` |
 
 ## Quick start
@@ -126,7 +126,6 @@ Server paging from OData or an in-memory array uses the same binding — see `re
 - `--ft-row-height` is read once at first render; change row height later via `rowHeight` / `row-height`.
 - Styles for elements returned by `render` must be passed through the `stylesheets` property
   (constructable `CSSStyleSheet[]`); document CSS does not cross the shadow boundary.
-- `useODataSource` `fetcher` / `onUnauthorized` must be stable references (`useCallback`).
 - Always render `error.message` from `useODataSource`; a failed request otherwise leaves the grid empty. Branch on `error.status` / `error.code` rather than parsing the message.
 
 ## References

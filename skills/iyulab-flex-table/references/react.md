@@ -63,12 +63,10 @@ Fetches paged, sorted, searched rows from an OData v4 endpoint. Bind the result 
 server-mode table:
 
 ```tsx
-import { useCallback } from 'react';
 import { FlexTableReact, useODataSource } from '@iyulab/flex-table/react';
 
 function Orders() {
-  const fetcher = useCallback((input: string, init: RequestInit) => fetch(input, init), []);
-  const source = useODataSource<Order>('/api/orders', { pageSize: 20, fetcher });
+  const source = useODataSource<Order>('/api/orders', { pageSize: 20 });
 
   return (
     <>
@@ -101,8 +99,8 @@ function Orders() {
 | `initialSort` | — | `SortCriteria[]`; overrides `defaultOrderBy`; `[]` means no sort |
 | `fixedFilter` | — | odata-query filter object, always applied; value change resets to page 0 (compared by value) |
 | `baseUrl` | `window.location.origin` | For proxy/BFF setups |
-| `fetcher` | global `fetch` | `(input, init) => Promise<Response>`; keep stable |
-| `onUnauthorized` | — | `(response) => void` on 401 only (403 surfaces as `error`); keep stable |
+| `fetcher` | global `fetch` | `(input, init) => Promise<Response>`; read when each request starts |
+| `onUnauthorized` | — | `(response) => void` on 401 only (403 surfaces as `error`); read when each request starts |
 | `enabled` | `true` | While `false`: no request, `loading` stays `true`, `refresh()` is a no-op, in-flight request is cancelled |
 
 ### Result
@@ -158,6 +156,28 @@ Differences: `totalCount` is the count after search, `loading` is always `false`
 `null`, and `refresh` is a no-op. The page is clamped down if the array shrinks.
 
 ## Without React
+
+`useODataSource` adapts a framework-neutral source with the same options and state:
+`createODataSource(url, options)` → `getState()` · `subscribe(listener)` (the first subscriber starts loading, the last
+unsubscribe cancels) · `setPage` · `setSort(criteria)` · `setSearch` · `refresh` · `update(url, options)`. Changes in one
+tick become one request. For Lit, `ODataSourceController` subscribes on connect, cancels on disconnect and re-renders
+the host:
+
+```ts
+import { ODataSourceController } from '@iyulab/flex-table/odata';
+
+class OrdersPage extends LitElement {
+  private orders = new ODataSourceController<Order>(this, '/api/orders', { pageSize: 20 });
+  render() {
+    const { data, loading, error } = this.orders.state;
+    return html`${error ? html`<p role="alert">${error.message}</p>` : ''}
+      <flex-table data-mode="server" .data=${data} .loading=${loading}
+        @sort-change=${(e: CustomEvent) => this.orders.source.setSort(e.detail.criteria)}></flex-table>`;
+  }
+}
+```
+
+Pure helpers:
 
 ```ts
 import { buildODataQuery, buildSearchExpression, parseOrderBy } from '@iyulab/flex-table/odata';

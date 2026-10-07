@@ -758,7 +758,7 @@ const source = useODataSource('/api/orders', {
 | `onUnauthorized` | — | Called on `401` responses, before the generic error is set. A `403` (signed in, not permitted) does not call it — it surfaces as `error` |
 | `enabled` | `true` | While `false`, no request is made and `loading` stays `true` — see below |
 
-`fetcher`/`onUnauthorized` should be stable references (e.g. wrap in `useCallback`) — they are intentionally excluded from the hook's internal effect dependencies to avoid refetch loops on every render.
+`fetcher`/`onUnauthorized` are read when each request starts, so a fresh function on every render is fine — it neither refetches nor is ignored.
 
 Changing `fixedFilter` resets the page to `0`, the same way `setSearch` and `onSortChange`
 already do. All three change the size of the result set, so keeping the old `$skip` would
@@ -828,7 +828,7 @@ The hook returns:
 
 Terms are always quoted because OData 4.0 only allows letters in an unquoted `searchWord`, so `2026` or `ZT-E2E-A` would be rejected by servers that follow it (4.01 relaxed this, but [Microsoft.OData still lexes as 4.0](https://github.com/OData/odata.net/issues/2445)). Quoting keeps any term valid regardless of server version. Since a `$search` phrase cannot contain `"` and OData defines no escape for it, double quotes are stripped from the term.
 
-The quoting/escaping logic above is also available standalone as `buildSearchExpression(term)`, for consumers that need the same `$search` encoding without the pagination hook (e.g. a typeahead/combobox that isn't a table). `parseOrderBy(orderBy)` (`'a asc, b desc'` → `SortCriteria[]`) is exported the same way, for consumers driving a sort UI that isn't `useODataSource` either. The `./odata` entry holds only pure functions and does not load React, so an app without React can use it (the hooks live on `./react`):
+The quoting/escaping logic above is also available standalone as `buildSearchExpression(term)`, for consumers that need the same `$search` encoding without the pagination hook (e.g. a typeahead/combobox that isn't a table). `parseOrderBy(orderBy)` (`'a asc, b desc'` → `SortCriteria[]`) is exported the same way, for consumers driving a sort UI that isn't `useODataSource` either. The `./odata` entry does not load React, so an app without React can use it (the hooks live on `./react`):
 
 ```ts
 import { buildSearchExpression, parseOrderBy } from '@iyulab/flex-table/odata';
@@ -850,6 +850,49 @@ buildODataQuery({
   fixedFilter: { IsActive: true },                // odata-query filter object
 });
 // '?$filter=IsActive eq true&$orderby=name desc&$count=true&$top=20&$skip=40&$search=%22red%22%20AND%20%22shirt%22'
+```
+
+### OData Source without React
+
+`useODataSource` is a thin adapter over a framework-neutral source, and that source is public: `createODataSource(url, options)` takes the same options and does everything the hook does — the request, `@odata.nextLink` following, page fallback, `fixedFilter` reset, `enabled`, cancellation and the structured `error`. Use it from a Lit element, another framework, or plain code.
+
+```ts
+import { createODataSource } from '@iyulab/flex-table/odata';
+
+const orders = createODataSource<Order>('/api/orders', { pageSize: 20 });
+const off = orders.subscribe(() => render(orders.getState())); // the first subscriber starts loading
+orders.setSort([{ key: 'name', direction: 'asc' }]);           // also: setPage, setSearch, refresh
+orders.update('/api/orders', { pageSize: 20, fixedFilter: { IsActive: true } }); // changed options
+off();                                                          // the last unsubscribe cancels a request in flight
+```
+
+| Member | Description |
+|---|---|
+| `getState()` | `{ data, totalCount, loading, error, page, sortCriteria, search }` — the same fields the hook returns. A new object only when something changed |
+| `subscribe(listener)` | Called on every change; returns the unsubscribe function. Requests go out only while someone is subscribed |
+| `setPage(page)` | Zero-based |
+| `setSort(criteria)` / `setSearch(term)` | Change the sort or search and go back to page 0 |
+| `refresh()` | Re-read with the same conditions (nothing while `enabled: false`) |
+| `update(url, options)` | New options. Only a changed request re-reads; a changed `fixedFilter` value goes back to page 0; `initial*` are read at creation only |
+
+Changes made in the same tick become one request with the final conditions, so `setSearch` followed by `setPage` does not send the intermediate one.
+
+For a Lit element, `ODataSourceController` ties a source to the element's lifecycle — it subscribes when the element connects, cancels when it disconnects, and re-renders it on every change:
+
+```ts
+import { ODataSourceController } from '@iyulab/flex-table/odata';
+
+class OrdersPage extends LitElement {
+  private orders = new ODataSourceController<Order>(this, '/api/orders', { pageSize: 20 });
+
+  render() {
+    const { data, loading, error } = this.orders.state;
+    return html`
+      ${error ? html`<p role="alert">${error.message}</p>` : ''}
+      <flex-table data-mode="server" .data=${data} .loading=${loading}
+        @sort-change=${(e: CustomEvent) => this.orders.source.setSort(e.detail.criteria)}></flex-table>`;
+  }
+}
 ```
 
 ### Array Source Hook (React)
