@@ -481,6 +481,10 @@ const declaredHere = new Set(
     .flatMap((src) => [...src.matchAll(/(?:@customElement|customElements\.define)\(\s*['"]([a-z][\w-]*-[\w-]*)['"]/g)].map((m) => m[1])),
 );
 
+// 배럴(형제 + 자기)을 처음 불러오는 훅이다 — 변환이 이 시간 안에 든다. 가장 무거운 배럴(monaco)은 단독으로도 20초 가까이
+// 걸려 기본 30초는 부하 아래에서 넘쳤다. 이 제한은 느림이 아니라 멈춤을 잡는다.
+const BARREL_LOAD_TIMEOUT = 120_000;
+
 beforeAll(async () => {
   const original = customElements.define.bind(customElements);
   customElements.define = ((name: string, ctor: CustomElementConstructor, opts?: ElementDefinitionOptions) => {
@@ -489,7 +493,7 @@ beforeAll(async () => {
   }) as typeof customElements.define;
   await import('../../src/index.js');
   customElements.define = original;
-});
+}, BARREL_LOAD_TIMEOUT);
 
 describe('WCAG 2.2 SC 2.5.8 — 타깃 크기(최소) 게이트', () => {
   beforeEach(() => {

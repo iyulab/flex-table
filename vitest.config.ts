@@ -27,6 +27,9 @@ export default defineConfig({
       {
         test: {
           name: 'browser',
+          // 직렬 — 파일마다 브라우저 페이지가 함께 뜨면 여유 메모리가 바닥나 시험이 «timed out waiting for click»·
+          // «Failed to fetch dynamically imported module» 로 비결정적으로 죽는다(메모리가 적은 기계에서 병렬은 여유를 바닥까지 끌어내렸다).
+          fileParallelism: false,
           include: ['tests/browser/**/*.test.ts'],
           browser: {
             enabled: true,
