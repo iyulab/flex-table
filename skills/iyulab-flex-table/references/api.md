@@ -27,7 +27,8 @@ All names below are members of the `FlexTable` class (`<flex-table>`).
 | `loading` | `loading` | `boolean` | `false` | Loading overlay + `aria-busy` |
 | `importEnabled` | `import-enabled` | `boolean` | `false` | Drag-and-drop `.xlsx` / `.csv` import |
 | `clearUndoOnDataChange` | `clear-undo-on-data-change` | `boolean` | `false` | Replacing `data` clears undo history |
-| `clearSelectionOnDataChange` | `clear-selection-on-data-change` | `boolean` | `false` | Replacing `data` clears row selection |
+| `clearSelectionOnDataChange` | `clear-selection-on-data-change` | `boolean` | `false` | Replacing `data` clears row selection (otherwise keyed rows stay selected across pages) |
+| `rowKey` | `row-key` | `string \| (row) => unknown` | `'_id'` | Names a row; selection is kept by this id. A row without a key gets a session-local `#n` |
 | `stylesheets` | — | `CSSStyleSheet[]` | `[]` | Adopted into the shadow root; styles `render` output |
 
 Replacing `data` with the same array reference does not trigger the clear-on-change behaviors.
@@ -95,7 +96,7 @@ Enter/Escape and blur-to-commit behavior.
 | Method | Returns | Notes |
 |---|---|---|
 | `addRow(row?, index?)` | `DataRow \| null` | `null` when `maxRows` reached |
-| `deleteRows(indices?)` | `void` | Data indices; default = selected rows |
+| `deleteRows(indices?)` | `void` | Data indices; default = the checked rows when `selectable`, else the cell selection's rows |
 | `updateRows(changes)` | `void` | `Array<{ row, key, value }>`, one undo step |
 | `refreshData()` | `void` | Re-render after in-place mutation |
 
@@ -115,9 +116,11 @@ Enter/Escape and blur-to-commit behavior.
 
 | Method | Notes |
 |---|---|
-| `selectAll()` / `deselectAll()` | `selectAll` is multi mode only |
+| `selectAll()` / `deselectAll()` | `selectAll`: the rows in view (multi mode only) · `deselectAll`: every page |
 | `selectWhere(predicate)` | `(row, dataIndex) => boolean` over the visible rows |
-| `getSelectedRows()` | `{ selectedIndices, selectedRows }` |
+| `setSelection(ids)` | Replace with these row ids; the same set again fires nothing |
+| `getSelectedRows()` | `{ selectedIds, selectedIndices, selectedRows }` — ids: all pages · rows: the ones `data` holds |
+| `getRowId(row)` · `selectedRowIds` | A row's id · the selected ids (all pages) |
 
 ### Filtering, undo, comments, import/export
 
@@ -147,7 +150,7 @@ cast, and the React `on*` props carry the same types.
 | `validation-error` | `{ row, col, key, value, error }` |
 | `row-add` | `{ row, index }` |
 | `row-delete` | `{ indices, rows }` |
-| `row-activate` | `{ row, index, col, key }` — Enter on a non-editable cell |
+| `row-activate` | `{ row, id, index, col, key }` — Enter on a non-editable cell |
 | `row-reorder` | `{ from, to }` |
 | `batch-update` | `{ changes }` |
 | `column-add` | `{ column, index }` |
@@ -159,7 +162,7 @@ cast, and the React `on*` props carry the same types.
 | `sort-change` | `{ criteria }` |
 | `filter-change` | `{ keys, filteredCount }` |
 | `filter-error` | `{ error, row, filterKey }` |
-| `selection-change` | `{ selectedIndices, selectedRows }` |
+| `selection-change` | `{ selectedIds, selectedIndices, selectedRows }` |
 | `clipboard-copy` / `clipboard-cut` | `{ range, text }` (TSV) |
 | `clipboard-paste` | `{ changes, addedRows }` |
 | `clipboard-error` | `{ action: 'copy' \| 'paste', error }` — copy could not put the text on the clipboard (no `clipboard-copy`/`clipboard-cut` follows; a cut clears nothing), or paste could not read it |

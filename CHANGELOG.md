@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.56.0] - 2026-10-07
+
+### Fixed
+
+- **Row selection stays on its rows.** The checkmarks were kept by screen position, so sorting, filtering, inserting
+  or deleting rows moved them onto other rows without a `selection-change` — select a row, sort, and a different row
+  was selected (and a bulk action took it). Replacing `data` with other rows of the same length carried the
+  checkmarks onto the new rows. Selection is now kept by row id (see `rowKey` below).
+- **`deleteRows()` without indices deletes the checked rows in a `selectable` grid.** It deleted the rows of the
+  cell selection (the active cell's row), so a «Delete selected» button removed a row nobody checked. With nothing
+  checked it now deletes nothing. A grid without checkboxes keeps deleting the cell selection's rows.
+
+### Added
+
+- **`rowKey`** (`row-key`, default `'_id'` — the field `u-rich-table` reads) — the field, or a function of the row,
+  that names a row. A keyed row stays selected when `data` is replaced, so a selection spans server pages. A row
+  without a key is named by the row object (a session-local id `#n`) and leaves the selection when `data` no longer
+  holds it.
+- `getRowId(row)`, the `selectedRowIds` getter and `setSelection(ids)` (does nothing, and fires nothing, when the
+  selection already is `ids`).
+- `selection-change` carries `selectedIds` — every selected row, on every page — next to `selectedRows` and
+  `selectedIndices` (the selected rows `data` holds). `row-activate` carries the row's `id`.
+
+### Changed (breaking)
+
+- The header checkbox and `selectAll()` act on the rows in view: rows selected on another page stay selected, and
+  unchecking the header deselects only the rows in view. `deselectAll()` still clears every page. A selected row a
+  filter hides stays selected (and in `selectedRows`).
+- `RowSelectionState` (exported) keeps ids: `isSelected(id)`, `toggle(id)`, `select(id)`, `selectAll(ids)`,
+  `deselectMany(ids)`, `set(ids)`, `retain(keep)`, `selectRange(orderedIds, from, to)`, `isAllSelected(ids)`,
+  `isSomeSelected(ids)`, `selectedIds`. `setRowCount` and `selectedIndices` are gone.
+- `clear-selection-on-data-change` keeps its meaning; it is no longer needed to stop a replacement from moving the
+  checkmarks.
+
+**Migrating**: give rows a stable key (`_id`, or set `rowKey`) when selection should survive a reload or a page change.
+Read `selectedIds` for «what is selected» across pages, `selectedRows` for the rows on hand. A «Delete selected» button
+on a `selectable` grid can keep calling `deleteRows()`.
+
 ## [0.55.2] - 2026-10-07
 
 ### Documentation

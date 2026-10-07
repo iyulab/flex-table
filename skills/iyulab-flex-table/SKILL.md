@@ -78,9 +78,12 @@ Use `updateRows([{ row, key, value }])` for programmatic edits (undoable, fires 
 `table.editable = false` (a property, since a boolean attribute cannot express `false`) — Enter on a non-editable cell then fires
 `row-activate`, the grid's "open this row" contract.
 
-**Row selection is index-based.** Enable with `selectable` (`selection-mode="single|multi"`).
-There is no row key, so set `clear-selection-on-data-change` when selection drives bulk actions and
-`data` can be replaced. `selectWhere(predicate)` selects rows by content.
+**Row selection is kept by row id.** Enable with `selectable` (`selection-mode="single|multi"`).
+The id is the row's `row-key` field (`_id` by default, as in `u-rich-table`) or a `rowKey` function, so
+checkmarks follow their rows through sort, filter, insert and delete, and keyed rows stay selected
+across server pages (`selectedIds`). A row without a key is named by its object and leaves the selection
+when `data` drops it. `clear-selection-on-data-change` starts a new selection on every `data`.
+`selectWhere(predicate)` selects rows by content; `setSelection(ids)` sets it from host state.
 
 **Client vs server mode.** `data-mode="client"` (default) sorts and filters locally.
 `data-mode="server"` only emits `sort-change` / `filter-change`; you supply already-processed rows.

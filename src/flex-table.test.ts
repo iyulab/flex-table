@@ -827,7 +827,7 @@ describe('FlexTable', () => {
     await el.updateComplete;
 
     expect(el.editingCell).toBeNull();
-    expect(detail).toEqual({ row: { name: 'Alice' }, index: 0, col: 0, key: 'name' });
+    expect(detail).toEqual({ row: { name: 'Alice' }, id: expect.stringMatching(/^#\d+$/), index: 0, col: 0, key: 'name' });
   });
 
   it('should fire row-activate on Enter for a per-column non-editable cell', async () => {
@@ -849,7 +849,7 @@ describe('FlexTable', () => {
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await el.updateComplete;
 
-    expect(detail).toEqual({ row: { name: 'Alice', age: 30 }, index: 0, col: 0, key: 'name' });
+    expect(detail).toEqual({ row: { name: 'Alice', age: 30 }, id: expect.stringMatching(/^#\d+$/), index: 0, col: 0, key: 'name' });
   });
 
   it('should NOT fire row-activate on Enter for an editable cell (starts editing instead)', async () => {
@@ -3988,16 +3988,32 @@ describe('FlexTable', () => {
       return el;
     }
 
-    it('external data replacement does not clear row selection by default', async () => {
+    it('🔴replacing data with other rows does not carry the checkmarks onto them', async () => {
       const el = makeSelectableEl();
       await el.updateComplete;
 
       el.selectAll();
       expect(el.getSelectedRows().selectedIndices).toEqual([0, 1]);
 
-      // Same-length replacement with entirely different rows — selection stays on stale indices by default.
+      let lastEvent: CustomEvent | undefined;
+      el.addEventListener('selection-change', (e) => { lastEvent = e as CustomEvent; });
+
+      // Same-length replacement with entirely different (unkeyed) rows: the selected rows are gone, so is the
+      // selection — it used to stay on the positions and name the new rows there.
       el.data = [{ name: 'Charlie' }, { name: 'Dave' }];
+      expect(el.getSelectedRows().selectedRows).toEqual([]);
+      expect(lastEvent?.detail.selectedIds).toEqual([]);
+    });
+
+    it('NEGATIVE re-assigning the same row objects keeps the selection, without an event', async () => {
+      const el = makeSelectableEl();
+      await el.updateComplete;
+      el.selectAll();
+      let events = 0;
+      el.addEventListener('selection-change', () => { events++; });
+      el.data = [...el.data];
       expect(el.getSelectedRows().selectedIndices).toEqual([0, 1]);
+      expect(events).toBe(0);
     });
 
     it('clearSelectionOnDataChange clears selection when data replaced externally', async () => {
@@ -4026,6 +4042,154 @@ describe('FlexTable', () => {
 
       el.data = [{ name: 'Charlie' }, { name: 'Dave' }];
       expect(dispatchCount).toBe(0);
+    });
+  });
+
+  describe('row selection follows the row (row ids)', () => {
+    function makeEl(data: DataRow[]) {
+      const el = createElement();
+      el.columns = [{ key: 'name', label: 'Name' }];
+      el.selectable = true;
+      el.data = data;
+      return el;
+    }
+    const names = (el: FlexTable) => el.getSelectedRows().selectedRows.map((r) => r.name);
+    const sortByName = async (el: FlexTable) => {
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-sortable')!.click();
+      await el.updateComplete;
+    };
+
+    it('🔴a sort leaves the checkmark on the row it was put on', async () => {
+      const el = makeEl([{ name: 'c' }, { name: 'a' }, { name: 'b' }]);
+      await el.updateComplete;
+      el.selectWhere((r) => r.name === 'c');
+      await el.updateComplete;
+      await sortByName(el);
+      expect(names(el)).toEqual(['c']);
+      // …and the checkbox drawn checked is the one in the row that shows «c» (now the last row).
+      const boxes = [...el.shadowRoot!.querySelectorAll<HTMLInputElement>('.ft-checkbox-cell input')];
+      expect(boxes.map((b) => b.checked)).toEqual([false, false, true]);
+    });
+
+    it('🔴a filter hides a selected row without moving its checkmark to another', async () => {
+      const el = makeEl([{ name: 'a' }, { name: 'b' }, { name: 'c' }]);
+      await el.updateComplete;
+      el.selectWhere((r) => r.name === 'a');
+      el.setFilter('name', (v) => v !== 'a');
+      await el.updateComplete;
+      const boxes = [...el.shadowRoot!.querySelectorAll<HTMLInputElement>('.ft-checkbox-cell input')];
+      expect(boxes.map((b) => b.checked)).toEqual([false, false]);
+      expect(names(el)).toEqual(['a']); // still selected, out of view
+      el.clearFilters();
+      await el.updateComplete;
+      expect(names(el)).toEqual(['a']);
+    });
+
+    it('🔴inserting a row above keeps the selection on the same row', async () => {
+      const el = makeEl([{ name: 'a' }, { name: 'b' }]);
+      await el.updateComplete;
+      el.selectWhere((r) => r.name === 'b');
+      el.addRow({ name: 'z' }, 0);
+      await el.updateComplete;
+      expect(names(el)).toEqual(['b']);
+      expect(el.getSelectedRows().selectedIndices).toEqual([2]);
+    });
+
+    it('🔴deleting a selected row takes it out of the selection (and says so)', async () => {
+      const el = makeEl([{ name: 'a' }, { name: 'b' }, { name: 'c' }]);
+      await el.updateComplete;
+      el.selectWhere((r) => r.name !== 'b');
+      let lastEvent: CustomEvent | undefined;
+      el.addEventListener('selection-change', (e) => { lastEvent = e as CustomEvent; });
+      el.deleteRows([0]);
+      await el.updateComplete;
+      expect(names(el)).toEqual(['c']);
+      expect(lastEvent?.detail.selectedRows.map((r: DataRow) => r.name)).toEqual(['c']);
+    });
+
+    it('🔴deleteRows() in a selectable grid deletes the checked rows, not the row of the active cell', async () => {
+      const el = makeEl([{ name: 'a' }, { name: 'b' }, { name: 'c' }]);
+      await el.updateComplete;
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-cell')!.click(); // active cell on «a»
+      await el.updateComplete;
+      el.selectWhere((r) => r.name === 'c');
+      el.deleteRows();
+      expect(el.data.map((r) => r.name)).toEqual(['a', 'b']);
+      el.deleteRows(); // nothing checked now
+      expect(el.data.map((r) => r.name)).toEqual(['a', 'b']);
+    });
+
+    it('NEGATIVE deleteRows() in a grid without checkboxes deletes the rows of the cell selection', async () => {
+      const el = makeEl([{ name: 'a' }, { name: 'b' }]);
+      el.selectable = false;
+      await el.updateComplete;
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-cell')!.click();
+      await el.updateComplete;
+      el.deleteRows();
+      expect(el.data.map((r) => r.name)).toEqual(['b']);
+    });
+
+    it('keyed rows (`_id` by default) stay selected across a data replacement — another page', async () => {
+      const el = makeEl([{ _id: 1, name: 'a' }, { _id: 2, name: 'b' }]);
+      await el.updateComplete;
+      el.selectAll();
+      el.data = [{ _id: 3, name: 'c' }, { _id: 4, name: 'd' }]; // page 2
+      await el.updateComplete;
+      expect(el.getSelectedRows().selectedRows).toEqual([]);
+      expect([...el.selectedRowIds]).toEqual(['1', '2']);
+      el.selectWhere((r) => r.name === 'd');
+      el.data = [{ _id: 1, name: 'a' }, { _id: 2, name: 'b' }]; // back to page 1 — new objects, same keys
+      await el.updateComplete;
+      expect(names(el)).toEqual(['a', 'b']);
+      expect([...el.selectedRowIds]).toEqual(['1', '2', '4']);
+    });
+
+    it('rowKey names the key field, or is a function of the row', async () => {
+      const el = makeEl([{ code: 'X', name: 'a' }, { code: 'Y', name: 'b' }]);
+      el.rowKey = 'code';
+      await el.updateComplete;
+      expect(el.getRowId(el.data[0])).toBe('X');
+      el.rowKey = (r) => `${r.code}-${r.name}`;
+      expect(el.getRowId(el.data[1])).toBe('Y-b');
+    });
+
+    it('the header checkbox acts on the rows in view — rows selected on another page stay', async () => {
+      const el = makeEl([{ _id: 1, name: 'a' }, { _id: 2, name: 'b' }]);
+      await el.updateComplete;
+      el.selectAll();
+      el.data = [{ _id: 3, name: 'c' }];
+      await el.updateComplete;
+      const header = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-checkbox-header input')!;
+      expect(header.checked).toBe(false);
+      header.click();
+      await el.updateComplete;
+      expect([...el.selectedRowIds]).toEqual(['1', '2', '3']);
+      el.shadowRoot!.querySelector<HTMLInputElement>('.ft-checkbox-header input')!.click();
+      await el.updateComplete;
+      expect([...el.selectedRowIds]).toEqual(['1', '2']);
+    });
+
+    it('setSelection replaces the selection and fires once; the same set again fires nothing', async () => {
+      const el = makeEl([{ _id: 1, name: 'a' }, { _id: 2, name: 'b' }]);
+      await el.updateComplete;
+      let events = 0;
+      el.addEventListener('selection-change', () => { events++; });
+      el.setSelection(['2']);
+      el.setSelection(['2']);
+      expect(names(el)).toEqual(['b']);
+      expect(events).toBe(1);
+    });
+
+    it('row-activate carries the row id', async () => {
+      const el = makeEl([{ _id: 7, name: 'a' }]);
+      el.editable = false;
+      await el.updateComplete;
+      let detail: { id?: string } | undefined;
+      el.addEventListener('row-activate', (e) => { detail = (e as CustomEvent).detail; });
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-cell')!.click();
+      await el.updateComplete;
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      expect(detail?.id).toBe('7');
     });
   });
 

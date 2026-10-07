@@ -21,7 +21,8 @@ export interface CellChange {
  */
 export interface FlexTableEventMap {
   /** Row selection changed (`selectable`). Indices are data indices. */
-  'selection-change': CustomEvent<{ selectedIndices: number[]; selectedRows: DataRow[] }>;
+  /** `selectedIds` — every selected row (all pages, see `rowKey`); `selectedRows`/`selectedIndices` — the selected rows `data` holds. */
+  'selection-change': CustomEvent<{ selectedIds: string[]; selectedIndices: number[]; selectedRows: DataRow[] }>;
   /** After any undoable change, undo or redo. */
   'undo-state-change': CustomEvent<{ canUndo: boolean; canRedo: boolean }>;
   /** The set of column filters changed. `filteredCount` is the rows left visible. */
@@ -41,7 +42,8 @@ export interface FlexTableEventMap {
   /** A row was dragged to a new place. Both are data indices. */
   'row-reorder': CustomEvent<{ from: number; to: number }>;
   /** Enter on a non-editable cell — "activate this row". `index` is the data index, `col` the visible column index. */
-  'row-activate': CustomEvent<{ row: DataRow; index: number; col: number; key: string | undefined }>;
+  /** `id` — the row's id (`getRowId`); `index` — its position in `data`; `key` — the active column's key. */
+  'row-activate': CustomEvent<{ row: DataRow; id: string; index: number; col: number; key: string | undefined }>;
   /** `batchUpdate()` applied its changes. */
   'batch-update': CustomEvent<{ changes: CellChange[] }>;
   /** The active cell moved; `null` when there is none. */

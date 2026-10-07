@@ -78,7 +78,6 @@ function Orders() {
         loading={source.loading}
         error={source.error}
         onSortChange={source.onSortChange}
-        clearSelectionOnDataChange
       />
       <button disabled={source.page === 0} onClick={() => source.setPage(source.page - 1)}>Prev</button>
       <span>{source.page + 1} / {Math.max(1, Math.ceil(source.totalCount / 20))}</span>

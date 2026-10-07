@@ -108,6 +108,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `maxRows` | `max-rows` | `number` | `0` | Max row count (0 = unlimited); blocks `addRow()` and paste expansion |
 | `maxUndoSize` | `max-undo-size` | `number` | `100` | Max undo history stack size |
 | `selectable` | `selectable` | `boolean` | `false` | Enable row-level checkbox selection |
+| `rowKey` | `row-key` | `string \| (row) => unknown` | `'_id'` | What names a row — selection is kept by this id (see [Row Selection](#row-selection)) |
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | Row selection mode |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Client-side or server-side data processing |
 | `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Footer/summary row data (keys match column keys) |
@@ -235,7 +236,7 @@ Every row keeps its own value. Sorting, filtering, copying, CSV/XLSX export and 
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `addRow(row?, index?)` | `DataRow \| null` | Add a row. Returns `null` if `maxRows` reached |
-| `deleteRows(indices?)` | `void` | Delete rows by data index (default: selected rows) |
+| `deleteRows(indices?)` | `void` | Delete rows by data index. Without indices: the checked rows when `selectable` (none checked — nothing), otherwise the rows of the cell selection |
 | `updateRows(changes)` | `void` | Batch update cells as single undo action. `changes: Array<{ row, key, value }>` |
 | `refreshData()` | `void` | Force re-render after in-place data mutation |
 
@@ -253,11 +254,21 @@ Every row keeps its own value. Sorting, filtering, copying, CSV/XLSX export and 
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `selectAll()` | `void` | Select all visible rows (multi mode only) |
-| `deselectAll()` | `void` | Deselect all rows |
-| `getSelectedRows()` | `{ selectedIndices, selectedRows }` | Get selected row data |
+| `selectAll()` | `void` | Select every row in view, after filtering (multi mode only). Rows on other pages stay as they are |
+| `deselectAll()` | `void` | Deselect every row, on every page |
+| `selectWhere(predicate)` | `void` | Add the rows in view for which `predicate(row, dataIndex)` is true |
+| `setSelection(ids)` | `void` | Replace the selection with these row ids. The same set again does nothing and fires nothing |
+| `getSelectedRows()` | `{ selectedIds, selectedIndices, selectedRows }` | `selectedIds`: every selected row (all pages). `selectedRows` / `selectedIndices`: the selected rows `data` holds, and their positions in it |
+| `getRowId(row)` | `string` | The id selection keeps for a row |
+| `selectedRowIds` (getter) | `ReadonlySet<string>` | Ids of the selected rows, all pages (a copy) |
 
-Row selection is index-based (there is no row-key concept), so replacing `data` with a same-length but different set of rows leaves the selection pointing at the new rows occupying the old indices. If selection drives a bulk action (status changes, bulk delete, etc.), set `clear-selection-on-data-change` so a `data` swap always resets selection and re-fires `selection-change` with an empty selection:
+Row selection is kept by **row id**, not by position, so a checkmark stays on its row through sorting, filtering, inserts and deletes. The id is the row's `row-key` field — `_id` by default, the same field `u-rich-table` reads — or the result of a `rowKey` function:
+
+```ts
+table.rowKey = 'orderNo';                       // or: table.rowKey = (row) => `${row.site}/${row.no}`
+```
+
+A keyed row stays selected when `data` is replaced, so in a server-paged grid the selection spans pages (`selectedIds` names them all; `selectedRows` holds the ones on this page). A row without a key is named by the row object itself (a session-local id `#n`): it follows the row while the same object is in `data` and leaves the selection when it is gone. Set `clear-selection-on-data-change` when every new `data` should start a new selection (a new search):
 
 ```html
 <flex-table selectable clear-selection-on-data-change></flex-table>
@@ -304,7 +315,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 |-------|--------|-------------|
 | `row-add` | `{ row, index }` | Row added |
 | `row-delete` | `{ indices, rows }` | Rows deleted |
-| `row-activate` | `{ row, index, col, key }` | Enter pressed on a non-editable cell — the grid's own contract for "activate this row" (e.g. navigate to a detail view), guaranteed even though the internal Enter handler prevents the keystroke from reliably reaching a listener the host attaches to the same element |
+| `row-activate` | `{ row, id, index, col, key }` | Enter pressed on a non-editable cell — the grid's own contract for "activate this row" (e.g. navigate to a detail view), guaranteed even though the internal Enter handler prevents the keystroke from reliably reaching a listener the host attaches to the same element |
 | `batch-update` | `{ changes: [{ row, key, oldValue, newValue }] }` | Batch update applied |
 | `row-reorder` | `{ from, to }` | Row dragged to a new place (data indices) |
 | `data-import` | `{ count }` | Rows imported from a file |
@@ -336,7 +347,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 
 | Event | Detail | Description |
 |-------|--------|-------------|
-| `selection-change` | `{ selectedIndices, selectedRows }` | Row checkbox selection changed |
+| `selection-change` | `{ selectedIds, selectedIndices, selectedRows }` | Row checkbox selection changed — `selectedIds` covers every page, `selectedRows` the rows `data` holds |
 
 ### Clipboard Events
 

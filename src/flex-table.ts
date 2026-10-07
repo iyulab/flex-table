@@ -88,10 +88,16 @@ export class FlexTable extends LitElement {
       if (this.clearUndoOnDataChange) {
         this._undo.clear();
       }
-      if (this.clearSelectionOnDataChange && this._rowSelection.selectedCount > 0) {
-        this._rowSelection.deselectAll();
-        this._rowSelectionVersion++;
-        this._dispatchRowSelectionEvent();
+      if (this._rowSelection.selectedCount > 0) {
+        // A keyed row stays selected across a replacement (another server page — the selection accumulates).
+        // A row named only by its object cannot come back once `data` no longer holds it.
+        const changed = this.clearSelectionOnDataChange
+          ? (this._rowSelection.deselectAll(), true)
+          : this._pruneGoneUnkeyedRows();
+        if (changed) {
+          this._rowSelectionVersion++;
+          this._dispatchRowSelectionEvent();
+        }
       }
     }
     this.requestUpdate('data', old);
@@ -107,16 +113,25 @@ export class FlexTable extends LitElement {
   /**
    * When true, replacing `data` externally automatically clears row selection
    * (checkbox selection) and re-dispatches `selection-change` with an empty selection.
-   * Default: false, for consistency with `clearUndoOnDataChange`. Internal undo/redo
-   * operations are never affected.
-   *
-   * Row selection is index-based (no row-key concept), so a full `data` replacement can
-   * leave selection pointing at different underlying rows at the same indices —
-   * recommended for any `selectable` grid whose selection drives bulk actions
-   * (e.g. server-mode grids refreshed via `useODataSource`).
+   * Default: false — keyed rows stay selected across a replacement (see `rowKey`), so a
+   * selection can span server pages. Set it when a new `data` should start a new selection
+   * (a new search). Internal undo/redo operations are never affected.
    */
   @property({ type: Boolean, attribute: 'clear-selection-on-data-change' })
   clearSelectionOnDataChange: boolean = false;
+
+  /**
+   * What names a row: the field whose value identifies it (default `'_id'`, as in `u-rich-table`),
+   * or a function of the row. Row selection is kept by this id (`getRowId`), so checkmarks stay on
+   * their rows through sorting, filtering, inserts and deletes — and, for rows that have a key,
+   * across a `data` replacement: another server page keeps the rows selected on the last one.
+   *
+   * A row whose key is missing (`undefined`, `null` or `''`) is named by the row object itself —
+   * a session-local id `#n`. It follows the row while the same object is in `data`, and leaves the
+   * selection when `data` no longer holds that object (a replacement with new objects).
+   */
+  @property({ attribute: 'row-key' })
+  rowKey: string | ((row: DataRow) => unknown) = '_id';
 
   /**
    * 행 높이(px).
@@ -291,8 +306,12 @@ export class FlexTable extends LitElement {
 
   @state()
   private _rowSelectionVersion = 0;
-  /** Anchor row for shift-click range selection on the row checkbox column. */
-  private _lastCheckboxRowIndex: number | null = null;
+  /** Anchor row (its id) for shift-click range selection on the row checkbox column. */
+  private _lastCheckboxRowId: string | null = null;
+  /** Session-local ids of rows that have no key — by object, so they follow the row and leave with it. */
+  private _unkeyedIds = new WeakMap<object, string>();
+  private _unkeyedSeq = 0;
+  private _visibleIdsCache: { order: number[]; data: DataRow[]; key: FlexTable['rowKey']; ids: string[] } | null = null;
   /** Set by the checkbox's own click (which carries shiftKey) just before its change event fires. */
   private _checkboxShiftPending = false;
 
@@ -405,26 +424,64 @@ export class FlexTable extends LitElement {
 
   // --- Public API: Row Selection ---
 
-  /** Get data indices of currently selected rows. */
-  getSelectedRows(): { selectedIndices: number[]; selectedRows: DataRow[] } {
-    const indices = this._rowSelection.selectedIndices
-      .map(vi => this._toDataIndex(vi))
-      .filter(i => i >= 0 && i < this.data.length);
+  /**
+   * The row selection. `selectedIds` is every selected row — on every page, including rows not in
+   * `data` now. `selectedRows` and `selectedIndices` are the selected rows that `data` holds (in
+   * `data` order, filtered-out rows included) and their positions in it.
+   */
+  getSelectedRows(): { selectedIds: string[]; selectedIndices: number[]; selectedRows: DataRow[] } {
+    const indices: number[] = [];
+    if (this._rowSelection.selectedCount > 0) {
+      for (let i = 0; i < this.data.length; i++) {
+        if (this._rowSelection.isSelected(this.getRowId(this.data[i]))) indices.push(i);
+      }
+    }
     return {
+      selectedIds: this._rowSelection.selectedIds,
       selectedIndices: indices,
       selectedRows: indices.map(i => this.data[i]),
     };
   }
 
-  /** Select all visible rows (multi mode only). */
+  /** The id row selection keeps for `row` — its `rowKey` value as a string, or `#n` for a row without one. */
+  getRowId(row: DataRow): string {
+    const key = this.rowKey;
+    const value = typeof key === 'function' ? key(row) : row[key];
+    if (value !== undefined && value !== null && value !== '') return String(value);
+    let id = this._unkeyedIds.get(row);
+    if (id === undefined) {
+      id = `#${++this._unkeyedSeq}`;
+      this._unkeyedIds.set(row, id);
+    }
+    return id;
+  }
+
+  /** Ids of the selected rows — every page, including rows not in `data` now. A copy. */
+  get selectedRowIds(): ReadonlySet<string> {
+    return new Set(this._rowSelection.selectedIds);
+  }
+
+  /**
+   * Replaces the row selection with `ids` (single mode keeps the last). Does nothing — and fires
+   * nothing — when the selection already is `ids`, so a host can set it from its own state on
+   * every render.
+   */
+  setSelection(ids: Iterable<string>): void {
+    if (!this.selectable || !this._rowSelection.set(ids)) return;
+    this._rowSelectionVersion++;
+    this._dispatchRowSelectionEvent();
+    this.requestUpdate();
+  }
+
+  /** Selects every row in view — after filtering (multi mode only). Rows on other pages stay as they are. */
   selectAll(): void {
     if (!this.selectable) return;
-    this._rowSelection.selectAll();
+    this._rowSelection.selectAll(this._visibleRowIds());
     this._rowSelectionVersion++;
     this._dispatchRowSelectionEvent();
   }
 
-  /** Deselect all rows. */
+  /** Deselects every row — on every page. */
   deselectAll(): void {
     if (!this.selectable) return;
     this._rowSelection.deselectAll();
@@ -447,7 +504,7 @@ export class FlexTable extends LitElement {
     for (let visualRow = 0; visualRow < this._visibleRowCount; visualRow++) {
       const dataIndex = this._toDataIndex(visualRow);
       const row = this.data[dataIndex];
-      if (row !== undefined && predicate(row, dataIndex)) this._rowSelection.select(visualRow);
+      if (row !== undefined && predicate(row, dataIndex)) this._rowSelection.select(this.getRowId(row));
     }
     this._rowSelectionVersion++;
     this._dispatchRowSelectionEvent();
@@ -455,8 +512,29 @@ export class FlexTable extends LitElement {
   }
 
   private _dispatchRowSelectionEvent(): void {
-    const { selectedIndices, selectedRows } = this.getSelectedRows();
-    this._emit('selection-change', { selectedIndices, selectedRows });
+    this._emit('selection-change', this.getSelectedRows());
+  }
+
+  /** Ids of the rows in view, top to bottom (after filter and sort). Cached per view and `rowKey`. */
+  private _visibleRowIds(): string[] {
+    const c = this._visibleIdsCache;
+    if (c && c.order === this._sortedIndices && c.data === this.data && c.key === this.rowKey && c.ids.length === this._visibleRowCount) {
+      return c.ids;
+    }
+    const ids: string[] = [];
+    for (let v = 0; v < this._visibleRowCount; v++) {
+      const row = this.data[this._toDataIndex(v)];
+      if (row !== undefined) ids.push(this.getRowId(row));
+    }
+    this._visibleIdsCache = { order: this._sortedIndices, data: this.data, key: this.rowKey, ids };
+    return ids;
+  }
+
+  /** Drops selected `#n` ids whose rows `data` no longer holds. Returns whether anything was dropped. */
+  private _pruneGoneUnkeyedRows(): boolean {
+    if (!this._rowSelection.selectedIds.some((id) => id.startsWith('#'))) return false;
+    const present = new Set(this.data.map((row) => this.getRowId(row)));
+    return this._rowSelection.retain((id) => !id.startsWith('#') || present.has(id));
   }
 
   // --- Public API: Filtering ---
@@ -761,11 +839,12 @@ export class FlexTable extends LitElement {
   }
 
   /**
-   * Delete rows at the specified data indices.
-   * If no indices provided, deletes the currently selected rows.
+   * Delete rows at the specified data indices. Without indices it deletes the selected rows: the
+   * checked rows when the grid is `selectable` (none checked — nothing is deleted), otherwise the
+   * rows of the cell selection.
    */
   deleteRows(indices?: number[]): void {
-    const toDelete = indices ?? this._getSelectedDataRows();
+    const toDelete = indices ?? (this.selectable ? this.getSelectedRows().selectedIndices : this._getSelectedDataRows());
     if (toDelete.length === 0) return;
 
     // Sort descending so splice doesn't shift later indices
@@ -801,6 +880,14 @@ export class FlexTable extends LitElement {
         this.requestUpdate();
       },
     });
+
+    // A deleted row leaves the row selection (its id may be a key that another page could show again).
+    const deselected = deleted.map(d => this.getRowId(d.row)).filter(id => this._rowSelection.isSelected(id));
+    if (deselected.length > 0) {
+      this._rowSelection.deselectMany(deselected);
+      this._rowSelectionVersion++;
+      this._dispatchRowSelectionEvent();
+    }
 
     // Clear selection if active cell is in deleted range
     if (this._activeCell) {
@@ -1328,7 +1415,6 @@ export class FlexTable extends LitElement {
     }
     this._updateColOffsets();
     this._selection.setDimensions(this._visibleRowCount, this.visibleColumns.length);
-    this._rowSelection.setRowCount(this._visibleRowCount);
   }
 
   protected updated(changedProps: PropertyValues): void {
@@ -1632,7 +1718,7 @@ export class FlexTable extends LitElement {
     const dataIndex = this._toDataIndex(this._activeCell.row);
     const row = this.data[dataIndex];
     if (!row) return;
-    this._emit('row-activate', { row, index: dataIndex, col: this._activeCell.col, key: col?.key });
+    this._emit('row-activate', { row, id: this.getRowId(row), index: dataIndex, col: this._activeCell.col, key: col?.key });
   }
 
   private _startEdit(): void {
@@ -1956,8 +2042,11 @@ export class FlexTable extends LitElement {
     // editable cell. It is the keyboard path to row selection: the row checkboxes are not Tab stops.
     if (e.key === ' ' && e.shiftKey && this.selectable && this._activeCell && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
-      this._rowSelection.toggle(this._activeCell.row);
-      this._lastCheckboxRowIndex = this._activeCell.row;
+      const row = this.data[this._toDataIndex(this._activeCell.row)];
+      if (!row) return;
+      const id = this.getRowId(row);
+      this._rowSelection.toggle(id);
+      this._lastCheckboxRowId = id;
       this._rowSelectionVersion++;
       this._dispatchRowSelectionEvent();
       return;
@@ -4167,8 +4256,8 @@ export class FlexTable extends LitElement {
           ${this._rowSelection.mode === 'multi' ? html`
             <!-- 칸 전체가 누르는 자리다(라벨) — 체크 상자는 16px 그대로. -->
             <label class="ft-checkbox-hit"><input type="checkbox" tabindex="-1" aria-label=${t('selectAllRows')}
-              .checked=${this._rowSelection.isAllSelected}
-              .indeterminate=${this._rowSelection.isSomeSelected}
+              .checked=${this._rowSelection.isAllSelected(this._visibleRowIds())}
+              .indeterminate=${this._rowSelection.isSomeSelected(this._visibleRowIds())}
               @change=${this._onSelectAllChange}></label>
           ` : ''}
         </div>`
@@ -4247,10 +4336,11 @@ export class FlexTable extends LitElement {
 
   private _onSelectAllChange(e: Event): void {
     const checked = (e.target as HTMLInputElement).checked;
+    // The rows in view — rows selected on another page are not in view and stay as they are.
     if (checked) {
-      this._rowSelection.selectAll();
+      this._rowSelection.selectAll(this._visibleRowIds());
     } else {
-      this._rowSelection.deselectAll();
+      this._rowSelection.deselectMany(this._visibleRowIds());
     }
     this._rowSelectionVersion++;
     this._dispatchRowSelectionEvent();
@@ -4258,12 +4348,15 @@ export class FlexTable extends LitElement {
 
   private _onRowCheckboxChange(e: Event, rowIndex: number): void {
     e.stopPropagation();
-    if (this._checkboxShiftPending && this._lastCheckboxRowIndex !== null) {
-      this._rowSelection.selectRange(this._lastCheckboxRowIndex, rowIndex);
+    const row = this.data[this._toDataIndex(rowIndex)];
+    if (!row) return;
+    const id = this.getRowId(row);
+    if (this._checkboxShiftPending && this._lastCheckboxRowId !== null) {
+      this._rowSelection.selectRange(this._visibleRowIds(), this._lastCheckboxRowId, id);
     } else {
-      this._rowSelection.toggle(rowIndex);
+      this._rowSelection.toggle(id);
     }
-    this._lastCheckboxRowIndex = rowIndex;
+    this._lastCheckboxRowId = id;
     this._checkboxShiftPending = false;
     this._rowSelectionVersion++;
     this._dispatchRowSelectionEvent();
@@ -4364,7 +4457,7 @@ export class FlexTable extends LitElement {
     const rowH = this.rowHeight;
     const tw = this._totalRowWidth;
     const parity = index % 2 === 0 ? 'ft-row-even' : 'ft-row-odd';
-    const isRowSelected = this.selectable && this._rowSelection.isSelected(index);
+    const isRowSelected = this.selectable && row !== undefined && this._rowSelection.isSelected(this.getRowId(row));
 
     // Prefix cells — use absolute positioning with scrollLeft compensation
     // (position: sticky inside scrollable containers causes inline whitespace gaps)
