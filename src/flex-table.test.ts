@@ -149,6 +149,20 @@ describe('FlexTable', () => {
     expect(empty!.textContent).toContain('데이터가 없습니다');
   });
 
+  // 빈 상태 두 문구는 로캘을 따른다 — 기본값이 영어 리터럴이라 한국어 앱에서도 «No data» 였다(속성을 지나 닿는 리터럴).
+  it('🔴빈 상태 문구가 로캘을 따른다(지정하지 않으면)', async () => {
+    try {
+      Locale.set('ko');
+      const el = createElement();
+      el.columns = [{ key: 'name', label: 'Name' }];
+      el.data = [];
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('.ft-empty')!.textContent).toBe('데이터 없음');
+    } finally {
+      Locale.set('en');
+    }
+  });
+
   // 실패한 조회가 «데이터 없음» 으로 보이지 않게 — 소스의 `error` 를 그대로 받아 경고 줄로 그린다.
   it('🔴error 가 있으면 행·빈 상태 대신 그 문장을 경고로 그린다', async () => {
     const el = createElement();

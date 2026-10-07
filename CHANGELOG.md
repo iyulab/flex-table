@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.55.1] - 2026-10-07
+
+### Fixed
+
+- **The empty-state texts follow the locale.** `emptyMessage` and `noMatchingMessage` defaulted to the English
+  strings themselves, so a table with no rows said "No data" in every language. They now default to empty and the
+  table draws the locale strings `noData` / `noMatchingData` (Korean built in); a value you set still wins.
+
 ## [0.55.0] - 2026-10-07
 
 ### Added

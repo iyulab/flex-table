@@ -171,16 +171,17 @@ export class FlexTable extends LitElement {
   @property({ type: Number, attribute: 'frozen-rows' })
   frozenRows: number = 0;
 
-  /** Message shown when `data` is empty (no rows at all). Default: 'No data'. */
+  /** Message shown when `data` is empty (no rows at all). Empty (the default) uses the locale string (`noData` — 'No data'). */
   @property({ type: String, attribute: 'empty-message' })
-  emptyMessage: string = 'No data';
+  emptyMessage: string = '';
 
   /**
    * Message shown when `data` has rows but every one is hidden by the active
-   * column filters (0 visible rows, non-empty `data`). Default: 'No matching data'.
+   * column filters (0 visible rows, non-empty `data`). Empty (the default) uses the locale string (`noMatchingData` —
+   * 'No matching data').
    */
   @property({ type: String, attribute: 'no-matching-message' })
-  noMatchingMessage: string = 'No matching data';
+  noMatchingMessage: string = '';
 
   /**
    * The last load failure, or `null`. While set, the grid shows `error.message` in an alert where rows or the empty
@@ -4196,7 +4197,7 @@ export class FlexTable extends LitElement {
     if (this.error || this.data.length === 0 || this._visibleRowCount === 0) {
       const msg = this.error
         ? html`<div class="ft-empty ft-error" role="alert">${this.error.message}</div>`
-        : html`<div class="ft-empty">${this.data.length === 0 ? this.emptyMessage : this.noMatchingMessage}</div>`;
+        : html`<div class="ft-empty">${this.data.length === 0 ? (this.emptyMessage || t('noData')) : (this.noMatchingMessage || t('noMatchingData'))}</div>`;
       return html`
         ${loadingOverlay}
         <div class="ft-header" role="row" aria-rowindex="1" style="width: ${tw}px; height: ${hdrH}px;">

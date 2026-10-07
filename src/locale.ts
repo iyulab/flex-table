@@ -41,6 +41,9 @@ export type FlexTableMessageKey =
   | 'addCommentPlaceholder'
   | 'cancel'
   | 'save'
+  // 빈 상태
+  | 'noData'
+  | 'noMatchingData'
   // 필터
   | 'clear'
   | 'blankCells'
@@ -127,6 +130,9 @@ flexTableLocale.register('en', {
   cancel: 'Cancel',
   save: 'Save',
 
+  noData: 'No data',
+  noMatchingData: 'No matching data',
+
   clear: 'Clear',
   blankCells: 'Blank cells',
   emptyOnly: 'Empty only',
@@ -208,6 +214,9 @@ flexTableLocale.register('ko', {
   addCommentPlaceholder: '메모 입력… (Ctrl+Enter 로 저장)',
   cancel: '취소',
   save: '저장',
+
+  noData: '데이터 없음',
+  noMatchingData: '일치하는 데이터 없음',
 
   clear: '지우기',
   blankCells: '빈 셀',
