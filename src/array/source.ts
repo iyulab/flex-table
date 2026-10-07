@@ -18,6 +18,8 @@ export interface ArraySource<T> {
   subscribe(listener: () => void): () => void;
   /** 0-based 페이지로 옮긴다(범위를 넘으면 마지막 페이지). */
   setPage(page: number): void;
+  /** 페이지 크기를 바꾸고 첫 장으로 간다. */
+  setPageSize(size: number): void;
   /** 정렬을 바꾸고 첫 장으로 간다. */
   setSort(criteria: SortCriteria[]): void;
   /** 검색어를 바꾸고 첫 장으로 간다. */
@@ -44,16 +46,16 @@ export function createArraySource<T extends DataRow = DataRow>(data: T[], option
   let page = initial.page;
   let sortCriteria = initial.sortCriteria;
   let search = initial.search;
+  let pageSize = options.pageSize ?? 20;
   let state = derive();
   const listeners = new Set<() => void>();
 
   function derive(): ODataSourceState<T> {
-    const pageSize = opts.pageSize ?? 20;
     const view = computeArrayView(rows, { search, sortCriteria, page, pageSize, columns: opts.columns, searchFields: opts.searchFields });
     // 표시와 상태가 같은 페이지를 말하게 — 결과가 줄면 페이지 상태도 마지막 유효 페이지로 내려온다(낮추기만 한다).
     const lastPage = view.totalCount === 0 ? 0 : Math.ceil(view.totalCount / pageSize) - 1;
     if (page > lastPage) page = lastPage;
-    return { data: view.data as T[], totalCount: view.totalCount, loading: false, error: null, page, sortCriteria, search };
+    return { data: view.data as T[], totalCount: view.totalCount, loading: false, error: null, page, pageSize, sortCriteria, search };
   }
 
   function recompute() {
@@ -68,10 +70,20 @@ export function createArraySource<T extends DataRow = DataRow>(data: T[], option
       return () => { listeners.delete(listener); };
     },
     setPage(next) { page = next; recompute(); },
+    setPageSize(size) { if (size === pageSize) return; pageSize = size; page = 0; recompute(); },
     setSort(criteria) { sortCriteria = criteria; page = 0; recompute(); },
     setSearch(term) { search = term; page = 0; recompute(); },
     refresh() {},
-    update(nextData, nextOptions = {}) { rows = nextData; opts = nextOptions; recompute(); },
+    update(nextData, nextOptions = {}) {
+      // `pageSize` 옵션 «값이 바뀐» update 만 크기를 바꾼다(첫 장으로) — `createODataSource` 와 같은 규칙.
+      if (nextOptions.pageSize !== undefined && nextOptions.pageSize !== opts.pageSize && nextOptions.pageSize !== pageSize) {
+        pageSize = nextOptions.pageSize;
+        page = 0;
+      }
+      rows = nextData;
+      opts = nextOptions;
+      recompute();
+    },
   };
 }
 
@@ -83,8 +95,13 @@ export class ArraySourceController<T extends DataRow = DataRow> implements React
   readonly source: ArraySource<T>;
   private unsubscribe?: () => void;
 
-  constructor(private readonly host: ReactiveControllerHost, data: T[], options: ArraySourceOptions<T> = {}) {
-    this.source = createArraySource<T>(data, options);
+  /**
+   * 행으로 소스를 만들거나, **이미 있는 소스**를 받는다 — 같은 소스를 여러 요소(표 · 페이저 · 목록 골격)가 함께 쓴다.
+   */
+  constructor(host: ReactiveControllerHost, source: ArraySource<T>);
+  constructor(host: ReactiveControllerHost, data: T[], options?: ArraySourceOptions<T>);
+  constructor(private readonly host: ReactiveControllerHost, dataOrSource: T[] | ArraySource<T>, options: ArraySourceOptions<T> = {}) {
+    this.source = Array.isArray(dataOrSource) ? createArraySource<T>(dataOrSource, options) : dataOrSource;
     host.addController(this);
   }
 

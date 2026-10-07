@@ -110,6 +110,7 @@ function Orders() {
 | `loading` | Request in flight, or no answer yet (true from the first render until the first response settles, and while `enabled: false`) — so `!loading && totalCount === 0` means "no results" |
 | `error` | `SourceError \| null` — `{ message, status?, code?, details?, body?, cause? }`; pass it to the table (`error`) or render `error.message`; branch on `status` / `code` (OData `error.code`). `message` is the server's sentence when it sent one; otherwise this package's, in the `flexTableLocale` language — `requestFailed` (`Request failed ({status})`) when a response came back, `networkFailed` when none did (the transport's exception is in `cause`) |
 | `page`, `setPage` | Zero-based |
+| `pageSize`, `setPageSize` | Rows per page (the `pageSize` option, then `setPageSize` — resets to page 0) |
 | `sortCriteria`, `onSortChange` | Pass `onSortChange` to the table's `sort-change` (resets to page 0) |
 | `search`, `setSearch` | Literal text (resets to page 0) |
 | `refresh` | Re-run the current request |
@@ -158,9 +159,9 @@ Differences: `totalCount` is the count after search, `loading` is always `false`
 
 `useODataSource` adapts a framework-neutral source with the same options and state:
 `createODataSource(url, options)` → `getState()` · `subscribe(listener)` (the first subscriber starts loading, the last
-unsubscribe cancels) · `setPage` · `setSort(criteria)` · `setSearch` · `refresh` · `update(url, options)`. Changes in one
+unsubscribe cancels) · `setPage` · `setPageSize` · `setSort(criteria)` · `setSearch` · `refresh` · `update(url, options)`. Changes in one
 tick become one request. For Lit, `ODataSourceController` subscribes on connect, cancels on disconnect and re-renders
-the host:
+the host — from a URL, or from a source you already have (`new ODataSourceController(this, source)`, so a table and a pager share it):
 
 ```ts
 import { LitElement, html } from 'lit';

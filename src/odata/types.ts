@@ -6,6 +6,8 @@ export type UseODataSourceOptions = ODataSourceOptions;
 
 export interface UseODataSourceResult<T> extends ODataSourceState<T> {
   setPage: (page: number) => void;
+  /** 페이지 크기를 바꾸고 첫 장으로 간다. */
+  setPageSize: (size: number) => void;
   /** flex-table 의 `sort-change` 를 받는다(`detail.criteria`) — 정렬을 바꾸고 첫 장으로 간다. */
   onSortChange: (e: CustomEvent) => void;
   /** 검색어를 바꾸고 첫 장으로 간다. */

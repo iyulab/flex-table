@@ -228,3 +228,37 @@ describe('useArraySource — 선언된 계약', () => {
     expect(view.current.data.map((r) => r.id)).toEqual([1, 2]);
   });
 });
+
+describe('useArraySource — 페이지 크기', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  type Row = { id: number };
+  const data: Row[] = Array.from({ length: 45 }, (_, i) => ({ id: i }));
+
+  it('🔴setPageSize 가 크기를 바꾸고 첫 장으로 — 다음 렌더(같은 pageSize 옵션)가 되돌리지 않는다', async () => {
+    let latest: ReturnType<typeof useArraySource<Row>> | undefined;
+    const Probe = (props: { size: number }) => {
+      latest = useArraySource<Row>(data, { pageSize: props.size });
+      return null;
+    };
+    await act(async () => { root.render(createElement(Probe, { size: 10 })); });
+    await act(async () => latest!.setPage(3));
+    await act(async () => latest!.setPageSize(20));
+    expect(latest!).toMatchObject({ pageSize: 20, page: 0 });
+    expect(latest!.data).toHaveLength(20);
+    await act(async () => { root.render(createElement(Probe, { size: 10 })); });
+    expect(latest!.pageSize).toBe(20);
+    await act(async () => { root.render(createElement(Probe, { size: 5 })); });
+    expect(latest!).toMatchObject({ pageSize: 5, page: 0 });
+  });
+});

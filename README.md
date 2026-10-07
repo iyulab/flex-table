@@ -830,6 +830,7 @@ The hook returns:
 | `loading` | A request is in flight, or none has answered yet (true from the first render until the first response settles, and while `enabled: false`) |
 | `error` | The last failed request, or `null`: `{ message, status?, code?, details?, body? }`. **Pass it to the table** (`error={source.error}`) or render `error.message` yourself — a failed request otherwise leaves the grid silently empty. Branch on `status` (HTTP), `code` (the server's rejection code, OData `error.code`) and `details` (OData `error.details`); `body` is the parsed response (or its text). A failure with no response — a network error, or a `@odata.nextLink` the hook refused — has a `message` only |
 | `page` / `setPage` | Zero-based page index |
+| `pageSize` / `setPageSize` | Rows per page — starts at the `pageSize` option (20); `setPageSize` changes it and goes back to page 0. Passing the same `pageSize` option again on the next render keeps the size `setPageSize` set |
 | `sortCriteria` / `onSortChange` | Bind `onSortChange` to the table's `sort-change` event |
 | `search` / `setSearch` | Current search term and its setter (resets to page 0) |
 | `refresh` | Re-run the current request |
@@ -880,16 +881,17 @@ off();                                                          // the last unsu
 
 | Member | Description |
 |---|---|
-| `getState()` | `{ data, totalCount, loading, error, page, sortCriteria, search }` — the same fields the hook returns. A new object only when something changed |
+| `getState()` | `{ data, totalCount, loading, error, page, pageSize, sortCriteria, search }` — the same fields the hook returns. A new object only when something changed |
 | `subscribe(listener)` | Called on every change; returns the unsubscribe function. Requests go out only while someone is subscribed |
 | `setPage(page)` | Zero-based |
+| `setPageSize(size)` | Rows per page; goes back to page 0 |
 | `setSort(criteria)` / `setSearch(term)` | Change the sort or search and go back to page 0 |
 | `refresh()` | Re-read with the same conditions (nothing while `enabled: false`) |
-| `update(url, options)` | New options. Only a changed request re-reads; a changed `fixedFilter` value goes back to page 0; `initial*` are read at creation only |
+| `update(url, options)` | New options. Only a changed request re-reads; a changed `fixedFilter` value goes back to page 0; a changed `pageSize` value takes effect (page 0), the same value again keeps the size `setPageSize` set; `initial*` are read at creation only |
 
 Changes made in the same tick become one request with the final conditions, so `setSearch` followed by `setPage` does not send the intermediate one.
 
-For a Lit element, `ODataSourceController` ties a source to the element's lifecycle — it subscribes when the element connects, cancels when it disconnects, and re-renders it on every change:
+For a Lit element, `ODataSourceController` ties a source to the element's lifecycle — it subscribes when the element connects, cancels when it disconnects, and re-renders it on every change. Give it a URL to create the source, or **a source you already have** (`new ODataSourceController(this, source)`) so several elements — a table, a pager — share one:
 
 ```ts
 import { LitElement, html } from 'lit';
@@ -952,8 +954,8 @@ count after search (not a server-reported total), and `loading`/`error` are alwa
 "refresh" button wired unconditionally against either hook doesn't need a branch.
 
 Without React, `createArraySource(rows, options)` (`@iyulab/flex-table/array`) is the same source with the same
-members as `createODataSource` — `getState()`, `subscribe()`, `setPage`, `setSort`, `setSearch`, `refresh` (no-op) —
-plus `update(rows, options)` when the rows change. `ArraySourceController` binds it to a Lit element:
+members as `createODataSource` — `getState()`, `subscribe()`, `setPage`, `setPageSize`, `setSort`, `setSearch`, `refresh` (no-op) —
+plus `update(rows, options)` when the rows change. `ArraySourceController` binds it to a Lit element (from rows, or an existing source):
 
 ```ts
 import { LitElement } from 'lit';

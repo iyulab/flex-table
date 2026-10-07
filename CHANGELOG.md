@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.58.0] - 2026-10-07
+
+### Added
+
+- **Page size is source state.** `createODataSource` / `createArraySource` state (and `useODataSource` /
+  `useArraySource`) carries `pageSize`, and `setPageSize(size)` changes it and goes back to page 0 — a pager's «rows per
+  page» had no way to reach the source. An `update` (or a render) that passes the same `pageSize` option again keeps the
+  size `setPageSize` set; a changed option value takes effect.
+- **`ODataSourceController` and `ArraySourceController` take an existing source** —
+  `new ODataSourceController(this, source)` — so several elements (a table, a pager) share one source. Created from a
+  URL (or rows) as before.
+
 ## [0.57.0] - 2026-10-07
 
 ### Changed (breaking)

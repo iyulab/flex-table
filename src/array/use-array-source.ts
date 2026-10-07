@@ -23,7 +23,7 @@ export function useArraySource<T extends DataRow = DataRow>(
   options: UseArraySourceOptions<T> = {}
 ): UseArraySourceResult<T> {
   const {
-    pageSize = 20,
+    pageSize: pageSizeOption = 20,
     defaultOrderBy,
     initialPage = 0,
     initialSearch = '',
@@ -41,6 +41,21 @@ export function useArraySource<T extends DataRow = DataRow>(
   const [page, setPage] = useState(initial.page);
   const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>(initial.sortCriteria);
   const [search, setSearchState] = useState(initial.search);
+  const [pageSize, setPageSizeState] = useState(pageSizeOption);
+  /*
+   * `pageSize` 옵션 «값이 바뀌면» 그 크기로(첫 장으로) — 렌더 중 조정(아래 페이지 클램프와 같은 근거). 같은 값이 다시 오면
+   * `setPageSize` 로 바꾼 크기를 지킨다(`createODataSource` 의 `update` 와 같은 규칙).
+   */
+  const [lastSizeOption, setLastSizeOption] = useState(pageSizeOption);
+  if (pageSizeOption !== lastSizeOption) {
+    setLastSizeOption(pageSizeOption);
+    setPageSizeState(pageSizeOption);
+    setPage(0);
+  }
+  const setPageSize = useCallback((size: number) => {
+    setPageSizeState(size);
+    setPage(0);
+  }, []);
 
   const setSearch = useCallback((term: string) => {
     setSearchState(term);
@@ -87,6 +102,8 @@ export function useArraySource<T extends DataRow = DataRow>(
     error: null,
     page,
     setPage,
+    pageSize,
+    setPageSize,
     sortCriteria,
     onSortChange,
     search,

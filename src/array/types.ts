@@ -42,6 +42,10 @@ export interface UseArraySourceResult<T> {
   error: SourceError | null;
   page: number;
   setPage: (page: number) => void;
+  /** 한 페이지의 행 수 — `pageSize` 옵션으로 시작하고 `setPageSize` 로 바뀐다. */
+  pageSize: number;
+  /** 페이지 크기를 바꾸고 첫 장으로 간다. */
+  setPageSize: (size: number) => void;
   sortCriteria: SortCriteria[];
   onSortChange: (e: CustomEvent) => void;
   setSearch: (term: string) => void;

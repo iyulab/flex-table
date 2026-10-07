@@ -23,8 +23,13 @@ export class ODataSourceController<T = Record<string, unknown>> implements React
   readonly source: ODataSource<T>;
   private unsubscribe?: () => void;
 
-  constructor(private readonly host: ReactiveControllerHost, url: string, options: ODataSourceOptions = {}) {
-    this.source = createODataSource<T>(url, options);
+  /**
+   * 주소로 소스를 만들거나, **이미 있는 소스**를 받는다 — 같은 소스를 여러 요소(표 · 페이저 · 목록 골격)가 함께 쓴다.
+   */
+  constructor(host: ReactiveControllerHost, source: ODataSource<T>);
+  constructor(host: ReactiveControllerHost, url: string, options?: ODataSourceOptions);
+  constructor(private readonly host: ReactiveControllerHost, urlOrSource: string | ODataSource<T>, options: ODataSourceOptions = {}) {
+    this.source = typeof urlOrSource === 'string' ? createODataSource<T>(urlOrSource, options) : urlOrSource;
     host.addController(this);
   }
 

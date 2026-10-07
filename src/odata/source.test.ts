@@ -136,3 +136,66 @@ describe('ODataSourceController', () => {
     expect(signals[1].aborted).toBe(true);
   });
 });
+
+describe('createODataSource — 페이지 크기', () => {
+  const topOf = (url: string) => new URL(url).searchParams.get('$top');
+
+  it('🔴setPageSize 는 상태에 실리고, 첫 장으로 그 크기를 요청한다', async () => {
+    const { calls, fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher, pageSize: 10, initialPage: 3 });
+    source.subscribe(() => {});
+    await flush();
+    expect(source.getState().pageSize).toBe(10);
+    source.setPageSize(50);
+    await flush();
+    expect(source.getState()).toMatchObject({ pageSize: 50, page: 0 });
+    expect(topOf(calls.at(-1)!.url)).toBe('50');
+    expect(skipOf(calls.at(-1)!.url)).toBe('0');
+  });
+
+  it('🔴같은 pageSize 옵션을 다시 넘기는 update(렌더마다 부르는 훅)는 setPageSize 로 바꾼 크기를 되돌리지 않는다', async () => {
+    const { fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher, pageSize: 10 });
+    source.subscribe(() => {});
+    source.setPageSize(50);
+    source.update('/api/orders', { fetcher, pageSize: 10 });
+    await flush();
+    expect(source.getState().pageSize).toBe(50);
+  });
+
+  it('pageSize 옵션 값이 바뀐 update 는 그 크기로 첫 장으로 간다', async () => {
+    const { fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher, pageSize: 10, initialPage: 2 });
+    source.subscribe(() => {});
+    source.update('/api/orders', { fetcher, pageSize: 25 });
+    await flush();
+    expect(source.getState()).toMatchObject({ pageSize: 25, page: 0 });
+  });
+
+  it('NEGATIVE 같은 크기의 setPageSize 는 아무것도 바꾸지 않는다(페이지도)', async () => {
+    const { fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher, pageSize: 10, initialPage: 2 });
+    source.setPageSize(10);
+    expect(source.getState().page).toBe(2);
+  });
+});
+
+describe('ODataSourceController — 기존 소스', () => {
+  it('🔴이미 있는 소스를 받는다 — 두 호스트가 같은 소스를 공유한다', async () => {
+    const { fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher });
+    const host = () => { const h = { updates: 0, addController() {}, removeController() {}, requestUpdate() { h.updates++; }, updateComplete: Promise.resolve(true) }; return h; };
+    const a = host();
+    const b = host();
+    const ca = new ODataSourceController(a, source);
+    const cb = new ODataSourceController(b, source);
+    expect(ca.source).toBe(source);
+    expect(cb.source).toBe(source);
+    ca.hostConnected();
+    cb.hostConnected();
+    source.setPage(2);
+    await flush();
+    expect(a.updates).toBeGreaterThan(0);
+    expect(b.updates).toBeGreaterThan(0);
+  });
+});

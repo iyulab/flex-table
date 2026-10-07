@@ -54,6 +54,8 @@ export interface ODataSourceState<T> {
   error: SourceError | null;
   /** 0-based. */
   page: number;
+  /** 한 페이지의 행 수 — `pageSize` 옵션으로 시작하고(기본 20) `setPageSize` 로 바뀐다. */
+  pageSize: number;
   sortCriteria: SortCriteria[];
   search: string;
 }
@@ -71,6 +73,8 @@ export interface ODataSource<T> {
   subscribe(listener: () => void): () => void;
   /** 0-based 페이지로 옮긴다. */
   setPage(page: number): void;
+  /** 페이지 크기를 바꾸고 첫 장으로 간다(페이저의 «페이지당 행 수»). */
+  setPageSize(size: number): void;
   /** 정렬을 바꾸고 첫 장으로 간다. */
   setSort(criteria: SortCriteria[]): void;
   /** 검색어를 바꾸고 첫 장으로 간다. */
@@ -95,7 +99,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
   // 아직 한 번도 답을 받지 않았으면 «불러오는 중» 이다 — 첫 그림이 «로딩 아님 + 0건» 을 내면 빈 상태 문구가 번쩍인다.
   let inner: Omit<ODataSourceState<T>, 'loading'> & { loading: boolean } = {
     data: [], totalCount: 0, loading: true, error: null,
-    page: initial.page, sortCriteria: initial.sortCriteria, search: initial.search,
+    page: initial.page, pageSize: options.pageSize ?? 20, sortCriteria: initial.sortCriteria, search: initial.search,
   };
   let snapshot = view();
   const listeners = new Set<() => void>();
@@ -105,7 +109,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
   let lastRequest: string | null = null;
 
   function enabled() { return opts.enabled ?? true; }
-  function pageSize() { return opts.pageSize ?? 20; }
+  function pageSize() { return inner.pageSize; }
 
   /** 꺼져 있는 동안은 «아직 불러오지 않음» 이다 — 빈 목록을 «결과 없음» 으로 보이지 않게 한다. */
   function view(): ODataSourceState<T> {
@@ -262,6 +266,11 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
       set({ page });
       schedule();
     },
+    setPageSize(size) {
+      if (size === inner.pageSize) return;
+      set({ pageSize: size, page: 0 });
+      schedule();
+    },
     setSort(criteria) {
       set({ sortCriteria: criteria, page: 0 });
       schedule();
@@ -278,6 +287,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
     update(nextUrl, nextOptions = {}) {
       const nextKey = keyOf(nextOptions.fixedFilter);
       const filterChanged = nextKey !== filterKey;
+      const sizeOptionChanged = nextOptions.pageSize !== undefined && nextOptions.pageSize !== opts.pageSize;
       currentUrl = nextUrl;
       opts = nextOptions;
       filterKey = nextKey;
@@ -286,6 +296,11 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
        * 검색·정렬이 같은 이유로 이미 첫 장으로 돌아간다. 필터와 페이지가 한 번에 바뀌므로 낡은 페이지로 요청하지 않는다.
        */
       if (filterChanged) inner = { ...inner, page: 0 };
+      // `pageSize` 옵션 «값이 바뀐» `update` 만 크기를 바꾼다(첫 장으로). 같은 값을 다시 넘기는 것(`useODataSource` 는 렌더마다
+      // 넘긴다)이나 생략은 `setPageSize` 로 바꾼 크기를 되돌리지 않는다.
+      if (sizeOptionChanged && nextOptions.pageSize !== inner.pageSize) {
+        inner = { ...inner, pageSize: nextOptions.pageSize!, page: 0 };
+      }
       publish();
       schedule();
     },

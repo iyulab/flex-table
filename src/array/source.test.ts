@@ -63,3 +63,28 @@ describe('ArraySourceController', () => {
     expect(updates).toBe(1);
   });
 });
+
+describe('createArraySource — 페이지 크기 · 기존 소스', () => {
+  it('🔴setPageSize 는 상태에 실리고 첫 장으로 간다', () => {
+    const source = createArraySource(rows, { pageSize: 10, initialPage: 3 });
+    source.setPageSize(20);
+    expect(source.getState()).toMatchObject({ pageSize: 20, page: 0 });
+    expect(source.getState().data).toHaveLength(20);
+  });
+
+  it('🔴같은 pageSize 옵션의 update 는 바꾼 크기를 지킨다 · 값이 바뀐 update 는 그 크기로', () => {
+    const source = createArraySource(rows, { pageSize: 10 });
+    source.setPageSize(20);
+    source.update(rows, { pageSize: 10 });
+    expect(source.getState().pageSize).toBe(20);
+    source.update(rows, { pageSize: 5 });
+    expect(source.getState()).toMatchObject({ pageSize: 5, page: 0 });
+  });
+
+  it('ArraySourceController 는 이미 있는 소스를 받는다', () => {
+    const source = createArraySource(rows);
+    const host = { addController() {}, removeController() {}, requestUpdate() {}, updateComplete: Promise.resolve(true) };
+    expect(new ArraySourceController(host, source).source).toBe(source);
+    expect(new ArraySourceController(host, rows).source).not.toBe(source);
+  });
+});
