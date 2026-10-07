@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.55.0] - 2026-10-07
+
+### Added
+
+- **`createArraySource(rows, options)`** and **`ArraySourceController`** (`@iyulab/flex-table/array`) — the in-memory
+  source without React, with the members of `createODataSource` (`getState`, `subscribe`, `setPage`, `setSort`,
+  `setSearch`, `refresh`) plus `update(rows, options)`. A custom-element screen can now switch between a server and
+  an in-memory source the way a React screen switches between `useODataSource` and `useArraySource`.
+
 ## [0.54.0] - 2026-10-07
 
 ### Added

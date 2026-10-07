@@ -181,6 +181,7 @@ Pure helpers:
 ```ts
 import { buildODataQuery, buildSearchExpression, parseOrderBy } from '@iyulab/flex-table/odata';
 import { computeArrayView } from '@iyulab/flex-table/array';
+// createArraySource / ArraySourceController: the in-memory source with createODataSource's members + update(rows)
 
 buildSearchExpression('red shirt'); // '"red" AND "shirt"'  ('' → undefined)
 parseOrderBy('name desc');          // [{ key: 'name', direction: 'desc' }]

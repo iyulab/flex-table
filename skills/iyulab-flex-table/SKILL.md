@@ -28,7 +28,7 @@ npm install @lit/react react
 | `@iyulab/flex-table` | Registers `<flex-table>`; exports `FlexTable`, types, `exportData`, `renderCell`, `flexTableLocale`, `RowSelectionState`, `UndoStack`, `effectiveAlign` |
 | `@iyulab/flex-table/react` | `FlexTableReact`, `useODataSource`, `useArraySource` |
 | `@iyulab/flex-table/odata` | No React: `createODataSource` (the source `useODataSource` adapts), `ODataSourceController` (Lit), `buildODataQuery`, `buildSearchExpression`, `parseOrderBy` |
-| `@iyulab/flex-table/array` | Pure helper, no React: `computeArrayView` |
+| `@iyulab/flex-table/array` | No React: `createArraySource` (same members as `createODataSource`, plus `update(rows)`), `ArraySourceController` (Lit), `computeArrayView` |
 
 ## Quick start
 

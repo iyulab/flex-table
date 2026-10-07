@@ -939,6 +939,19 @@ count after search (not a server-reported total), and `loading`/`error` are alwa
 `false`/`null` — there's no request to fail. `refresh` is a no-op kept only so a
 "refresh" button wired unconditionally against either hook doesn't need a branch.
 
+Without React, `createArraySource(rows, options)` (`@iyulab/flex-table/array`) is the same source with the same
+members as `createODataSource` — `getState()`, `subscribe()`, `setPage`, `setSort`, `setSearch`, `refresh` (no-op) —
+plus `update(rows, options)` when the rows change. `ArraySourceController` binds it to a Lit element:
+
+```ts
+import { ArraySourceController } from '@iyulab/flex-table/array';
+
+class PricesPanel extends LitElement {
+  private prices = new ArraySourceController(this, [], { pageSize: 20 });
+  set rows(rows: DataRow[]) { this.prices.source.update(rows, { pageSize: 20 }); }
+}
+```
+
 ## Development
 
 ```bash
