@@ -164,6 +164,7 @@ tick become one request. For Lit, `ODataSourceController` subscribes on connect,
 the host:
 
 ```ts
+import { LitElement, html } from 'lit';
 import { ODataSourceController } from '@iyulab/flex-table/odata';
 
 class OrdersPage extends LitElement {

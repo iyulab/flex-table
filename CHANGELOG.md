@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.2] - 2026-10-07
+
+### Documentation
+
+- The Lit examples for `ODataSourceController` and `ArraySourceController` import `LitElement` and type their rows,
+  so they compile as written.
+
 ## [0.55.1] - 2026-10-07
 
 ### Fixed

@@ -881,6 +881,7 @@ Changes made in the same tick become one request with the final conditions, so `
 For a Lit element, `ODataSourceController` ties a source to the element's lifecycle — it subscribes when the element connects, cancels when it disconnects, and re-renders it on every change:
 
 ```ts
+import { LitElement, html } from 'lit';
 import { ODataSourceController } from '@iyulab/flex-table/odata';
 
 class OrdersPage extends LitElement {
@@ -944,10 +945,12 @@ members as `createODataSource` — `getState()`, `subscribe()`, `setPage`, `setS
 plus `update(rows, options)` when the rows change. `ArraySourceController` binds it to a Lit element:
 
 ```ts
+import { LitElement } from 'lit';
+import type { DataRow } from '@iyulab/flex-table';
 import { ArraySourceController } from '@iyulab/flex-table/array';
 
 class PricesPanel extends LitElement {
-  private prices = new ArraySourceController(this, [], { pageSize: 20 });
+  private prices = new ArraySourceController<DataRow>(this, [], { pageSize: 20 });
   set rows(rows: DataRow[]) { this.prices.source.update(rows, { pageSize: 20 }); }
 }
 ```
