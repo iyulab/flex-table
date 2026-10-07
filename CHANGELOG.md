@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.57.0] - 2026-10-07
+
+### Changed (breaking)
+
+- **`getSelectedRows()` returns the selected rows** (`DataRow[]` — the rows `data` holds, in `data` order), the same
+  shape as `u-rich-table`'s `getSelectedRows()`. It returned `{ selectedIds, selectedIndices, selectedRows }`, so code
+  written for one table read `undefined` from the other (`getSelectedRows().length`). Every selected id, on every page,
+  is `selectedRowIds`; positions in `data` come with `selection-change` (`selectedIndices`), whose detail is unchanged.
+
+**Migrating**: `getSelectedRows().selectedRows` → `getSelectedRows()` · `.selectedIds` → `[...selectedRowIds]` ·
+`.selectedIndices` → the `selection-change` detail, or `getSelectedRows().map((r) => table.data.indexOf(r))`.
+
 ## [0.56.1] - 2026-10-07
 
 ### Fixed

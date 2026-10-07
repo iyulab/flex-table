@@ -3993,7 +3993,7 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       el.selectAll();
-      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([0, 1]);
 
       let lastEvent: CustomEvent | undefined;
       el.addEventListener('selection-change', (e) => { lastEvent = e as CustomEvent; });
@@ -4001,7 +4001,7 @@ describe('FlexTable', () => {
       // Same-length replacement with entirely different (unkeyed) rows: the selected rows are gone, so is the
       // selection — it used to stay on the positions and name the new rows there.
       el.data = [{ name: 'Charlie' }, { name: 'Dave' }];
-      expect(el.getSelectedRows().selectedRows).toEqual([]);
+      expect(el.getSelectedRows()).toEqual([]);
       expect(lastEvent?.detail.selectedIds).toEqual([]);
     });
 
@@ -4012,7 +4012,7 @@ describe('FlexTable', () => {
       let events = 0;
       el.addEventListener('selection-change', () => { events++; });
       el.data = [...el.data];
-      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([0, 1]);
       expect(events).toBe(0);
     });
 
@@ -4022,13 +4022,13 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       el.selectAll();
-      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([0, 1]);
 
       let lastEvent: CustomEvent | undefined;
       el.addEventListener('selection-change', (e) => { lastEvent = e as CustomEvent; });
 
       el.data = [{ name: 'Charlie' }, { name: 'Dave' }];
-      expect(el.getSelectedRows().selectedIndices).toEqual([]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([]);
       expect(lastEvent?.detail.selectedIndices).toEqual([]);
     });
 
@@ -4053,7 +4053,7 @@ describe('FlexTable', () => {
       el.data = data;
       return el;
     }
-    const names = (el: FlexTable) => el.getSelectedRows().selectedRows.map((r) => r.name);
+    const names = (el: FlexTable) => el.getSelectedRows().map((r) => r.name);
     const sortByName = async (el: FlexTable) => {
       el.shadowRoot!.querySelector<HTMLElement>('.ft-sortable')!.click();
       await el.updateComplete;
@@ -4092,7 +4092,7 @@ describe('FlexTable', () => {
       el.addRow({ name: 'z' }, 0);
       await el.updateComplete;
       expect(names(el)).toEqual(['b']);
-      expect(el.getSelectedRows().selectedIndices).toEqual([2]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([2]);
     });
 
     it('🔴deleting a selected row takes it out of the selection (and says so)', async () => {
@@ -4135,7 +4135,7 @@ describe('FlexTable', () => {
       el.selectAll();
       el.data = [{ _id: 3, name: 'c' }, { _id: 4, name: 'd' }]; // page 2
       await el.updateComplete;
-      expect(el.getSelectedRows().selectedRows).toEqual([]);
+      expect(el.getSelectedRows()).toEqual([]);
       expect([...el.selectedRowIds]).toEqual(['1', '2']);
       el.selectWhere((r) => r.name === 'd');
       el.data = [{ _id: 1, name: 'a' }, { _id: 2, name: 'b' }]; // back to page 1 — new objects, same keys
@@ -4298,11 +4298,11 @@ describe('FlexTable', () => {
 
       clickCheckbox(rowCheckboxes(el)[1]);
       await el.updateComplete;
-      expect(el.getSelectedRows().selectedIndices).toEqual([1]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([1]);
 
       clickCheckbox(rowCheckboxes(el)[3], { shiftKey: true });
       await el.updateComplete;
-      expect(el.getSelectedRows().selectedIndices).toEqual([1, 2, 3]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([1, 2, 3]);
     });
 
     it('shift-clicking an earlier row selects the range in reverse just as well', async () => {
@@ -4311,11 +4311,11 @@ describe('FlexTable', () => {
 
       clickCheckbox(rowCheckboxes(el)[3]);
       await el.updateComplete;
-      expect(el.getSelectedRows().selectedIndices).toEqual([3]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([3]);
 
       clickCheckbox(rowCheckboxes(el)[1], { shiftKey: true });
       await el.updateComplete;
-      expect(el.getSelectedRows().selectedIndices).toEqual([1, 2, 3]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([1, 2, 3]);
     });
 
     it('a plain click after a shift-range only toggles the clicked row (does not repeat the range)', async () => {
@@ -4326,11 +4326,11 @@ describe('FlexTable', () => {
       await el.updateComplete;
       clickCheckbox(rowCheckboxes(el)[2], { shiftKey: true });
       await el.updateComplete;
-      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1, 2]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([0, 1, 2]);
 
       clickCheckbox(rowCheckboxes(el)[4]);
       await el.updateComplete;
-      expect(el.getSelectedRows().selectedIndices).toEqual([0, 1, 2, 4]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([0, 1, 2, 4]);
     });
 
     it('shift-click with no prior anchor (first click on the grid) just toggles that row', async () => {
@@ -4339,7 +4339,7 @@ describe('FlexTable', () => {
 
       clickCheckbox(rowCheckboxes(el)[2], { shiftKey: true });
       await el.updateComplete;
-      expect(el.getSelectedRows().selectedIndices).toEqual([2]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([2]);
     });
   });
 
@@ -4357,7 +4357,7 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       el.selectWhere(row => (row as { name: string }).name === 'Bob' || (row as { name: string }).name === 'Dave');
-      expect(el.getSelectedRows().selectedIndices).toEqual([1, 3]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([1, 3]);
     });
 
     it('adds to the existing selection rather than replacing it', async () => {
@@ -4367,10 +4367,10 @@ describe('FlexTable', () => {
       el.selectAll();
       el.deselectAll();
       el.selectWhere(row => (row as { name: string }).name === 'Alice');
-      expect(el.getSelectedRows().selectedIndices).toEqual([0]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([0]);
 
       el.selectWhere(row => (row as { name: string }).name === 'Carol');
-      expect(el.getSelectedRows().selectedIndices).toEqual([0, 2]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([0, 2]);
     });
 
     it('is a no-op when the grid is not selectable', async () => {
@@ -4379,7 +4379,7 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       el.selectWhere(() => true);
-      expect(el.getSelectedRows().selectedIndices).toEqual([]);
+      expect(el.getSelectedRows().map((r) => el.data.indexOf(r))).toEqual([]);
     });
 
     it('dispatches selection-change with the matched rows', async () => {

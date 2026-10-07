@@ -427,11 +427,16 @@ export class FlexTable extends LitElement {
   // --- Public API: Row Selection ---
 
   /**
-   * The row selection. `selectedIds` is every selected row — on every page, including rows not in
-   * `data` now. `selectedRows` and `selectedIndices` are the selected rows that `data` holds (in
-   * `data` order, filtered-out rows included) and their positions in it.
+   * The selected rows that `data` holds, in `data` order (filtered-out rows included) — the same shape
+   * as `u-rich-table`'s. Every selected id, on every page, is `selectedRowIds`; positions in `data` come
+   * with `selection-change` (`selectedIndices`).
    */
-  getSelectedRows(): { selectedIds: string[]; selectedIndices: number[]; selectedRows: DataRow[] } {
+  getSelectedRows(): DataRow[] {
+    return this._selectionSnapshot().selectedRows;
+  }
+
+  /** The selection as `selection-change` reports it. */
+  private _selectionSnapshot(): { selectedIds: string[]; selectedIndices: number[]; selectedRows: DataRow[] } {
     const indices: number[] = [];
     if (this._rowSelection.selectedCount > 0) {
       for (let i = 0; i < this.data.length; i++) {
@@ -514,7 +519,7 @@ export class FlexTable extends LitElement {
   }
 
   private _dispatchRowSelectionEvent(): void {
-    this._emit('selection-change', this.getSelectedRows());
+    this._emit('selection-change', this._selectionSnapshot());
   }
 
   /** Ids of the rows in view, top to bottom (after filter and sort). Cached per view and `rowKey`. */
@@ -855,7 +860,7 @@ export class FlexTable extends LitElement {
    * rows of the cell selection.
    */
   deleteRows(indices?: number[]): void {
-    const toDelete = indices ?? (this.selectable ? this.getSelectedRows().selectedIndices : this._getSelectedDataRows());
+    const toDelete = indices ?? (this.selectable ? this._selectionSnapshot().selectedIndices : this._getSelectedDataRows());
     if (toDelete.length === 0) return;
 
     // Sort descending so splice doesn't shift later indices

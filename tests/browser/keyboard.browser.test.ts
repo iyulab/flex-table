@@ -151,10 +151,10 @@ describe('flex-table keyboard — row selection', () => {
     await selectable();
     await at(2, 1);
     await press('{Shift>} {/Shift}');
-    expect(table.getSelectedRows().selectedIndices).toEqual([2]);
+    expect(table.getSelectedRows().map((r) => table.data.indexOf(r))).toEqual([2]);
     expect(editor()).toBeNull();
     await press('{Shift>} {/Shift}');
-    expect(table.getSelectedRows().selectedIndices).toEqual([]);
+    expect(table.getSelectedRows().map((r) => table.data.indexOf(r))).toEqual([]);
     await press(' ');
     expect(editor(), 'Space starts editing an editable cell, as before').not.toBeNull();
   });

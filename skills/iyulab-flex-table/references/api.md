@@ -119,7 +119,7 @@ Enter/Escape and blur-to-commit behavior.
 | `selectAll()` / `deselectAll()` | `selectAll`: the rows in view (multi mode only) · `deselectAll`: every page |
 | `selectWhere(predicate)` | `(row, dataIndex) => boolean` over the visible rows |
 | `setSelection(ids)` | Replace with these row ids; the same set again fires nothing |
-| `getSelectedRows()` | `{ selectedIds, selectedIndices, selectedRows }` — ids: all pages · rows: the ones `data` holds |
+| `getSelectedRows()` | `DataRow[]` — the selected rows `data` holds (as `u-rich-table`) · ids of every page: `selectedRowIds` |
 | `getRowId(row)` · `selectedRowIds` | A row's id · the selected ids (all pages) |
 
 ### Filtering, undo, comments, import/export

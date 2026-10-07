@@ -258,7 +258,7 @@ Every row keeps its own value. Sorting, filtering, copying, CSV/XLSX export and 
 | `deselectAll()` | `void` | Deselect every row, on every page |
 | `selectWhere(predicate)` | `void` | Add the rows in view for which `predicate(row, dataIndex)` is true |
 | `setSelection(ids)` | `void` | Replace the selection with these row ids. The same set again does nothing and fires nothing |
-| `getSelectedRows()` | `{ selectedIds, selectedIndices, selectedRows }` | `selectedIds`: every selected row (all pages). `selectedRows` / `selectedIndices`: the selected rows `data` holds, and their positions in it |
+| `getSelectedRows()` | `DataRow[]` | The selected rows `data` holds, in `data` order — the same shape as `u-rich-table`'s. Every selected id (all pages) is `selectedRowIds`; positions come with `selection-change` (`selectedIndices`) |
 | `getRowId(row)` | `string` | The id selection keeps for a row |
 | `selectedRowIds` (getter) | `ReadonlySet<string>` | Ids of the selected rows, all pages (a copy) |
 
@@ -268,7 +268,7 @@ Row selection is kept by **row id**, not by position, so a checkmark stays on it
 table.rowKey = 'orderNo';                       // or: table.rowKey = (row) => `${row.site}/${row.no}`
 ```
 
-A keyed row stays selected when `data` is replaced, so in a server-paged grid the selection spans pages (`selectedIds` names them all; `selectedRows` holds the ones on this page). A row without a key is named by the row object itself (a session-local id `#n`): it follows the row while the same object is in `data` and leaves the selection when it is gone. Set `clear-selection-on-data-change` when every new `data` should start a new selection (a new search):
+A keyed row stays selected when `data` is replaced, so in a server-paged grid the selection spans pages (`selectedRowIds` names them all; `getSelectedRows()` holds the ones on this page). A row without a key is named by the row object itself (a session-local id `#n`): it follows the row while the same object is in `data` and leaves the selection when it is gone. Set `clear-selection-on-data-change` when every new `data` should start a new selection (a new search):
 
 ```html
 <flex-table selectable clear-selection-on-data-change></flex-table>
