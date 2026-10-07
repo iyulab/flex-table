@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **A hidden `flex-table` is hidden.** Its host's `display: block` outranked the browser's `[hidden]` rule, so
+  `hidden` did nothing — a list that switches between a table and a card view (which hides the view it is not
+  showing) drew both.
+
 ## [0.62.0] - 2026-10-08
 
 ### Added

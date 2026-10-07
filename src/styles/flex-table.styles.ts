@@ -110,6 +110,11 @@ export const flexTableStyles = css`
   }
 
   /* --- Layout --- */
+  /* 아래 display 가 [hidden] 의 UA 규칙을 이긴다 — 숨긴 표가 그려지지 않게(목록 골격이 보이지 않는 뷰에 hidden 을 건다). */
+  :host([hidden]) {
+    display: none;
+  }
+
   :host {
     display: block;
     position: relative;
