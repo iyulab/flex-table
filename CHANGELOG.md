@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.59.0] - 2026-10-07
+
+### Changed (breaking)
+
+- **A plain click on a body cell fires `row-activate`** (`via: 'click'`), as Enter on a non-editable cell does
+  (`via: 'keyboard'`) and as `u-rich-table` does. A read-only list had no pointer way to open a row, so it opened rows on
+  `cell-select` — which is focus and also fires when Tab arrives on the grid: one Tab into the table opened the first
+  row. A Shift / Ctrl / Cmd click (extends the selection), the click that ends a drag, and a click on a control the
+  cell renders (a link, a button, a field) do not activate. A listener that only wants Enter checks
+  `e.detail.via === 'keyboard'`.
+- `cell-select` carries the row's `id` — `row` is the visible position, which is not the row in `data` once a client
+  sort or filter is on.
+- Requires `@iyulab/components` 2.15.0 (the shared «pressed a control» test, `isFromControl`).
+
+### Migration
+
+- Open rows on `row-activate`, not `cell-select`.
+- If you listened to `row-activate` for Enter only (a picker that confirms on Enter), add
+  `if (e.detail.via !== 'keyboard') return;`.
+
 ## [0.58.0] - 2026-10-07
 
 ### Added

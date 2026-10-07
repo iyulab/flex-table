@@ -303,7 +303,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 
 | Event | Detail | Description |
 |-------|--------|-------------|
-| `cell-select` | `{ row, col }` or `null` | Cell focus changed (`null` when no cell is active) |
+| `cell-select` | `{ row, col, id }` or `null` | Cell focus changed (`null` when no cell is active). `row`/`col` are visible positions, `id` the row's id. Fires when keyboard focus arrives on the grid too — it is focus, not a choice: open rows on `row-activate` |
 | `cell-edit-start` | `{ row, col, key, value }` | Cell editing started |
 | `cell-edit-commit` | `{ row, col, key, oldValue, newValue }` | Cell value committed |
 | `cell-edit-cancel` | `{ row, col }` | Cell edit cancelled (Escape, or its row left `data`). `row` is the data index (`-1` once the row is gone) |
@@ -315,7 +315,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 |-------|--------|-------------|
 | `row-add` | `{ row, index }` | Row added |
 | `row-delete` | `{ indices, rows }` | Rows deleted |
-| `row-activate` | `{ row, id, index, col, key }` | Enter pressed on a non-editable cell — the grid's own contract for "activate this row" (e.g. navigate to a detail view), guaranteed even though the internal Enter handler prevents the keystroke from reliably reaching a listener the host attaches to the same element |
+| `row-activate` | `{ row, id, via, index, col, key }` | "Open this row" (e.g. navigate to a detail view): a plain click on a body cell (`via: 'click'`), or Enter on a non-editable cell (`via: 'keyboard'`). Not a Shift / Ctrl / Cmd click (those extend the selection), the click that ends a drag, or a click on a control the cell renders (a link, a button). The grid's own contract — its Enter handler keeps the keystroke from reliably reaching a listener the host attaches to the same element |
 | `batch-update` | `{ changes: [{ row, key, oldValue, newValue }] }` | Batch update applied |
 | `row-reorder` | `{ from, to }` | Row dragged to a new place (data indices) |
 | `data-import` | `{ count }` | Rows imported from a file |

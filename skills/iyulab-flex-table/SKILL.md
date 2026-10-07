@@ -76,7 +76,8 @@ Use `updateRows([{ row, key, value }])` for programmatic edits (undoable, fires 
 
 **Editing and read-only.** `editable` defaults to `true`. For a read-only grid set
 `table.editable = false` (a property, since a boolean attribute cannot express `false`) — Enter on a non-editable cell then fires
-`row-activate`, the grid's "open this row" contract.
+`row-activate`, the grid's "open this row" contract; a plain click on a cell fires it too (`via: 'click'`).
+Open a row's detail on `row-activate`, never on `cell-select` — that one is focus and fires when Tab arrives on the grid.
 
 **Row selection is kept by row id.** Enable with `selectable` (`selection-mode="single|multi"`).
 The id is the row's `row-key` field (`_id` by default, as in `u-rich-table`) or a `rowKey` function, so

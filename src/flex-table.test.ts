@@ -807,7 +807,99 @@ describe('FlexTable', () => {
     expect(cells[0].textContent).toContain('Alice');
   });
 
-  // --- row-activate (Enter on a non-editable cell) ---
+  // --- row-activate (a plain click, or Enter on a non-editable cell) ---
+
+  describe('row-activate by pointer', () => {
+    function mountSorted() {
+      const el = createElement();
+      el.editable = false;
+      el.columns = [{ key: 'name', label: 'Name' }];
+      el.data = [{ _id: 'c', name: 'Carol' }, { _id: 'a', name: 'Alice' }, { _id: 'b', name: 'Bob' }];
+      return el;
+    }
+    function listen(el: FlexTable) {
+      const got: Array<{ id: string; via: string; row: unknown; index: number }> = [];
+      el.addEventListener('row-activate', (e) => got.push(e.detail));
+      return got;
+    }
+    const cellOf = (el: FlexTable, visibleRow: number) =>
+      el.shadowRoot!.querySelector<HTMLElement>(`.ft-row[aria-rowindex="${visibleRow + 2}"] .ft-cell`)!;
+
+    it('a plain click on a cell opens that row — the row under the pointer, after a client sort', async () => {
+      const el = mountSorted();
+      await el.updateComplete;
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-sortable')!.click();
+      await el.updateComplete;
+      expect(cellOf(el, 0).textContent!.trim()).toBe('Alice');
+      const got = listen(el);
+      const cell = cellOf(el, 1);
+      const shown = cell.textContent!.trim();
+      cell.click();
+      await el.updateComplete;
+      expect(got).toHaveLength(1);
+      expect(got[0].via).toBe('click');
+      expect((got[0].row as { name: string }).name).toBe(shown);
+      expect(got[0].id).toBe(el.data.find((r) => r.name === shown)!._id);
+    });
+
+    it('editable tables open on a plain click too (dblclick still edits) — `via` lets a listener pick', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'name', label: 'Name' }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+      const got = listen(el);
+      cellOf(el, 0).click();
+      expect(got.map((d) => d.via)).toEqual(['click']);
+      expect(el.editingCell).toBeNull();
+    });
+
+    it('NEGATIVE: Shift-, Ctrl- and Cmd-click extend the selection — not an activation', async () => {
+      const el = mountSorted();
+      await el.updateComplete;
+      const got = listen(el);
+      for (const mod of [{ shiftKey: true }, { ctrlKey: true }, { metaKey: true }]) {
+        cellOf(el, 1).dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, ...mod }));
+      }
+      expect(got).toHaveLength(0);
+    });
+
+    it('NEGATIVE: a button the cell renders owns its click', async () => {
+      const el = createElement();
+      el.editable = false;
+      el.columns = [{ key: 'name', label: 'Name', render: (v) => html`<span>${v}</span> <button class="del">Delete</button>` }];
+      el.data = [{ name: 'Alice' }];
+      await el.updateComplete;
+      const got = listen(el);
+      el.shadowRoot!.querySelector<HTMLElement>('.del')!.click();
+      el.shadowRoot!.querySelector<HTMLElement>('.ft-cell span')!.click();
+      expect(got.map((d) => d.via)).toEqual(['click']);
+    });
+
+    it('NEGATIVE: the click that ends a drag selection is not an activation', async () => {
+      const el = mountSorted();
+      await el.updateComplete;
+      const got = listen(el);
+      const a = cellOf(el, 0);
+      const b = cellOf(el, 1);
+      a.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, composed: true, button: 0 }));
+      b.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+      document.dispatchEvent(new MouseEvent('mouseup'));
+      b.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+      expect(got).toHaveLength(0);
+    });
+
+    it('cell-select carries the row id — the active row is nameable without mapping a visible index', async () => {
+      const el = mountSorted();
+      await el.updateComplete;
+      let detail: { row: number; col: number; id: string } | null = null;
+      el.addEventListener('cell-select', (e) => { detail = e.detail; });
+      const cell = cellOf(el, 2);
+      const shown = cell.textContent!.trim();
+      cell.click();
+      expect(detail!.id).toBe(el.data.find((r) => r.name === shown)!._id);
+    });
+  });
+
 
   it('should fire row-activate on Enter when editable=false, instead of entering edit mode', async () => {
     const el = createElement();
@@ -827,7 +919,7 @@ describe('FlexTable', () => {
     await el.updateComplete;
 
     expect(el.editingCell).toBeNull();
-    expect(detail).toEqual({ row: { name: 'Alice' }, id: expect.stringMatching(/^#\d+$/), index: 0, col: 0, key: 'name' });
+    expect(detail).toEqual({ row: { name: 'Alice' }, id: expect.stringMatching(/^#\d+$/), via: 'keyboard', index: 0, col: 0, key: 'name' });
   });
 
   it('should fire row-activate on Enter for a per-column non-editable cell', async () => {
@@ -849,7 +941,7 @@ describe('FlexTable', () => {
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await el.updateComplete;
 
-    expect(detail).toEqual({ row: { name: 'Alice', age: 30 }, id: expect.stringMatching(/^#\d+$/), index: 0, col: 0, key: 'name' });
+    expect(detail).toEqual({ row: { name: 'Alice', age: 30 }, id: expect.stringMatching(/^#\d+$/), via: 'keyboard', index: 0, col: 0, key: 'name' });
   });
 
   it('should NOT fire row-activate on Enter for an editable cell (starts editing instead)', async () => {
@@ -859,7 +951,7 @@ describe('FlexTable', () => {
     await el.updateComplete;
 
     let fired = false;
-    el.addEventListener('row-activate', () => { fired = true; });
+    el.addEventListener('row-activate', ((e: CustomEvent) => { if (e.detail.via === 'keyboard') fired = true; }) as EventListener);
 
     const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
     cell.click();
@@ -880,7 +972,7 @@ describe('FlexTable', () => {
     await el.updateComplete;
 
     let fired = false;
-    el.addEventListener('row-activate', () => { fired = true; });
+    el.addEventListener('row-activate', ((e: CustomEvent) => { if (e.detail.via === 'keyboard') fired = true; }) as EventListener);
 
     const cell = el.shadowRoot!.querySelector('.ft-cell') as HTMLElement;
     cell.click();

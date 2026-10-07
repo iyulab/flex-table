@@ -41,13 +41,20 @@ export interface FlexTableEventMap {
   'row-delete': CustomEvent<{ indices: number[]; rows: DataRow[] }>;
   /** A row was dragged to a new place. Both are data indices. */
   'row-reorder': CustomEvent<{ from: number; to: number }>;
-  /** Enter on a non-editable cell — "activate this row". `index` is the data index, `col` the visible column index. */
-  /** `id` — the row's id (`getRowId`); `index` — its position in `data`; `key` — the active column's key. */
-  'row-activate': CustomEvent<{ row: DataRow; id: string; index: number; col: number; key: string | undefined }>;
+  /**
+   * "Open this row": a plain click on a body cell, or Enter on a non-editable cell. `via` tells them apart.
+   * Not a click that selects a range (Shift / Ctrl / Cmd), ends a drag, or presses a control the cell renders.
+   * `id` — the row's id (`getRowId`); `index` — its position in `data`; `col` — the visible column index;
+   * `key` — that column's key.
+   */
+  'row-activate': CustomEvent<{ row: DataRow; id: string; via: 'click' | 'keyboard'; index: number; col: number; key: string | undefined }>;
   /** `batchUpdate()` applied its changes. */
   'batch-update': CustomEvent<{ changes: CellChange[] }>;
-  /** The active cell moved; `null` when there is none. */
-  'cell-select': CustomEvent<CellPosition | null>;
+  /**
+   * The active cell moved — by pointer, keyboard, or focus arriving on the grid; `null` when there is none.
+   * `row`/`col` are visible positions, `id` the row's id. This is focus, not a choice: open a row on `row-activate`.
+   */
+  'cell-select': CustomEvent<(CellPosition & { id: string }) | null>;
   /** `row` is the data index, `col` the visible column index. */
   'cell-edit-start': CustomEvent<{ row: number; col: number; key: string; value: unknown }>;
   'cell-edit-commit': CustomEvent<{ row: number; col: number; key: string; oldValue: unknown; newValue: unknown }>;

@@ -143,14 +143,14 @@ cast, and the React `on*` props carry the same types.
 
 | Event | `detail` |
 |---|---|
-| `cell-select` | `{ row, col }` (or `null`) |
+| `cell-select` | `{ row, col, id }` (or `null`) — focus moved (also when the keyboard arrives); `row`/`col` visible positions |
 | `cell-edit-start` | `{ row, col, key, value }` |
 | `cell-edit-commit` | `{ row, col, key, oldValue, newValue }` |
 | `cell-edit-cancel` | `{ row, col }` — `row`: data index (`-1` once the row left `data`) |
 | `validation-error` | `{ row, col, key, value, error }` |
 | `row-add` | `{ row, index }` |
 | `row-delete` | `{ indices, rows }` |
-| `row-activate` | `{ row, id, index, col, key }` — Enter on a non-editable cell |
+| `row-activate` | `{ row, id, via, index, col, key }` — a plain click on a cell (`via: 'click'`) or Enter on a non-editable cell (`'keyboard'`); not a Shift/Ctrl/Cmd click, a drag, or a control in the cell |
 | `row-reorder` | `{ from, to }` |
 | `batch-update` | `{ changes }` |
 | `column-add` | `{ column, index }` |

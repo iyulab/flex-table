@@ -28,6 +28,7 @@ import type { FlexTableEventMap } from './events.js';
 import type { TemplateResult } from 'lit';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
+import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
 
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
 type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
@@ -1701,6 +1702,7 @@ export class FlexTable extends LitElement {
     if (this._editing.current) {
       this._commitEdit();
     }
+    const extendsSelection = e.shiftKey || e.ctrlKey || e.metaKey;
     if (e.shiftKey) {
       this._selection.setActiveWithRange(rowIndex, colIndex);
     } else if (e.ctrlKey || e.metaKey) {
@@ -1711,6 +1713,11 @@ export class FlexTable extends LitElement {
     this._activeCell = this._selection.activeCell ? { ...this._selection.activeCell } : null;
     this._dispatchSelectionEvent();
     this.requestUpdate();
+    // A plain click opens the row — the pointer half of `row-activate` (Enter is the keyboard half).
+    // A click that extends a selection, or presses a control the cell renders, is that act's, not this one.
+    if (!extendsSelection && !isFromControl(e, e.currentTarget as EventTarget)) {
+      this._fireRowActivate(this.visibleColumns[colIndex], 'click');
+    }
   }
 
   private _onCellMouseDown(e: MouseEvent, rowIndex: number, colIndex: number): void {
@@ -1794,12 +1801,12 @@ export class FlexTable extends LitElement {
    * 호스트가 같은 엘리먼트에 직접 붙인 리스너는 등록 순서에 의존하게 되어 안전한
    * 공개 계약이 못 된다 — 이 이벤트가 유일한 보장된 훅이다.
    */
-  private _fireRowActivate(col: ColumnDefinition | undefined): void {
+  private _fireRowActivate(col: ColumnDefinition | undefined, via: 'click' | 'keyboard'): void {
     if (!this._activeCell) return;
     const dataIndex = this._toDataIndex(this._activeCell.row);
     const row = this.data[dataIndex];
     if (!row) return;
-    this._emit('row-activate', { row, id: this.getRowId(row), index: dataIndex, col: this._activeCell.col, key: col?.key });
+    this._emit('row-activate', { row, id: this.getRowId(row), via, index: dataIndex, col: this._activeCell.col, key: col?.key });
   }
 
   private _startEdit(): void {
@@ -2101,7 +2108,7 @@ export class FlexTable extends LitElement {
       if (col && this._isCellEditable(col)) {
         this._startEdit();
       } else if (e.key === 'Enter') {
-        this._fireRowActivate(col);
+        this._fireRowActivate(col, 'keyboard');
       }
       return;
     }
@@ -2745,7 +2752,9 @@ export class FlexTable extends LitElement {
   }
 
   private _dispatchSelectionEvent(): void {
-    this._emit('cell-select', this._activeCell ? { ...this._activeCell } : null);
+    const ac = this._activeCell;
+    const row = ac ? this.data[this._toDataIndex(ac.row)] : undefined;
+    this._emit('cell-select', ac ? { ...ac, id: row ? this.getRowId(row) : '' } : null);
   }
 
   // --- Sorting ---
