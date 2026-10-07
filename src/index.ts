@@ -1,4 +1,5 @@
 export { FlexTable } from './flex-table.js';
+export type { TableExportOptions } from './flex-table.js';
 export type { ColumnDefinition, ColumnType, ColumnAlign, DataRow, CellRenderer, CellEditor, CellValidator, SelectionMode, DataMode, CellStyle, ConditionalRule } from './models/types.js';
 export { effectiveAlign } from './models/types.js';
 export type { CellPosition, CellRange } from './core/selection.js';
@@ -9,7 +10,7 @@ export { RowSelectionState } from './core/row-selection.js';
 export { UndoStack } from './core/undo.js';
 export type { UndoAction } from './core/undo.js';
 export type { ExportFormat } from './export/export.js';
-export { exportData } from './export/export.js';
+export { exportData, exportDataBlob, downloadBlob } from './export/export.js';
 export { renderCell } from './renderers/cell-renderer.js';
 export { flexTableLocale } from './locale.js';
 export type { FlexTableMessageKey } from './locale.js';

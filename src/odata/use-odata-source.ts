@@ -37,5 +37,6 @@ export function useODataSource<T = Record<string, unknown>>(
     onSortChange,
     setSearch: source.setSearch,
     refresh: source.refresh,
+    fetchAll: source.fetchAll,
   };
 }

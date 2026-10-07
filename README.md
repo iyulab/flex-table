@@ -288,9 +288,29 @@ Default is `false`, matching `clear-undo-on-data-change`.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `exportToString(format, options?)` | `string \| Uint8Array` | Export to `'csv'` / `'tsv'` / `'json'` (a string) or `'xlsx'` (bytes, uncompressed). Pass `{ selectionOnly: true }` for selection range |
+| `exportToString(format, options?)` | `string \| Uint8Array` | Export to `'csv'` / `'tsv'` / `'json'` (a string) or `'xlsx'` (bytes, uncompressed). Pass `{ selectionOnly: true }` for selection range, or `{ rows }` to export rows the table does not hold (see below) |
 | `exportToBlob(format, options?)` | `Promise<Blob>` | The same export as a `Blob` of the format's MIME type — `'xlsx'` is DEFLATE-compressed |
-| `exportToFile(format, filename?)` | `Promise<void>` | Export and trigger browser file download (`'xlsx'` compressed) |
+| `exportToFile(format, filename?, options?)` | `Promise<void>` | Export and trigger browser file download (`'xlsx'` compressed) |
+
+The table exports the rows it holds — the filtered rows in sort order, or the selection. **A server-paged table
+(`data-mode="server"`) holds one page**, so its export is one page. To export what the list shows — the whole result
+of the current sort, search and filter — read it from the source and hand it to the table, which keeps its own
+columns and formats:
+
+```ts
+import { RowLimitError } from '@iyulab/flex-table/odata';
+
+try {
+  const rows = await orders.fetchAll({ maxRows: 50_000 });   // follows @odata.nextLink to the end
+  await table.exportToFile('xlsx', 'orders.xlsx', { rows });
+} catch (e) {
+  if (e instanceof RowLimitError) showMessage(e.failure.message); // more rows than maxRows — nothing is cut silently
+  else throw e;
+}
+```
+
+Without a table, `exportDataBlob(rows, columns, format)` and `downloadBlob(blob, filename)` (root entry) do the same
+— `exportData` stays synchronous and writes XLSX uncompressed.
 
 ## Events
 
@@ -834,6 +854,7 @@ The hook returns:
 | `sortCriteria` / `onSortChange` | Bind `onSortChange` to the table's `sort-change` event |
 | `search` / `setSearch` | Current search term and its setter (resets to page 0) |
 | `refresh` | Re-run the current request |
+| `fetchAll` | The whole result of the current conditions — the source's `fetchAll` (below), for exporting what the list shows |
 
 #### Search semantics
 
@@ -888,6 +909,7 @@ off();                                                          // the last unsu
 | `setSort(criteria)` / `setSearch(term)` | Change the sort or search and go back to page 0 |
 | `refresh()` | Re-read with the same conditions (nothing while `enabled: false`) |
 | `update(url, options)` | New options. Only a changed request re-reads; a changed `fixedFilter` value goes back to page 0; a changed `pageSize` value takes effect (page 0), the same value again keeps the size `setPageSize` set; `initial*` are read at creation only |
+| `fetchAll(options?)` | `Promise<T[]>` — **the whole result of the current sort, search and fixed filter**: no `$top`/`$skip`, following `@odata.nextLink` to the end. For an export of what the list shows. Leaves the state alone and needs no subscriber. Options: `maxRows` (default `100000` — past it, it rejects with `RowLimitError` instead of cutting; when the server counts, on the first response), `signal`, `onProgress(loaded, total)`. A failed request rejects with `SourceRequestError` (`failure` is the `SourceError`) |
 
 Changes made in the same tick become one request with the final conditions, so `setSearch` followed by `setPage` does not send the intermediate one.
 
@@ -954,8 +976,8 @@ count after search (not a server-reported total), and `loading`/`error` are alwa
 "refresh" button wired unconditionally against either hook doesn't need a branch.
 
 Without React, `createArraySource(rows, options)` (`@iyulab/flex-table/array`) is the same source with the same
-members as `createODataSource` — `getState()`, `subscribe()`, `setPage`, `setPageSize`, `setSort`, `setSearch`, `refresh` (no-op) —
-plus `update(rows, options)` when the rows change. `ArraySourceController` binds it to a Lit element (from rows, or an existing source):
+members as `createODataSource` — `getState()`, `subscribe()`, `setPage`, `setPageSize`, `setSort`, `setSearch`, `refresh` (no-op),
+`fetchAll` (the whole searched and sorted result, same options and `RowLimitError`) — plus `update(rows, options)` when the rows change. `ArraySourceController` binds it to a Lit element (from rows, or an existing source):
 
 ```ts
 import { LitElement } from 'lit';

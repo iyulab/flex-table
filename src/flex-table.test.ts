@@ -442,6 +442,22 @@ describe('FlexTable', () => {
     expect(csv).not.toContain('Bob');
   });
 
+  it('🔴exports rows it is given with its visible columns — a server page table exporting the whole result', async () => {
+    const el = createElement();
+    el.columns = [
+      { key: 'name', label: 'Name' },
+      { key: 'age', label: 'Age', type: 'number' },
+      { key: 'secret', label: 'Secret', hidden: true },
+    ];
+    el.data = [{ name: 'Alice', age: 30, secret: 'x' }];
+    await el.updateComplete;
+
+    const csv = el.exportToString('csv', { rows: [{ name: 'Alice', age: 30, secret: 'x' }, { name: 'Bob', age: 25, secret: 'y' }] }) as string;
+    expect(csv.split('\n')).toEqual(['Name,Age', 'Alice,30', 'Bob,25']);
+    const blob = await el.exportToBlob('csv', { rows: [{ name: 'Carol', age: 41 }] });
+    expect(await blob.text()).toBe('Name,Age\nCarol,41');
+  });
+
   it('should export to JSON', async () => {
     const el = createElement();
     el.columns = [{ key: 'name', label: 'Name' }];

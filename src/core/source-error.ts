@@ -71,13 +71,31 @@ function readDetails(raw: unknown): SourceErrorDetail[] | undefined {
   return details.length > 0 ? details : undefined;
 }
 
-/** 실패 응답을 실어 나르는 내부 예외 — `catch` 가 상태를 잃지 않고 `SourceError` 를 꺼낸다. */
+/**
+ * 소스 요청의 실패 — `failure` 가 `SourceError`(상태 · 거절 코드 · 상세)다. `fetchAll` 은 이것으로 거절한다(상한을 넘으면
+ * 하위 `RowLimitError`). 화면에는 `failure.message`. 상태로 드러나는 실패(`error`)는 이 `failure` 그대로다.
+ */
 export class SourceRequestError extends Error {
   readonly failure: SourceError;
   constructor(failure: SourceError) {
     super(failure.message);
     this.name = 'SourceRequestError';
     this.failure = failure;
+  }
+}
+
+/**
+ * 조회 결과가 «전부 읽기» 의 상한(`maxRows`)을 넘었다 — 잘라서 주지 않고 거절한 것이다. 화면에는 `failure.message` 를
+ * 그린다(로케일 `tooManyRows`). `total` 은 서버가 센 행 수(`@odata.count`)이고, 서버가 세지 않았으면 없다.
+ */
+export class RowLimitError extends SourceRequestError {
+  readonly total: number | undefined;
+  readonly maxRows: number;
+  constructor(maxRows: number, total?: number) {
+    super({ message: t('tooManyRows', { maxRows }) });
+    this.name = 'RowLimitError';
+    this.total = total;
+    this.maxRows = maxRows;
   }
 }
 

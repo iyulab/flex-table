@@ -3,6 +3,8 @@
 import { computeSortedIndices } from '../core/sorting.js';
 import type { SortCriteria } from '../core/sorting.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
+import { DEFAULT_MAX_ROWS, type FetchAllOptions } from '../core/fetch-all.js';
+import { RowLimitError } from '../core/source-error.js';
 
 export interface ComputeArrayViewOptions<T> {
   search: string;
@@ -60,4 +62,21 @@ export function computeArrayView<T extends DataRow>(
   const safePage = Math.min(Math.max(page, 0), lastPage);
   const start = safePage * pageSize;
   return { data: sorted.slice(start, start + pageSize), totalCount };
+}
+
+/**
+ * 페이지 없이 — 검색·정렬만 적용한 결과 전체. 메모리 소스의 `fetchAll`(소스·훅 둘 다)이 이것을 부른다. OData 소스와
+ * 같은 계약이다: 상한을 넘으면 `RowLimitError`, 거둔 신호면 `AbortError`, 진행 콜백은 한 번(전부 한 «페이지»).
+ */
+export async function readAllArrayRows<T extends DataRow>(
+  data: T[],
+  view: Omit<ComputeArrayViewOptions<T>, 'page' | 'pageSize'>,
+  { maxRows = DEFAULT_MAX_ROWS, signal, onProgress }: FetchAllOptions = {},
+): Promise<T[]> {
+  signal?.throwIfAborted();
+  // pageSize 는 행 수 이상이면 된다 — 한 장에 전부(0행이어도 1 — 0 으로 나누지 않게).
+  const { data: rows, totalCount } = computeArrayView(data, { ...view, page: 0, pageSize: Math.max(data.length, 1) });
+  if (totalCount > maxRows) throw new RowLimitError(maxRows, totalCount);
+  onProgress?.(rows.length, totalCount);
+  return rows;
 }

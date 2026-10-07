@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.60.0] - 2026-10-07
+
+### Added
+
+- **`fetchAll(options?)` on both data sources and both hooks** — the whole result of the current sort, search and
+  fixed filter, for exporting what a list shows. A server-paged table holds one page, so its export was one page: a
+  1,240-row register came out as 20 rows with nothing saying so. The OData source asks without `$top`/`$skip` and
+  follows `@odata.nextLink` to the end (the same origin and repeat checks as a page read). `maxRows` (default
+  `100000`, `DEFAULT_MAX_ROWS`) rejects with `RowLimitError` instead of cutting — on the first response when the server
+  counts (`@odata.count`). `signal` and `onProgress(loaded, total)` too. It leaves the source state alone and needs no
+  subscriber. The array source returns the searched and sorted rows under the same contract.
+- **The table exports rows it is given**: `exportToString` / `exportToBlob` / `exportToFile` take `{ rows }` — those
+  rows with the table's visible columns and formats (`exportToFile` gained an `options` argument). With the above:
+  `table.exportToFile('xlsx', 'x.xlsx', { rows: await source.fetchAll() })`.
+- `exportDataBlob` (compressed XLSX) and `downloadBlob` are exported from the root entry, for an export without a table.
+- `SourceRequestError` (its `failure` is the `SourceError`) and `RowLimitError` are exported from `./odata` and
+  `./react` (`RowLimitError` also from `./array`), and `SourceError` / `SourceErrorDetail` types from `./odata`.
+- `buildODataQuery` builds the whole-result query when `pageSize` is left out (`page` and `pageSize` are optional).
+
 ## [0.59.0] - 2026-10-07
 
 ### Changed (breaking)

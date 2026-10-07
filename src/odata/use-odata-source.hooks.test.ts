@@ -636,3 +636,39 @@ describe('useODataSource — 구조화된 실패', () => {
     expect(view.current.error).toBeNull();
   });
 });
+
+describe('useODataSource — fetchAll', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('the hook hands out the source fetchAll — the whole result under the current search', async () => {
+    const urls: string[] = [];
+    const fetcher = (input: string) => {
+      urls.push(input);
+      const all = !new URL(input).searchParams.has('$top');
+      const body = all ? { value: [{ id: 1 }, { id: 2 }, { id: 3 }], '@odata.count': 3 } : { value: [{ id: 1 }], '@odata.count': 3 };
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body), text: () => Promise.resolve('') } as unknown as Response);
+    };
+    let latest: ReturnType<typeof useODataSource> | undefined;
+    const Probe = () => {
+      latest = useODataSource('/api/x', { fetcher, pageSize: 1, baseUrl: 'http://localhost' });
+      return null;
+    };
+    await act(async () => { root.render(createElement(Probe)); });
+    await act(async () => latest!.setSearch('kim'));
+    const all = await latest!.fetchAll();
+    expect(all).toHaveLength(3);
+    const last = new URL(urls.at(-1)!).searchParams;
+    expect(last.get('$search')).toBe('"kim"');
+    expect(last.has('$top')).toBe(false);
+  });
+});

@@ -5,7 +5,8 @@ import type { DataRow } from '../models/types.js';
 import type { ODataSourceState } from '../odata/source.js';
 import { resolveInitialState } from '../odata/query.js';
 import type { UseArraySourceOptions } from './types.js';
-import { computeArrayView } from './view.js';
+import { computeArrayView, readAllArrayRows } from './view.js';
+import type { FetchAllOptions } from '../core/fetch-all.js';
 
 /** 메모리 소스의 설정 — `useArraySource` 의 옵션과 같다(`initial*` 은 만들 때만 읽는다). */
 export type ArraySourceOptions<T> = UseArraySourceOptions<T>;
@@ -28,6 +29,8 @@ export interface ArraySource<T> {
   refresh(): void;
   /** 행이나 설정이 바뀌었다 — 다시 계산한다. 결과가 줄어 지금 페이지가 없어지면 마지막 페이지로 내려온다. */
   update(data: T[], options?: ArraySourceOptions<T>): void;
+  /** 지금 검색·정렬의 결과 전체(페이지 없이) — `createODataSource` 의 `fetchAll` 과 같은 계약(상한 · 취소 · 진행). */
+  fetchAll(options?: FetchAllOptions): Promise<T[]>;
 }
 
 /**
@@ -74,6 +77,9 @@ export function createArraySource<T extends DataRow = DataRow>(data: T[], option
     setSort(criteria) { sortCriteria = criteria; page = 0; recompute(); },
     setSearch(term) { search = term; page = 0; recompute(); },
     refresh() {},
+    fetchAll(options) {
+      return readAllArrayRows(rows, { search, sortCriteria, columns: opts.columns, searchFields: opts.searchFields }, options);
+    },
     update(nextData, nextOptions = {}) {
       // `pageSize` 옵션 «값이 바뀐» update 만 크기를 바꾼다(첫 장으로) — `createODataSource` 와 같은 규칙.
       if (nextOptions.pageSize !== undefined && nextOptions.pageSize !== opts.pageSize && nextOptions.pageSize !== pageSize) {

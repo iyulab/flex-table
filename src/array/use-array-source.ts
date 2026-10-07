@@ -3,7 +3,8 @@ import type { SortCriteria } from '../core/sorting.js';
 import type { DataRow } from '../models/types.js';
 import type { UseArraySourceOptions, UseArraySourceResult } from './types.js';
 import { resolveInitialState } from '../odata/query.js';
-import { computeArrayView } from './view.js';
+import { computeArrayView, readAllArrayRows } from './view.js';
+import type { FetchAllOptions } from '../core/fetch-all.js';
 
 /**
  * 클라이언트 배열(이미 메모리에 있는 데이터, 흔히 여러 출처를 조인해 만든 파생
@@ -72,6 +73,11 @@ export function useArraySource<T extends DataRow = DataRow>(
 
   const refresh = useCallback(() => { /* no-op — 이 훅에는 다시 불러올 원격 상태가 없다 */ }, []);
 
+  const fetchAll = useCallback(
+    (fetchOptions?: FetchAllOptions) => readAllArrayRows(data, { search, sortCriteria, columns, searchFields }, fetchOptions),
+    [data, search, sortCriteria, columns, searchFields],
+  );
+
   const { data: pageData, totalCount } = useMemo(
     () => computeArrayView(data, { search, sortCriteria, page, pageSize, columns, searchFields }),
     [data, search, sortCriteria, page, pageSize, columns, searchFields]
@@ -109,5 +115,6 @@ export function useArraySource<T extends DataRow = DataRow>(
     search,
     setSearch,
     refresh,
+    fetchAll,
   };
 }

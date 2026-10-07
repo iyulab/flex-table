@@ -42,6 +42,14 @@ const NUM_OP_LABELS: Record<NumericOp, string> = {
   eq: '=', neq: '≠', gt: '>', lt: '<', gte: '≥', lte: '≤',
 };
 
+/**
+ * 표 내보내기의 대상 — 선택 범위(`selectionOnly`) 또는 바깥에서 준 행(`rows`, 예: `await source.fetchAll()`). 둘은
+ * 함께 쓰지 않는다(바깥 행에는 표의 선택 범위가 없다).
+ */
+export type TableExportOptions =
+  | { selectionOnly?: boolean; rows?: undefined }
+  | { rows: DataRow[]; selectionOnly?: undefined };
+
 const DEFAULT_COL_WIDTH = 120;
 const MIN_COL_WIDTH = 40;
 /** One keyboard (Alt+Arrow) or column-menu (Wider / Narrower) resize step, in px. */
@@ -989,10 +997,12 @@ export class FlexTable extends LitElement {
    * Export table data to string in the specified format. Synchronous — XLSX comes back as an
    * uncompressed workbook; use `exportToBlob` for a compressed one.
    * @param options.selectionOnly - Export only the currently selected range
+   * @param options.rows - Export these rows with the table's visible columns instead of the rows it holds —
+   *   a server-paged table holds one page, so pass `await source.fetchAll()` for the whole result
    */
   exportToString(
     format: ExportFormat,
-    options?: { selectionOnly?: boolean }
+    options?: TableExportOptions
   ): string | Uint8Array<ArrayBuffer> {
     const slice = this._exportSlice(options);
     return slice ? exportData(slice.rows, slice.cols, format) : '';
@@ -1000,9 +1010,9 @@ export class FlexTable extends LitElement {
 
   /**
    * Export table data as a `Blob` of the format's MIME type. XLSX is DEFLATE-compressed.
-   * @param options.selectionOnly - Export only the currently selected range
+   * @param options - `selectionOnly` or `rows`, as for `exportToString`
    */
-  async exportToBlob(format: ExportFormat, options?: { selectionOnly?: boolean }): Promise<Blob> {
+  async exportToBlob(format: ExportFormat, options?: TableExportOptions): Promise<Blob> {
     const slice = this._exportSlice(options) ?? { rows: [], cols: [] };
     return exportDataBlob(slice.rows, slice.cols, format);
   }
@@ -1010,14 +1020,19 @@ export class FlexTable extends LitElement {
   /**
    * Export table data and trigger file download. XLSX is DEFLATE-compressed; the promise settles
    * once the download has been handed to the browser.
+   * @param options - `selectionOnly` or `rows`, as for `exportToString`
    */
-  async exportToFile(format: ExportFormat, filename?: string): Promise<void> {
-    const blob = await this.exportToBlob(format);
+  async exportToFile(format: ExportFormat, filename?: string, options?: TableExportOptions): Promise<void> {
+    const blob = await this.exportToBlob(format, options);
     downloadBlob(blob, filename ?? `export${getExportExtension(format)}`);
   }
 
-  /** 내보낼 행·열 — 선택만이면 선택 범위(없으면 `null`), 아니면 정렬 순서의 전체 행 · 보이는 열. */
-  private _exportSlice(options?: { selectionOnly?: boolean }): { rows: DataRow[]; cols: ColumnDefinition[] } | null {
+  /**
+   * 내보낼 행·열 — 행을 받았으면 그 행 · 보이는 열(서버 페이지 표가 «조회 결과 전체» 를 내보내는 길 — 열과 형식은 표,
+   * 질의는 소스가 안다), 선택만이면 선택 범위(없으면 `null`), 아니면 정렬 순서의 전체 행 · 보이는 열.
+   */
+  private _exportSlice(options?: TableExportOptions): { rows: DataRow[]; cols: ColumnDefinition[] } | null {
+    if (options && 'rows' in options && options.rows) return { rows: options.rows, cols: this.visibleColumns };
     if (options?.selectionOnly) {
       const range = this._selection.getEffectiveRange();
       if (!range) return null;

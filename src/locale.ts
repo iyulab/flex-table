@@ -115,7 +115,9 @@ export type FlexTableMessageKey =
   | 'notInList'
   // 데이터 소스 실패 — 서버가 메시지를 주지 않았을 때 이 패키지가 채우는 문장
   | 'requestFailed'
-  | 'networkFailed';
+  | 'networkFailed'
+  // «전부 읽기»(`fetchAll`)가 상한을 넘어 거절했을 때
+  | 'tooManyRows';
 
 /** 이 패키지의 chrome 문자열 묶음. 소비자가 `register()` 로 언어를 더하거나 문구를 덮을 수 있다. */
 export const flexTableLocale = Locale.namespace<FlexTableMessageKey>('flex-table');
@@ -203,6 +205,7 @@ flexTableLocale.register('en', {
 
   requestFailed: 'Request failed ({status})',
   networkFailed: 'Could not reach the server.',
+  tooManyRows: 'More than {maxRows} rows match — narrow the search or filter first.',
 });
 
 flexTableLocale.register('ko', {
@@ -287,6 +290,7 @@ flexTableLocale.register('ko', {
 
   requestFailed: '요청이 실패했습니다 ({status})',
   networkFailed: '서버에 연결하지 못했습니다.',
+  tooManyRows: '조건에 맞는 행이 {maxRows}개를 넘습니다 — 검색이나 필터로 먼저 좁혀 주세요.',
 });
 
 /** 짧은 조회 별칭 — 렌더 코드가 읽히게 유지한다. */

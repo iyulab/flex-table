@@ -1,5 +1,6 @@
 import type { SortCriteria } from '../core/sorting.js';
 import type { SourceError } from '../core/source-error.js';
+import type { FetchAllOptions } from '../core/fetch-all.js';
 
 export interface UseArraySourceOptions<T> {
   /** 페이지당 행 수. `useODataSource`와 동일 기본값. */
@@ -53,4 +54,6 @@ export interface UseArraySourceResult<T> {
   /** no-op — 로컬 배열에는 다시 불러올 원격 상태가 없다. 소비자가 `useODataSource`와
    *  같은 자리에 무조건 배선한 refresh 버튼이 있어도 안전하게 아무 일도 하지 않는다. */
   refresh: () => void;
+  /** 지금 검색·정렬의 결과 전체(페이지 없이) — `useODataSource` 의 `fetchAll` 과 같은 계약. 내보내기에 쓴다. */
+  fetchAll: (options?: FetchAllOptions) => Promise<T[]>;
 }

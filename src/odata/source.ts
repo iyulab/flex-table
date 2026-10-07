@@ -1,7 +1,8 @@
 // src/odata/source.ts
 import type { SortCriteria } from '../core/sorting.js';
 import { buildODataQuery, resolveInitialState } from './query.js';
-import { networkFailure, readFailedResponse, SourceRequestError, toSourceError, type SourceError } from '../core/source-error.js';
+import { networkFailure, readFailedResponse, RowLimitError, SourceRequestError, toSourceError, type SourceError } from '../core/source-error.js';
+import { DEFAULT_MAX_ROWS, type FetchAllOptions } from '../core/fetch-all.js';
 
 /** OData 소스의 설정 — `useODataSource` 의 옵션과 같다(`initial*` 은 만들 때만 읽는다). */
 export interface ODataSourceOptions {
@@ -83,6 +84,14 @@ export interface ODataSource<T> {
   refresh(): void;
   /** 설정을 바꾼다 — 요청 조건이 바뀌면 다시 읽고(`fixedFilter` 값이 바뀌면 첫 장으로), `fetcher`·`onUnauthorized` 는 다음 요청부터. */
   update(url: string, options?: ODataSourceOptions): void;
+  /**
+   * **지금 조건(정렬 · 검색 · 고정 필터)의 결과 전체**를 읽는다 — 페이지 없이, 서버가 응답을 나누면(`@odata.nextLink`)
+   * 끝까지 따라가서. 내보내기처럼 «이 목록이 보여 주는 조회 결과 전부» 가 필요할 때 쓴다. 상태(`data`·`page` …)는
+   * 건드리지 않고 구독도 요구하지 않는다(`enabled: false` 여도 읽는다 — 부르는 것이 곧 요청이다).
+   *
+   * 실패는 `SourceRequestError`(`failure` 가 `SourceError`)로, 상한을 넘으면 그 하위 `RowLimitError` 로 거절한다.
+   */
+  fetchAll(options?: FetchAllOptions): Promise<T[]>;
 }
 
 /** OData v4 서버 사이드 데이터 소스를 만든다. flex-table 의 `dataMode="server"` 와 함께 쓴다. */
@@ -171,55 +180,8 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
     const queryString = buildODataQuery({ page, pageSize: size, sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter });
     const fullUrl = `${opts.baseUrl ?? window.location.origin}${currentUrl}${queryString}`;
 
-    /*
-     * 한 요청 = 한 응답이 아니다 — 서버 주도 페이징(`@odata.nextLink`)이면 서버가 우리가 요청한 `$top` 보다 적게 주고
-     * 이어 읽을 URL 을 붙인다. 그 링크를 버리면 `pageSize` 가 서버 페이지 크기보다 큰 표가 **조용히 모자란 행**을
-     * 보인다(`totalCount` 는 맞아서 페이저도 멀쩡해 보인다). 그래서 한 표 페이지를 채울 때까지 링크를 따라간다.
-     *
-     * 🔴오리진 밖 링크·이미 읽은 링크는 따라가지 않고 **오류로** 드러낸다 — 요청에는 세션이 실리고, 조용히 멈추면 잘린
-     * 페이지가 온전한 페이지처럼 보인다.
-     */
-    const fetchPage = async (pageUrl: string) => {
-      let res: Response;
-      try {
-        res = await fetcher(pageUrl, { signal: ctrl.signal });
-      } catch (err) {
-        // 거둔 요청은 실패가 아니다 — 아래 catch 가 조용히 넘긴다.
-        if ((err as Error)?.name === 'AbortError') throw err;
-        throw networkFailure(err);
-      }
-      if (!res.ok) {
-        // 401 만 — 403 은 세션이 살아 있는 거절이라 «재인증» 훅의 사건이 아니다. 이어지는 에러 상태가 알린다.
-        if (res.status === 401 && onUnauthorized) onUnauthorized(res);
-        // 상태·거절 코드·상세를 문자열로 납작하게 만들지 않는다 — 소비자가 «어떤 실패인가» 로 가른다.
-        throw new SourceRequestError(await readFailedResponse(res));
-      }
-      return res.json();
-    };
-
-    const read = async () => {
-      const first = await fetchPage(fullUrl);
-      const rows: T[] = [...(first.value ?? first)];
-      const origin = new URL(fullUrl).origin;
-      const seen = new Set([fullUrl]);
-      let current = fullUrl;
-      let next: unknown = first['@odata.nextLink'];
-      while (typeof next === 'string' && next && rows.length < size) {
-        const resolved = new URL(next, current);
-        if (resolved.origin !== origin) {
-          throw new Error(`OData nextLink points outside the source origin (${resolved.origin})`);
-        }
-        current = resolved.toString();
-        if (seen.has(current)) throw new Error(`OData nextLink repeats an already-read page (${current})`);
-        seen.add(current);
-        const more = await fetchPage(current);
-        rows.push(...(more.value ?? []));
-        next = more['@odata.nextLink'];
-      }
-      return { count: first['@odata.count'], rows };
-    };
-
-    read()
+    // 서버 주도 페이징이면 한 표 페이지를 채울 때까지 링크를 따라간다(`readPages`).
+    readPages<T>(fullUrl, { fetcher, signal: ctrl.signal, onUnauthorized }, (rows) => rows.length < size)
       .then(({ count: rawCount, rows }) => {
         if (ctrl.signal.aborted) return;
         const count = rawCount ?? 0;
@@ -284,6 +246,23 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
       lastRequest = null;
       schedule();
     },
+    async fetchAll({ maxRows = DEFAULT_MAX_ROWS, signal, onProgress } = {}) {
+      const { sortCriteria, search } = inner;
+      const queryString = buildODataQuery({ sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter });
+      const fullUrl = `${opts.baseUrl ?? window.location.origin}${currentUrl}${queryString}`;
+      const { rows } = await readPages<T>(
+        fullUrl,
+        { fetcher: opts.fetcher ?? fetch, signal, onUnauthorized: opts.onUnauthorized },
+        (got, count) => {
+          // 서버가 센 개수가 상한을 넘으면 첫 응답에서 거절한다 — 더 읽지 않는다. 세지 않았으면 받은 만큼으로 잰다.
+          if (count !== undefined && count > maxRows) throw new RowLimitError(maxRows, count);
+          if (got.length > maxRows) throw new RowLimitError(maxRows, count);
+          onProgress?.(got.length, count);
+          return true;
+        },
+      );
+      return rows;
+    },
     update(nextUrl, nextOptions = {}) {
       const nextKey = keyOf(nextOptions.fixedFilter);
       const filterChanged = nextKey !== filterKey;
@@ -305,6 +284,69 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
       schedule();
     },
   };
+}
+
+/** `readPages` 가 요청에 쓰는 전송 설정. */
+interface PageTransport {
+  fetcher: (input: string, init: RequestInit) => Promise<Response>;
+  signal?: AbortSignal;
+  onUnauthorized?: (response: Response) => void;
+}
+
+/**
+ * 한 요청 = 한 응답이 아니다 — 서버 주도 페이징(`@odata.nextLink`)이면 서버가 우리가 요청한 `$top` 보다 적게(또는
+ * `$top` 이 없으면 서버가 정한 만큼) 주고 이어 읽을 URL 을 붙인다. 그 링크를 버리면 표가 **조용히 모자란 행**을
+ * 보이고(`totalCount` 는 맞아서 페이저도 멀쩡해 보인다), 내보내기는 잘린 파일을 온전한 파일처럼 낸다.
+ * 그래서 `more(rows, count)` 가 `true` 인 동안 링크를 따라간다 — 표 페이지는 «찰 때까지», `fetchAll` 은 «끝까지».
+ * `more` 는 페이지를 하나 받을 때마다(첫 응답 포함) 불리고, 던지면 읽기를 멈추고 그 예외로 거절한다.
+ *
+ * 🔴오리진 밖 링크·이미 읽은 링크는 따라가지 않고 **오류로** 드러낸다 — 요청에는 세션이 실리고, 조용히 멈추면 잘린
+ * 결과가 온전한 결과처럼 보인다.
+ */
+async function readPages<T>(
+  firstUrl: string,
+  { fetcher, signal, onUnauthorized }: PageTransport,
+  more: (rows: T[], count: number | undefined) => boolean,
+): Promise<{ count: number | undefined; rows: T[] }> {
+  const fetchPage = async (pageUrl: string) => {
+    let res: Response;
+    try {
+      res = await fetcher(pageUrl, { signal });
+    } catch (err) {
+      // 거둔 요청은 실패가 아니다 — 부르는 쪽이 `AbortError` 를 조용히 넘기거나 그대로 거절한다.
+      if ((err as Error)?.name === 'AbortError') throw err;
+      throw networkFailure(err);
+    }
+    if (!res.ok) {
+      // 401 만 — 403 은 세션이 살아 있는 거절이라 «재인증» 훅의 사건이 아니다. 이어지는 에러가 알린다.
+      if (res.status === 401 && onUnauthorized) onUnauthorized(res);
+      // 상태·거절 코드·상세를 문자열로 납작하게 만들지 않는다 — 소비자가 «어떤 실패인가» 로 가른다.
+      throw new SourceRequestError(await readFailedResponse(res));
+    }
+    return res.json();
+  };
+
+  const first = await fetchPage(firstUrl);
+  const count: number | undefined = typeof first['@odata.count'] === 'number' ? first['@odata.count'] : undefined;
+  const rows: T[] = [...(first.value ?? first)];
+  const origin = new URL(firstUrl).origin;
+  const seen = new Set([firstUrl]);
+  let current = firstUrl;
+  let next: unknown = first['@odata.nextLink'];
+  // `more` 를 먼저 부른다 — 마지막 페이지를 받은 뒤에도 한 번 불려 상한 검사·진행 콜백이 끝 페이지를 놓치지 않는다.
+  while (more(rows, count) && typeof next === 'string' && next) {
+    const resolved = new URL(next, current);
+    if (resolved.origin !== origin) {
+      throw new SourceRequestError({ message: `OData nextLink points outside the source origin (${resolved.origin})` });
+    }
+    current = resolved.toString();
+    if (seen.has(current)) throw new SourceRequestError({ message: `OData nextLink repeats an already-read page (${current})` });
+    seen.add(current);
+    const page = await fetchPage(current);
+    rows.push(...(page.value ?? []));
+    next = page['@odata.nextLink'];
+  }
+  return { count, rows };
 }
 
 /**

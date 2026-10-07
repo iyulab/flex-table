@@ -114,6 +114,7 @@ function Orders() {
 | `sortCriteria`, `onSortChange` | Pass `onSortChange` to the table's `sort-change` (resets to page 0) |
 | `search`, `setSearch` | Literal text (resets to page 0) |
 | `refresh` | Re-run the current request |
+| `fetchAll(options?)` | The whole result of the current sort/search/filter (no paging, follows `@odata.nextLink`) — for export. `maxRows` (default 100000) rejects with `RowLimitError` rather than cutting; `signal`, `onProgress` |
 
 Search is literal: each whitespace-separated token becomes a quoted phrase joined with `AND`
 (`red shirt` → `"red" AND "shirt"`); double quotes are stripped. If the result set shrinks below
@@ -159,7 +160,7 @@ Differences: `totalCount` is the count after search, `loading` is always `false`
 
 `useODataSource` adapts a framework-neutral source with the same options and state:
 `createODataSource(url, options)` → `getState()` · `subscribe(listener)` (the first subscriber starts loading, the last
-unsubscribe cancels) · `setPage` · `setPageSize` · `setSort(criteria)` · `setSearch` · `refresh` · `update(url, options)`. Changes in one
+unsubscribe cancels) · `setPage` · `setPageSize` · `setSort(criteria)` · `setSearch` · `refresh` · `update(url, options)` · `fetchAll(options?)`. Changes in one
 tick become one request. For Lit, `ODataSourceController` subscribes on connect, cancels on disconnect and re-renders
 the host — from a URL, or from a source you already have (`new ODataSourceController(this, source)`, so a table and a pager share it):
 

@@ -262,3 +262,34 @@ describe('useArraySource — 페이지 크기', () => {
     expect(latest!).toMatchObject({ pageSize: 5, page: 0 });
   });
 });
+
+describe('useArraySource — fetchAll', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  type Row = { id: number; name: string };
+  const data: Row[] = Array.from({ length: 45 }, (_, i) => ({ id: i, name: i % 3 === 0 ? `pump ${i}` : `valve ${i}` }));
+
+  it('🔴the whole current result (search applied), not the page the hook shows', async () => {
+    let latest: ReturnType<typeof useArraySource<Row>> | undefined;
+    const Probe = () => {
+      latest = useArraySource<Row>(data, { pageSize: 5 });
+      return null;
+    };
+    await act(async () => { root.render(createElement(Probe)); });
+    await act(async () => latest!.setSearch('pump'));
+    expect(latest!.data).toHaveLength(5);
+    const all = await latest!.fetchAll();
+    expect(all).toHaveLength(15);
+    expect(all.every((r) => r.name.startsWith('pump'))).toBe(true);
+  });
+});

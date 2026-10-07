@@ -131,9 +131,13 @@ Enter/Escape and blur-to-commit behavior.
 | `setComment(dataIndex, colKey, text)` | `null` or `''` removes; undoable |
 | `getComment(dataIndex, colKey)` / `clearComments()` | |
 | `importFromFile(file)` | `Promise<void>`; `.xlsx`, `.csv`, `.tsv`; fires `data-import` |
-| `exportToString(format, { selectionOnly? })` | `string \| Uint8Array`; format `'csv' \| 'tsv' \| 'json' \| 'xlsx'` (xlsx returns uncompressed bytes — synchronous) |
-| `exportToBlob(format, { selectionOnly? })` | `Promise<Blob>` typed with the format's MIME; xlsx is DEFLATE-compressed |
-| `exportToFile(format, filename?)` | `Promise<void>` — triggers a download (xlsx compressed) |
+| `exportToString(format, { selectionOnly? } \| { rows })` | `string \| Uint8Array`; format `'csv' \| 'tsv' \| 'json' \| 'xlsx'` (xlsx returns uncompressed bytes — synchronous). `rows`: export these rows with the visible columns |
+| `exportToBlob(format, options?)` | `Promise<Blob>` typed with the format's MIME; xlsx is DEFLATE-compressed |
+| `exportToFile(format, filename?, options?)` | `Promise<void>` — triggers a download (xlsx compressed) |
+
+A server-paged table holds one page. Export the list's whole result with
+`table.exportToFile('xlsx', 'x.xlsx', { rows: await source.fetchAll() })` — never the table's own rows there.
+Table-less: `exportDataBlob(rows, columns, format)` + `downloadBlob(blob, name)` from the root entry.
 
 ## Events
 

@@ -81,9 +81,13 @@ export function parseOrderBy(orderBy: string): SortCriteria[] {
 
 /** `buildODataQuery` 가 읽는 표 상태 — `useODataSource` 가 요청마다 넘기는 것과 같은 모양. */
 export interface ODataQueryState {
-  /** 0부터 세는 페이지 번호. */
-  page: number;
-  pageSize: number;
+  /** 0부터 세는 페이지 번호. `pageSize` 와 함께 `$skip` 이 된다. */
+  page?: number;
+  /**
+   * 한 페이지의 행 수(`$top`). **생략하면 `$top`·`$skip` 없이** 조회 결과 전체를 묻는다 — 서버가 응답을 나누면
+   * (`@odata.nextLink`) 끝까지 따라가는 것은 부르는 쪽 몫이다(`ODataSource.fetchAll`).
+   */
+  pageSize?: number;
   sortCriteria?: SortCriteria[];
   /** 정렬 기준이 비었을 때 쓰는 `$orderby` 문자열. */
   defaultOrderBy?: string;
@@ -101,16 +105,14 @@ export interface ODataQueryState {
  * 재구현하지 않게. 정렬 기준이 있으면 그것이, 없으면 `defaultOrderBy` 가 `$orderby` 가 된다.
  */
 export function buildODataQuery(state: ODataQueryState): string {
-  const { page, pageSize, sortCriteria = [], defaultOrderBy, search, fixedFilter } = state;
+  const { page = 0, pageSize, sortCriteria = [], defaultOrderBy, search, fixedFilter } = state;
   const orderBy = sortCriteria.length > 0
     ? sortCriteria.map(s => `${s.key} ${s.direction}`).join(', ')
     : defaultOrderBy;
 
-  const queryParams: Record<string, unknown> = {
-    top: pageSize,
-    skip: page * pageSize,
-    count: true,
-  };
+  const queryParams: Record<string, unknown> = pageSize === undefined
+    ? { count: true }
+    : { top: pageSize, skip: page * pageSize, count: true };
   if (orderBy) queryParams.orderBy = orderBy;
   if (fixedFilter) queryParams.filter = fixedFilter;
   if (search) {

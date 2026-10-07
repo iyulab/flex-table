@@ -86,3 +86,6 @@ export type { UseODataSourceOptions, UseODataSourceResult } from './odata/types.
 export { useArraySource } from './array/use-array-source.js';
 export type { UseArraySourceOptions, UseArraySourceResult } from './array/types.js';
 export type { SourceError, SourceErrorDetail } from './core/source-error.js';
+// `fetchAll` 이 거절하는 값 — 훅을 쓰는 쪽이 `./odata` 를 따로 싣지 않고 가른다.
+export { SourceRequestError, RowLimitError } from './core/source-error.js';
+export type { FetchAllOptions } from './core/fetch-all.js';
