@@ -911,6 +911,7 @@ The hook returns:
 | `search` / `setSearch` | Current search term and its setter (resets to page 0) |
 | `refresh` | Re-run the current request |
 | `fetchAll` | The whole result of the current conditions — the source's `fetchAll` (below), for exporting what the list shows |
+| `source` | The source the hook binds (the same object every render) — hand it to a list skeleton that binds views itself: `<ListPage source={orders.source}>` (`@iyulab/enterprise/react`) or `bindSource(orders.source, element)`. `useArraySource` returns one too, over its own state |
 
 #### Search semantics
 

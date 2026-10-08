@@ -293,3 +293,50 @@ describe('useArraySource — fetchAll', () => {
     expect(all.every((r) => r.name.startsWith('pump'))).toBe(true);
   });
 });
+
+/**
+ * `source` — 목록 골격(`ListPage` · `bindSource`)에 넘기는 소스. React 화면이 `useMemo(createArraySource)` + `useSyncExternalStore` +
+ * 조건마다 `update` 를 손으로 짜지 않게, 훅이 자기 상태를 소스 모양으로 내놓는다.
+ */
+describe('useArraySource — source', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  type Row = { id: number; name: string };
+  const data: Row[] = Array.from({ length: 12 }, (_, i) => ({ id: i, name: `row ${i}` }));
+
+  it('같은 객체이고, 상태를 비추며, 조작이 훅으로 가고, 바뀌면 구독자에게 알린다', async () => {
+    let latest: ReturnType<typeof useArraySource<Row>> | undefined;
+    const Probe = () => { latest = useArraySource<Row>(data, { pageSize: 5, columns: [{ key: 'id', label: 'Id', type: 'number' }] }); return null; };
+    await act(async () => { root.render(createElement(Probe)); });
+    const source = latest!.source;
+    expect(source.getState().totalCount).toBe(12);
+    expect(source.getState().data.map((r) => r.id)).toEqual([0, 1, 2, 3, 4]);
+
+    let notified = 0;
+    const off = source.subscribe(() => { notified++; });
+    await act(async () => { source.setPage(2); });
+    expect(latest!.page).toBe(2);
+    expect(source.getState().data.map((r) => r.id)).toEqual([10, 11]);
+    expect(notified).toBeGreaterThan(0);
+    expect(latest!.source).toBe(source);
+
+    await act(async () => { source.setSort([{ key: 'id', direction: 'desc' }]); });
+    expect(latest!.page).toBe(0);
+    expect(source.getState().data[0].id).toBe(11);
+    const n = notified;
+    off();
+    await act(async () => { source.setSearch('row 1'); });
+    expect(notified).toBe(n);
+    expect(await source.fetchAll()).toHaveLength(3); // row 1 · row 10 · row 11
+  });
+});

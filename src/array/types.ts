@@ -1,6 +1,7 @@
 import type { SortCriteria } from '../core/sorting.js';
 import type { SourceError } from '../core/source-error.js';
 import type { FetchAllOptions } from '../core/fetch-all.js';
+import type { ArraySource } from './source.js';
 
 export interface UseArraySourceOptions<T> {
   /** 페이지당 행 수. `useODataSource`와 동일 기본값. */
@@ -32,7 +33,12 @@ export interface UseArraySourceOptions<T> {
   searchFields?: (row: T) => Array<string | number | boolean | null | undefined>;
 }
 
+/** `useArraySource` 의 `source` — 목록 골격(`ListPage` · `bindSource`)에 넘기는 소스. 이 훅의 상태를 읽고 조작은 훅으로 간다. */
+export type HookArraySource<T> = Omit<ArraySource<T>, 'update'>;
+
 export interface UseArraySourceResult<T> {
+  /** 이 훅의 상태를 소스 모양으로 — `<ListPage source={orders.source}>` · `bindSource(orders.source, el)`. 늘 같은 객체다. */
+  source: HookArraySource<T>;
   /** 현재 페이지의 행(검색+정렬 적용 후 slice). */
   data: T[];
   /** 검색+정렬 적용 후, 페이지 나누기 전의 총 건수(`useODataSource`의 `@odata.count`와 동일 의미). */

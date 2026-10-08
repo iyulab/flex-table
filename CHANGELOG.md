@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`useODataSource` and `useArraySource` return `source`** — the source the hook binds, the same object every render.
+  A React screen hands it to a list skeleton that binds its views itself (`<ListPage source={orders.source}>`,
+  `bindSource(orders.source, el)`) and keeps its options as props, instead of building the source with `useMemo`,
+  reading it with `useSyncExternalStore` and calling `update` from an effect. `useArraySource`'s `source` reads the
+  hook's state and notifies its subscribers after each commit.
+
 ## [0.63.0] - 2026-10-08
 
 ### Added

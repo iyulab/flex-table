@@ -284,6 +284,17 @@ describe('useODataSource — 선언된 계약', () => {
       text: () => Promise.resolve(''),
     }) as unknown as Response;
 
+  it('source 는 이 훅이 묶은 소스다 — 같은 객체 · 같은 상태 · 조작이 훅의 상태를 바꾼다(목록 골격에 그대로 넘긴다)', async () => {
+    const view = await mount({ fetcher: () => Promise.resolve(okResponse(42)) });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    const source = view.current.source;
+    expect(source.getState().totalCount).toBe(42);
+    expect(view.current.totalCount).toBe(42);
+    await act(async () => { source.setPage(1); await new Promise((r) => setTimeout(r, 0)); });
+    expect(view.current.page).toBe(1);
+    expect(view.current.source).toBe(source);
+  });
+
   it('401 응답에서 onUnauthorized 가 «에러가 설정되기 전에» 불린다', async () => {
     const calls: number[] = [];
     const view = await mount({

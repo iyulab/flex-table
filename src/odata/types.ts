@@ -1,11 +1,13 @@
 import type { SortCriteria } from '../core/sorting.js';
-import type { ODataSourceOptions, ODataSourceState } from './source.js';
+import type { ODataSource, ODataSourceOptions, ODataSourceState } from './source.js';
 import type { FetchAllOptions } from '../core/fetch-all.js';
 
 /** `useODataSource` 의 옵션 — 프레임워크 중립 소스(`createODataSource`)의 설정과 같다. `initial*` 은 첫 렌더에서만 읽힌다. */
 export type UseODataSourceOptions = ODataSourceOptions;
 
 export interface UseODataSourceResult<T> extends ODataSourceState<T> {
+  /** 이 훅이 묶은 소스 — 목록 골격(`<ListPage source={orders.source}>` · `bindSource`)에 넘긴다. 늘 같은 객체다. */
+  source: ODataSource<T>;
   setPage: (page: number) => void;
   /** 페이지 크기를 바꾸고 첫 장으로 간다. */
   setPageSize: (size: number) => void;

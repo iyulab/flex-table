@@ -32,6 +32,7 @@ export function useODataSource<T = Record<string, unknown>>(
 
   return {
     ...state,
+    source,
     setPage: source.setPage,
     setPageSize: source.setPageSize,
     onSortChange,

@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useLayoutEffect, useRef } from 'react';
 import type { SortCriteria } from '../core/sorting.js';
 import type { DataRow } from '../models/types.js';
-import type { UseArraySourceOptions, UseArraySourceResult } from './types.js';
+import type { HookArraySource, UseArraySourceOptions, UseArraySourceResult } from './types.js';
+import type { ODataSourceState } from '../odata/source.js';
 import { resolveInitialState } from '../odata/query.js';
 import { computeArrayView, readAllArrayRows } from './view.js';
 import type { FetchAllOptions } from '../core/fetch-all.js';
@@ -101,7 +102,39 @@ export function useArraySource<T extends DataRow = DataRow>(
     setPage(lastPage);
   }
 
+  /*
+   * 목록 골격(`ListPage` · `bindSource`)에 넘길 소스 — 이 훅의 상태를 읽고 조작은 이 훅의 setter 로 간다. 상태 계산은 위 그대로
+   * 렌더 중에 동기로 하고(종전 계약), 바뀐 상태는 커밋 직후(`useLayoutEffect`, 그리기 전) 구독자에게 알린다. 객체는 늘 같다.
+   */
+  const snapshot = useMemo<ODataSourceState<T>>(
+    () => ({ data: pageData as T[], totalCount, loading: false, error: null, page, pageSize, sortCriteria, search }),
+    [pageData, totalCount, page, pageSize, sortCriteria, search],
+  );
+  const snapshotRef = useRef(snapshot);
+  const fetchAllRef = useRef(fetchAll);
+  const listenersRef = useRef(new Set<() => void>());
+  useLayoutEffect(() => {
+    fetchAllRef.current = fetchAll;
+    if (snapshotRef.current === snapshot) return;
+    snapshotRef.current = snapshot;
+    for (const l of [...listenersRef.current]) l();
+  }, [snapshot, fetchAll]);
+  const [source] = useState<HookArraySource<T>>(() => ({
+    getState: () => snapshotRef.current,
+    subscribe(listener) {
+      listenersRef.current.add(listener);
+      return () => { listenersRef.current.delete(listener); };
+    },
+    setPage,
+    setPageSize,
+    setSort(criteria) { setSortCriteria(criteria); setPage(0); },
+    setSearch,
+    refresh,
+    fetchAll: (o) => fetchAllRef.current(o),
+  }));
+
   return {
+    source,
     data: pageData,
     totalCount,
     loading: false,
