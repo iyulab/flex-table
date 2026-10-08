@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.64.1] - 2026-10-08
+
+### Fixed
+
+- **CSV/TSV write dates as the wall clock the table shows.** A `date`/`datetime` column's value — a `Date`, or an ISO
+  string as JSON sources (OData) send it — was written raw or as `toISOString()`: UTC, so outside UTC the time in the
+  file differed from the screen (9 hours in Korea), a local-midnight `Date` in a `date` column became the day before,
+  and Excel did not read `…T…Z` as a date. It is now `YYYY-MM-DD` in a `date` column and `YYYY-MM-DD HH:mm:ss`
+  otherwise — the value an XLSX export already puts in its date cell. A string that does not read as a date stays as
+  it is; JSON is unchanged.
+- **A copied range writes dates the same way** — not the UTC string or `Date#toString()` — so it pastes into a
+  spreadsheet as a date and back into the table as the same local time.
+
 ## [0.64.0] - 2026-10-08
 
 ### Added
