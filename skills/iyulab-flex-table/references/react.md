@@ -97,6 +97,8 @@ function Orders() {
 | `initialSearch` | `''` | First render only |
 | `initialSort` | — | `SortCriteria[]`; overrides `defaultOrderBy`; `[]` means no sort |
 | `fixedFilter` | — | odata-query filter object, always applied; value change resets to page 0 (compared by value) |
+| `expand` | — | `$expand` string or array; columns read it with dot-path keys (`'Customer.Name'` → server sort `Customer/Name`); `fetchAll` sends it too |
+| `select` | — | `$select` property names |
 | `baseUrl` | `window.location.origin` | For proxy/BFF setups |
 | `fetcher` | global `fetch` | `(input, init) => Promise<Response>`; read when each request starts |
 | `onUnauthorized` | — | `(response) => void` on 401 only (403 surfaces as `error`); read when each request starts |

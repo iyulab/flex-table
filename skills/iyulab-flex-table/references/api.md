@@ -50,7 +50,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 
 | Field | Type | Notes |
 |---|---|---|
-| `key` | `string` | Property name in the row (required) |
+| `key` | `string` | Property name in the row, or a dot path into a nested record (`'Customer.Name'`) — display, sort, filter, copy, edit, import and export all read it the same way; a property named by the whole key (`'@odata.etag'`) wins over the path (required) |
 | `label` | `string` | Header text (required) |
 | `type` | `ColumnType` | `'text' \| 'number' \| 'boolean' \| 'date' \| 'datetime' \| 'select'`; other strings act as text |
 | `width` / `minWidth` | `number` | px; `minWidth` defaults to 40 |

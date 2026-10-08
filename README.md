@@ -134,7 +134,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 
 ```typescript
 interface ColumnDefinition {
-  key: string;             // Unique key matching data property names
+  key: string;             // The row property, or a dot path into a nested record ('Customer.Name' — see below)
   label: string;           // Column header text
   type?: ColumnType;       // 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'select' (any other string falls back to 'text')
   width?: number;          // Column width in pixels (default: auto)
@@ -165,6 +165,23 @@ The `validator` callback returns `null` if valid, or an error message string. On
 A `number` column's built-in editor reads numbers the way people type them in the active `Locale` — `1,5` on a comma-decimal page is 1.5, `1.234,5` is 1234.5 — and shows the value with that locale's decimal separator. Text that is not a number is rejected the same way as a validator failure (`error` is the localized "Enter a number"). The number filter's conditions and pasted values are read the same way; pasted text that is not a number stays text.
 
 A `date` column's built-in editor is `u-date-picker` from `@iyulab/components`: a text box that shows and takes `YYYY-MM-DD` in every browser language (the native date input would show the browser's UI language, e.g. `10/02/2026`), with a calendar beside it — click the box or press ArrowDown, and a picked day is the new value. It also reads `2026/10/2`, `20261002` and `10-02` (this year), stores the ISO date string, and rejects text that is not a date (`error` is the localized "Enter a date as YYYY-MM-DD"). Pasted dates are read the same way. A `datetime` column's editor works the same with a time: it shows `YYYY-MM-DD HH:mm` in local time, reads `2026-10-02 14:05` (a date alone is midnight), and stores the local `YYYY-MM-DDTHH:mm` string; in its calendar a day and a time are applied together with Apply. While the calendar is open, Escape closes the calendar; the next Escape cancels the edit.
+
+### Nested values — dot-path keys
+
+A `key` may be a path into a nested record: `{ key: 'Customer.Name', label: 'Customer' }` reads `row.Customer.Name` —
+what a server list gets from OData `$expand` (the source's `expand` option). Display, `format`, sorting, filtering,
+copying, editing, import and export all read and write the cell through the same path, and the server sort of that
+column is `$orderby=Customer/Name`. A row that has a property named by the whole key (`'@odata.etag'`) gives that
+property; the path is read only when the name is not there. `getCellValue(row, key)` / `setCellValue(row, key, value)`
+(root entry) are the functions the table uses.
+
+```typescript
+const source = createODataSource('/api/orders', { expand: 'Customer($select=Name)' });
+const columns: ColumnDefinition[] = [
+  { key: 'Number', label: 'Order' },
+  { key: 'Customer.Name', label: 'Customer' }, // sortable on the server, exported as shown
+];
+```
 
 ### `format` vs `render`
 
@@ -822,6 +839,8 @@ const source = useODataSource('/api/orders', {
 | `initialSearch` | `''` | Initial search term |
 | `initialSort` | — | Initial sort as `SortCriteria[]`. Takes precedence over `defaultOrderBy` — it is the shape `onSortChange` hands you, so a stored sort round-trips without re-serializing it |
 | `fixedFilter` | — | Filter always applied in addition to search. Changing it resets the page to 0 — see below |
+| `expand` | — | `$expand` — referenced records to fetch with each row: `'Customer($select=Name),Owner'` or `['Customer', 'Owner']`. A column reads one with a dot-path key (`key: 'Customer.Name'`), and its server sort is `$orderby=Customer/Name`. The page reads and `fetchAll` send the same value |
+| `select` | — | `$select` — the properties to fetch; all when omitted |
 | `baseUrl` | `window.location.origin` | Override the request origin (proxy/BFF setups) |
 | `fetcher` | global `fetch` | Custom transport — pass a wrapper that injects auth headers |
 | `onUnauthorized` | — | Called on `401` responses, before the generic error is set. A `403` (signed in, not permitted) does not call it — it surfaces as `error` |

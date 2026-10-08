@@ -73,7 +73,8 @@ export function parseOrderBy(orderBy: string): SortCriteria[] {
   return orderBy.split(',').map(s => {
     const parts = s.trim().split(/\s+/);
     return {
-      key: parts[0],
+      // `A/B` (a navigation path) is the column key `A.B` — the table's sort indicator matches the column.
+      key: parts[0].replace(/\//g, '.'),
       direction: (parts[1]?.toLowerCase() === 'desc' ? 'desc' : 'asc') as SortCriteria['direction'],
     };
   });
@@ -95,6 +96,15 @@ export interface ODataQueryState {
   search?: string;
   /** odata-query 의 필터 객체(`{ IsActive: true }` 등). */
   fixedFilter?: Record<string, unknown>;
+  /** `$expand` — 문자열(`'Customer($select=Name)'`) 또는 배열(쉼표로 잇는다). */
+  expand?: string | string[];
+  /** `$select` — 받을 속성 이름. */
+  select?: string[];
+}
+
+/** 열 키(점 경로 `Customer.Name`)를 `$orderby` 의 속성 경로(`Customer/Name`)로. */
+export function orderByPath(key: string): string {
+  return key.replace(/\./g, '/');
 }
 
 /**
@@ -105,9 +115,9 @@ export interface ODataQueryState {
  * 재구현하지 않게. 정렬 기준이 있으면 그것이, 없으면 `defaultOrderBy` 가 `$orderby` 가 된다.
  */
 export function buildODataQuery(state: ODataQueryState): string {
-  const { page = 0, pageSize, sortCriteria = [], defaultOrderBy, search, fixedFilter } = state;
+  const { page = 0, pageSize, sortCriteria = [], defaultOrderBy, search, fixedFilter, expand, select } = state;
   const orderBy = sortCriteria.length > 0
-    ? sortCriteria.map(s => `${s.key} ${s.direction}`).join(', ')
+    ? sortCriteria.map(s => `${orderByPath(s.key)} ${s.direction}`).join(', ')
     : defaultOrderBy;
 
   const queryParams: Record<string, unknown> = pageSize === undefined
@@ -115,6 +125,8 @@ export function buildODataQuery(state: ODataQueryState): string {
     : { top: pageSize, skip: page * pageSize, count: true };
   if (orderBy) queryParams.orderBy = orderBy;
   if (fixedFilter) queryParams.filter = fixedFilter;
+  if (expand && expand.length > 0) queryParams.expand = expand;
+  if (select && select.length > 0) queryParams.select = select;
   if (search) {
     const searchExpression = buildSearchExpression(search);
     if (searchExpression) queryParams.search = searchExpression;

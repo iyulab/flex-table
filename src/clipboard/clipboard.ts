@@ -5,6 +5,7 @@ import { encodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
 import { parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 import { t } from '../locale.js';
+import { getCellValue } from '../core/cell-value.js';
 
 /**
  * Copy selected range to clipboard as TSV — the spreadsheet clipboard format (see `encodeTsv`):
@@ -21,7 +22,7 @@ export function copyToClipboard(
     const cells: string[] = [];
     for (let c = range.startCol; c <= range.endCol; c++) {
       const col = columns[c];
-      const value = row[col.key];
+      const value = getCellValue(row, col.key);
       cells.push(value == null ? '' : String(value));
     }
     rows.push(cells);

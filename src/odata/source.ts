@@ -22,6 +22,13 @@ export interface ODataSourceOptions {
   initialSort?: SortCriteria[];
   /** 고정 필터. 값(직렬화)이 바뀌면 페이지가 첫 장으로 돌아간다 — 참조만 다른 같은 값은 아무 일도 없다. */
   fixedFilter?: Record<string, unknown>;
+  /**
+   * `$expand` — 참조(navigation)를 함께 받는다: `'Customer($select=Name),Owner'` 또는 `['Customer', 'Owner']`. 열은 점 경로
+   * 키(`Customer.Name`)로 그 값을 읽고, 그 열의 서버 정렬은 `$orderby=Customer/Name` 이 된다. 페이지 읽기와 `fetchAll` 이 같은 값을 낸다.
+   */
+  expand?: string | string[];
+  /** `$select` — 받을 속성 이름. 생략하면 `$select` 없이 전부. */
+  select?: string[];
   /** 기본값: `window.location.origin`. 프록시/BFF 등 다른 origin 으로 요청해야 할 때 지정. */
   baseUrl?: string;
   /** 커스텀 fetch transport(예: 인증 헤더를 주입하는 `HttpClient` 래퍼). 기본값: 전역 `fetch`. */
@@ -139,7 +146,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
   }
 
   function requestKey() {
-    return JSON.stringify([currentUrl, opts.baseUrl, pageSize(), opts.defaultOrderBy, filterKey, inner.page, inner.sortCriteria, inner.search]);
+    return JSON.stringify([currentUrl, opts.baseUrl, pageSize(), opts.defaultOrderBy, filterKey, opts.expand, opts.select, inner.page, inner.sortCriteria, inner.search]);
   }
 
   /** 같은 틱의 조작을 한 요청으로 모은다. */
@@ -177,7 +184,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
     const onUnauthorized = opts.onUnauthorized;
     set({ loading: true, error: null });
 
-    const queryString = buildODataQuery({ page, pageSize: size, sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter });
+    const queryString = buildODataQuery({ page, pageSize: size, sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter, expand: opts.expand, select: opts.select });
     const fullUrl = `${opts.baseUrl ?? window.location.origin}${currentUrl}${queryString}`;
 
     // 서버 주도 페이징이면 한 표 페이지를 채울 때까지 링크를 따라간다(`readPages`).
@@ -248,7 +255,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
     },
     async fetchAll({ maxRows = DEFAULT_MAX_ROWS, signal, onProgress } = {}) {
       const { sortCriteria, search } = inner;
-      const queryString = buildODataQuery({ sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter });
+      const queryString = buildODataQuery({ sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter, expand: opts.expand, select: opts.select });
       const fullUrl = `${opts.baseUrl ?? window.location.origin}${currentUrl}${queryString}`;
       const { rows } = await readPages<T>(
         fullUrl,

@@ -1,4 +1,5 @@
 import type { DataRow } from '../models/types.js';
+import { getCellValue } from './cell-value.js';
 
 /**
  * Filter predicate function.
@@ -44,7 +45,7 @@ export function computeFilteredIndices(
     let pass = true;
     for (const filter of filters) {
       try {
-        if (!filter.predicate(row[filter.key], row)) {
+        if (!filter.predicate(getCellValue(row, filter.key), row)) {
           pass = false;
           break;
         }

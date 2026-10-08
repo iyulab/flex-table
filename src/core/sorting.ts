@@ -1,4 +1,5 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
+import { getCellValue } from './cell-value.js';
 
 /**
  * Sort direction.
@@ -36,8 +37,8 @@ export function computeSortedIndices(
 
   indices.sort((a, b) => {
     for (const { key, direction } of criteria) {
-      const va = data[a][key];
-      const vb = data[b][key];
+      const va = getCellValue(data[a], key);
+      const vb = getCellValue(data[b], key);
       // Nulls always sort last regardless of direction
       const aNull = va == null;
       const bNull = vb == null;

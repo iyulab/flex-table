@@ -65,6 +65,25 @@ describe('createODataSource', () => {
     expect(skipOf(calls[1].url)).toBe('0');
   });
 
+  it('expand · select 를 페이지 읽기와 fetchAll 이 같이 낸다 · expand 가 바뀌면 다시 읽는다', async () => {
+    const { calls, fetcher } = makeFetcher(1);
+    const options = { fetcher, expand: 'Customer($select=Name)', select: ['id'] };
+    const source = createODataSource('/api/orders', options);
+    const off = source.subscribe(() => {});
+    await flush();
+    await source.fetchAll();
+    for (const call of calls) {
+      const q = new URL(call.url).searchParams;
+      expect(q.get('$expand')).toBe('Customer($select=Name)');
+      expect(q.get('$select')).toBe('id');
+    }
+    expect(calls.length).toBe(2);
+    source.update('/api/orders', { ...options, expand: ['Customer', 'Owner'] });
+    await flush();
+    expect(new URL(calls[calls.length - 1].url).searchParams.get('$expand')).toBe('Customer,Owner');
+    off();
+  });
+
   it('NEGATIVE 참조만 다른 같은 필터는 다시 읽지 않는다', async () => {
     const { calls, fetcher } = makeFetcher();
     const source = createODataSource('/api/orders', { fetcher, fixedFilter: { a: 1 } });

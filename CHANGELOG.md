@@ -4,6 +4,14 @@
 
 ### Added
 
+- **Dot-path column keys** — `{ key: 'Customer.Name' }` reads `row.Customer.Name`, so a referenced record's name is a
+  column. Display, `format`, sorting, filtering, copying, editing, import and export read and write the cell through the
+  same path (`getCellValue` / `setCellValue`, now exported); a property named by the whole key (`'@odata.etag'`) still
+  wins. The server sort of such a column is the OData path (`$orderby=Customer/Name`), and `parseOrderBy` reads it back
+  as the column key.
+- **`createODataSource` / `useODataSource` `expand` and `select`** — `$expand` (a string or an array) and `$select`,
+  sent by the page reads and by `fetchAll` alike; changing either re-reads. `buildODataQuery` takes them too.
+
 - **`importFromFile` reports what did not come in.** It returns an `ImportReport` — and `data-import` now carries the
   same object — `{ count, unmatchedHeaders, missingColumns, coercionFailures }`: file headers no column matched (their
   values were dropped without a trace before), columns the file lacks, and cells that are not their column's type

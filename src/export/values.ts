@@ -1,11 +1,12 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
+import { getCellValue } from '../core/cell-value.js';
 
 /**
  * 내보낼 셀 값 — 열이 `exportValue` 를 주면 그 결과, 아니면 원시값. 표시 규칙(`format`·`render`)은 쓰지 않는다:
  * 원시값이 맞는 내보내기(다시 적재)가 있고, 라벨이 맞는 열은 그것을 열 스스로 말한다.
  */
 export function exportCellValue(row: DataRow, col: ColumnDefinition): unknown {
-  const raw = row[col.key];
+  const raw = getCellValue(row, col.key);
   return col.exportValue ? col.exportValue(raw, row) : raw;
 }
 

@@ -1,6 +1,7 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { parseCellForColumn } from '../clipboard/clipboard.js';
 import type { ImportedSheet } from './xlsx-reader.js';
+import { setCellValue } from '../core/cell-value.js';
 
 /**
  * What an import took in and what it could not — `importFromFile` returns it and `data-import` carries it, so a
@@ -47,7 +48,7 @@ export function buildImport(sheet: ImportedSheet, columns: ColumnDefinition[]): 
     const row: DataRow = {};
     for (const [i, key] of map) {
       const { value, failed } = parseCellForColumn(raw[i] ?? '', byKey.get(key)!);
-      row[key] = value;
+      setCellValue(row, key, value);
       if (failed) coercionFailures.push({ row: r, key, raw: raw[i] ?? '' });
     }
     return row;

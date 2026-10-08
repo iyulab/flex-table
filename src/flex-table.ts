@@ -20,6 +20,7 @@ import type { ExportFormat } from './export/export.js';
 import { readXlsx } from './export/xlsx-reader.js';
 import type { ImportedSheet } from './export/xlsx-reader.js';
 import { readDelimited } from './export/delimited-reader.js';
+import { getCellValue, setCellValue } from './core/cell-value.js';
 import { buildImport } from './export/import.js';
 import type { ImportReport } from './export/import.js';
 import type { CellPosition, CellRange } from './core/selection.js';
@@ -976,8 +977,8 @@ export class FlexTable extends LitElement {
 
     for (const change of changes) {
       if (change.row < 0 || change.row >= this.data.length) continue;
-      const oldValue = this.data[change.row][change.key];
-      this.data[change.row][change.key] = change.value;
+      const oldValue = getCellValue(this.data[change.row], change.key);
+      setCellValue(this.data[change.row], change.key, change.value);
       saved.push({ row: change.row, key: change.key, oldValue, newValue: change.value });
       targets.push(this.data[change.row]);
     }
@@ -987,11 +988,11 @@ export class FlexTable extends LitElement {
     this._undo.push({
       label: 'batch-update',
       undo: () => {
-        saved.forEach((s, i) => { targets[i][s.key] = s.oldValue; });
+        saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.oldValue); });
         this.requestUpdate();
       },
       redo: () => {
-        saved.forEach((s, i) => { targets[i][s.key] = s.newValue; });
+        saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.newValue); });
         this.requestUpdate();
       },
     });
@@ -1005,9 +1006,9 @@ export class FlexTable extends LitElement {
     const row: DataRow = {};
     for (const col of this.columns) {
       switch (col.type) {
-        case 'number': row[col.key] = 0; break;
-        case 'boolean': row[col.key] = false; break;
-        default: row[col.key] = '';
+        case 'number': setCellValue(row, col.key, 0); break;
+        case 'boolean': setCellValue(row, col.key, false); break;
+        default: setCellValue(row, col.key, '');
       }
     }
     return row;
@@ -1669,7 +1670,7 @@ export class FlexTable extends LitElement {
       row: dataIndex,
       col: colIndex,
       key: col.key,
-      value: this.data[dataIndex]?.[col.key],
+      value: getCellValue(this.data[dataIndex], col.key),
       rowData: this.data[dataIndex],
     }, { cancelable: true });
 
@@ -1811,17 +1812,17 @@ export class FlexTable extends LitElement {
     // Boolean: toggle immediately, don't enter edit mode
     if (col.type === 'boolean') {
       const row = this.data[this._toDataIndex(this._activeCell.row)];
-      const currentValue = row[col.key];
+      const currentValue = getCellValue(row, col.key);
       this._applyEdit(!currentValue);
       return;
     }
 
     const dataRow = this._toDataIndex(this._activeCell.row);
     const row = this.data[dataRow];
-    this._editing.start(this._activeCell, row[col.key], row);
+    this._editing.start(this._activeCell, getCellValue(row, col.key), row);
     this._editingCell = { ...this._activeCell };
 
-    this._emit('cell-edit-start', { row: dataRow, col: this._activeCell.col, key: col.key, value: row[col.key] });
+    this._emit('cell-edit-start', { row: dataRow, col: this._activeCell.col, key: col.key, value: getCellValue(row, col.key) });
   }
 
   private _commitEdit(): void {
@@ -1924,17 +1925,17 @@ export class FlexTable extends LitElement {
     }
 
     // Mutate data — the row object, which undo and redo write too (`data` can change in between)
-    target[colDef.key] = newValue;
+    setCellValue(target, colDef.key, newValue);
 
     // Push undo action
     this._undo.push({
       label: 'cell-edit',
       undo: () => {
-        target[colDef.key] = oldValue;
+        setCellValue(target, colDef.key, oldValue);
         this.requestUpdate();
       },
       redo: () => {
-        target[colDef.key] = newValue;
+        setCellValue(target, colDef.key, newValue);
         this.requestUpdate();
       },
     });
@@ -2022,7 +2023,7 @@ export class FlexTable extends LitElement {
     const seen = new Set<string>();
     const results: string[] = [];
     for (const row of this.data) {
-      const v = row[col.key];
+      const v = getCellValue(row, col.key);
       if (v == null) continue;
       const s = String(v);
       if (!seen.has(s) && (text === '' || s.toLowerCase().includes(lower))) {
@@ -2496,7 +2497,7 @@ export class FlexTable extends LitElement {
       this._undo.push({
         label: 'paste',
         undo: () => {
-          changes.forEach((c, i) => { targets[i][c.key] = c.oldValue; });
+          changes.forEach((c, i) => { setCellValue(targets[i], c.key, c.oldValue); });
           for (const row of added) {
             const at = this.data.indexOf(row);
             if (at >= 0) this.data.splice(at, 1);
@@ -2505,7 +2506,7 @@ export class FlexTable extends LitElement {
         },
         redo: () => {
           for (const row of added) this.data.push(row);
-          changes.forEach((c, i) => { targets[i][c.key] = c.newValue; });
+          changes.forEach((c, i) => { setCellValue(targets[i], c.key, c.newValue); });
           this.requestUpdate();
         },
       });
@@ -2562,9 +2563,9 @@ export class FlexTable extends LitElement {
         const colIndex = anchor.col + c;
         if (colIndex >= cols.length) break;
         const col = cols[colIndex];
-        const oldValue = this.data[dataRow][col.key];
+        const oldValue = getCellValue(this.data[dataRow], col.key);
         const newValue = parseValueForColumn(parsed[r][c], col);
-        this.data[dataRow][col.key] = newValue;
+        setCellValue(this.data[dataRow], col.key, newValue);
         changes.push({ row: dataRow, col: colIndex, key: col.key, oldValue, newValue });
       }
     }
@@ -2583,7 +2584,7 @@ export class FlexTable extends LitElement {
       if (!col || !this._isCellEditable(col)) return;
       const sourceRow = this._toDataIndex(range.startRow - 1);
       const destRow = this._toDataIndex(range.startRow);
-      this.updateRows([{ row: destRow, key: col.key, value: this.data[sourceRow][col.key] }]);
+      this.updateRows([{ row: destRow, key: col.key, value: getCellValue(this.data[sourceRow], col.key) }]);
       return;
     }
 
@@ -2591,7 +2592,7 @@ export class FlexTable extends LitElement {
     for (let c = range.startCol; c <= range.endCol; c++) {
       const col = cols[c];
       if (!col || !this._isCellEditable(col)) continue;
-      const sourceValue = this.data[this._toDataIndex(range.startRow)][col.key];
+      const sourceValue = getCellValue(this.data[this._toDataIndex(range.startRow)], col.key);
       for (let r = range.startRow + 1; r <= range.endRow; r++) {
         changes.push({ row: this._toDataIndex(r), key: col.key, value: sourceValue });
       }
@@ -2611,7 +2612,7 @@ export class FlexTable extends LitElement {
       const srcCol = cols[range.startCol - 1];
       if (!col || !this._isCellEditable(col) || !srcCol) return;
       const dataRow = this._toDataIndex(range.startRow);
-      this.updateRows([{ row: dataRow, key: col.key, value: this.data[dataRow][srcCol.key] }]);
+      this.updateRows([{ row: dataRow, key: col.key, value: getCellValue(this.data[dataRow], srcCol.key) }]);
       return;
     }
 
@@ -2620,7 +2621,7 @@ export class FlexTable extends LitElement {
       const dataRow = this._toDataIndex(r);
       const srcCol = cols[range.startCol];
       if (!srcCol) continue;
-      const rawValue = this.data[dataRow][srcCol.key];
+      const rawValue = getCellValue(this.data[dataRow], srcCol.key);
       for (let c = range.startCol + 1; c <= range.endCol; c++) {
         const col = cols[c];
         if (!col || !this._isCellEditable(col)) continue;
@@ -2652,9 +2653,9 @@ export class FlexTable extends LitElement {
           if (visited.has(key)) continue;
           visited.add(key);
           const col = cols[c];
-          const oldValue = this.data[dataRow][col.key];
+          const oldValue = getCellValue(this.data[dataRow], col.key);
           const clearValue = col.type === 'boolean' ? false : col.type === 'number' ? 0 : '';
-          this.data[dataRow][col.key] = clearValue;
+          setCellValue(this.data[dataRow], col.key, clearValue);
           saved.push({ target: this.data[dataRow], key: col.key, oldValue, clearValue });
         }
       }
@@ -2664,11 +2665,11 @@ export class FlexTable extends LitElement {
       this._undo.push({
         label: 'clear',
         undo: () => {
-          for (const s of saved) { s.target[s.key] = s.oldValue; }
+          for (const s of saved) { setCellValue(s.target, s.key, s.oldValue); }
           this.requestUpdate();
         },
         redo: () => {
-          for (const s of saved) { s.target[s.key] = s.clearValue; }
+          for (const s of saved) { setCellValue(s.target, s.key, s.clearValue); }
           this.requestUpdate();
         },
       });
@@ -2686,9 +2687,9 @@ export class FlexTable extends LitElement {
       const dataRow = this._toDataIndex(r);
       for (let c = range.startCol; c <= range.endCol; c++) {
         const col = cols[c];
-        const oldValue = this.data[dataRow][col.key];
+        const oldValue = getCellValue(this.data[dataRow], col.key);
         const clearValue = col.type === 'boolean' ? false : col.type === 'number' ? 0 : '';
-        this.data[dataRow][col.key] = clearValue;
+        setCellValue(this.data[dataRow], col.key, clearValue);
         saved.push({ target: this.data[dataRow], key: col.key, oldValue, clearValue });
       }
     }
@@ -2697,11 +2698,11 @@ export class FlexTable extends LitElement {
       this._undo.push({
         label: 'clear',
         undo: () => {
-          for (const s of saved) { s.target[s.key] = s.oldValue; }
+          for (const s of saved) { setCellValue(s.target, s.key, s.oldValue); }
           this.requestUpdate();
         },
         redo: () => {
-          for (const s of saved) { s.target[s.key] = s.clearValue; }
+          for (const s of saved) { setCellValue(s.target, s.key, s.clearValue); }
           this.requestUpdate();
         },
       });
@@ -3133,7 +3134,7 @@ export class FlexTable extends LitElement {
     const { colIndex, dataIndex, x, y } = this._bodyContextMenu;
     const col = this.visibleColumns[colIndex];
     if (!col) return nothing;
-    const value = this.data[dataIndex]?.[col.key];
+    const value = getCellValue(this.data[dataIndex], col.key);
     const hasFilter = this._filters.some(f => f.key === col.key);
     const close = (returnFocus = false) => {
       this._bodyContextMenu = null;
@@ -3946,14 +3947,14 @@ export class FlexTable extends LitElement {
       const col = cols[c];
       const srcRows = [];
       for (let r = sourceRange.startRow; r <= sourceRange.endRow; r++) {
-        srcRows.push(this.data[this._toDataIndex(r)][col.key]);
+        srcRows.push(getCellValue(this.data[this._toDataIndex(r)], col.key));
       }
       const series = this._detectNumericSeries(srcRows);
 
       for (let r = targetRange.startRow; r <= targetRange.endRow; r++) {
         if (r >= sourceRange.startRow && r <= sourceRange.endRow) continue;
         const dataRow = this._toDataIndex(r);
-        const oldValue = this.data[dataRow][col.key];
+        const oldValue = getCellValue(this.data[dataRow], col.key);
         let newValue: unknown;
         if (series && r > sourceRange.endRow) {
           const step = r - sourceRange.endRow;
@@ -3964,7 +3965,7 @@ export class FlexTable extends LitElement {
           const normalizedIdx = srcIdx < 0 ? srcIdx + srcRows.length : srcIdx;
           newValue = srcRows[normalizedIdx];
         }
-        this.data[dataRow][col.key] = newValue;
+        setCellValue(this.data[dataRow], col.key, newValue);
         saved.push({ dataRow, key: col.key, oldValue, newValue });
         targets.push(this.data[dataRow]);
       }
@@ -3973,8 +3974,8 @@ export class FlexTable extends LitElement {
     if (saved.length > 0) {
       this._undo.push({
         label: 'fill-handle',
-        undo: () => { saved.forEach((s, i) => { targets[i][s.key] = s.oldValue; }); this.requestUpdate(); },
-        redo: () => { saved.forEach((s, i) => { targets[i][s.key] = s.newValue; }); this.requestUpdate(); },
+        undo: () => { saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.oldValue); }); this.requestUpdate(); },
+        redo: () => { saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.newValue); }); this.requestUpdate(); },
       });
       this._dispatchUndoStateEvent();
       this._emit('fill-handle-apply', { sourceRange, targetRange, cells: saved });
@@ -4227,8 +4228,8 @@ export class FlexTable extends LitElement {
     for (const { row, col } of results) {
       const dataRow = this._toDataIndex(row);
       const key = cols[col].key;
-      const oldValue = this.data[dataRow][key];
-      this.data[dataRow][key] = replaceWith;
+      const oldValue = getCellValue(this.data[dataRow], key);
+      setCellValue(this.data[dataRow], key, replaceWith);
       saved.push({ dataRow, key, oldValue, newValue: replaceWith });
       targets.push(this.data[dataRow]);
     }
@@ -4236,8 +4237,8 @@ export class FlexTable extends LitElement {
     if (saved.length > 0) {
       this._undo.push({
         label: 'replace-all',
-        undo: () => { saved.forEach((s, i) => { targets[i][s.key] = s.oldValue; }); this.requestUpdate(); },
-        redo: () => { saved.forEach((s, i) => { targets[i][s.key] = s.newValue; }); this.requestUpdate(); },
+        undo: () => { saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.oldValue); }); this.requestUpdate(); },
+        redo: () => { saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.newValue); }); this.requestUpdate(); },
       });
       this._dispatchUndoStateEvent();
       this._emit('find-replace', { type: 'replace-all', cells: saved.map(s => ({ row: s.dataRow, col: s.key, oldValue: s.oldValue, newValue: s.newValue })) });
@@ -4255,13 +4256,13 @@ export class FlexTable extends LitElement {
     const dataRow = this._toDataIndex(row);
     const key = this.visibleColumns[col].key;
     const target = this.data[dataRow];
-    const oldValue = target[key];
-    target[key] = replaceWith;
+    const oldValue = getCellValue(target, key);
+    setCellValue(target, key, replaceWith);
 
     this._undo.push({
       label: 'replace',
-      undo: () => { target[key] = oldValue; this.requestUpdate(); },
-      redo: () => { target[key] = replaceWith; this.requestUpdate(); },
+      undo: () => { setCellValue(target, key, oldValue); this.requestUpdate(); },
+      redo: () => { setCellValue(target, key, replaceWith); this.requestUpdate(); },
     });
     this._dispatchUndoStateEvent();
     this._emit('find-replace', { type: 'replace', cells: [{ row: dataRow, col: key, oldValue, newValue: replaceWith }] });
@@ -4605,9 +4606,9 @@ export class FlexTable extends LitElement {
     const prev = this.data[this._toDataIndex(index - 1)];
     if (!row || !prev) return false;
     if (typeof rule === 'function') return rule(row, prev, col);
-    const value = row[col.key];
+    const value = getCellValue(row, col.key);
     if (value == null || value === '') return false;
-    const before = prev[col.key];
+    const before = getCellValue(prev, col.key);
     return value instanceof Date && before instanceof Date
       ? value.getTime() === before.getTime()
       : Object.is(value, before);
@@ -4665,7 +4666,7 @@ export class FlexTable extends LitElement {
 
     // Apply conditional formatting rules
     if (col.conditionalRules && col.conditionalRules.length > 0) {
-      const value = row[col.key];
+      const value = getCellValue(row, col.key);
       const mergedStyle: Record<string, string> = {};
       for (const rule of col.conditionalRules) {
         if (rule.when(value, row, col)) {
@@ -4735,7 +4736,7 @@ export class FlexTable extends LitElement {
         @click=${(e: MouseEvent) => this._onCellClickEvent(e, rowIndex, colIndex)}
         @dblclick=${() => this._onCellDblClick(rowIndex, colIndex)}>
         ${commentTooltip}
-        ${renderCell(row[col.key], row, col)}
+        ${renderCell(getCellValue(row, col.key), row, col)}
       </div>
     `;
   }
@@ -4743,10 +4744,10 @@ export class FlexTable extends LitElement {
   private _renderEditor(row: DataRow, col: ColumnDefinition) {
     // Use custom editor if provided
     if (col.editor) {
-      return col.editor(row[col.key], row, col);
+      return col.editor(getCellValue(row, col.key), row, col);
     }
 
-    const value = row[col.key];
+    const value = getCellValue(row, col.key);
     const strValue = value == null ? '' : String(value);
 
     if (col.type === 'number') {

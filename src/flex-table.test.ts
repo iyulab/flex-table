@@ -100,6 +100,19 @@ describe('FlexTable', () => {
     expect(cells[1].textContent).toContain('42');
   });
 
+  it('renders a dot-path column from the nested record — what a server list gets from $expand', async () => {
+    const el = createElement();
+    el.columns = [
+      { key: 'id', label: 'Id' },
+      { key: 'Customer.Name', label: 'Customer' },
+    ];
+    el.data = [{ id: 'o-1', Customer: { Name: 'Aster Trading' } }];
+    await el.updateComplete;
+    const cells = el.shadowRoot!.querySelectorAll('.ft-cell');
+    expect(cells[1].textContent).toContain('Aster Trading');
+    expect(el.exportToString('csv')).toBe('Id,Customer\no-1,Aster Trading');
+  });
+
   it('should position header cells with absolute left and width', async () => {
     const el = createElement();
     el.columns = [
