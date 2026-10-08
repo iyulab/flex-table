@@ -140,7 +140,8 @@ A server-paged table holds one page. Export the list's whole result with
 Table-less: `exportDataBlob(rows, columns, format, { bom? })` + `downloadBlob(blob, name)` from the root entry.
 
 A column's `exportValue(value, row)` is what export writes for it (default: the raw value — `format`/`render` do not
-apply). In XLSX a `date`/`datetime` column's ISO strings become date cells, at the wall-clock time the table shows.
+apply). In XLSX a `date`/`datetime` column's ISO strings become date cells, at the wall-clock time the table shows;
+in CSV/TSV and a copied range they are wall-clock text (`YYYY-MM-DD` · `YYYY-MM-DD HH:mm:ss`), never the UTC string.
 
 ## Events
 

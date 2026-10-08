@@ -83,18 +83,41 @@ describe('exportData', () => {
     });
   });
 
-  describe('date export ISO 8601', () => {
+  describe('dates in text formats — the wall clock the table shows', () => {
     const dateCols: ColumnDefinition[] = [
       { key: 'created', label: 'Created', type: 'date' },
       { key: 'updated', label: 'Updated', type: 'datetime' },
     ];
+    const pad = (n: number) => String(n).padStart(2, '0');
+    // 기대값은 이 프로세스의 시간대에서 센 벽시계다 — 어느 시간대에서 돌아도 같은 규칙을 잰다.
+    const wall = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
-    it('should export Date objects as ISO 8601 in CSV', () => {
-      const d: DataRow[] = [{ created: new Date('2024-03-15'), updated: new Date('2024-03-15T10:30:00Z') }];
-      const result = exportData(d, dateCols, 'csv') as string;
-      const lines = result.split('\n');
-      expect(lines[1]).toContain('2024-03-15');
-      expect(lines[1]).toContain('T');
+    it('🔴a UTC instant (OData `…Z`) is written as local wall-clock text, not as the UTC string', () => {
+      const instant = '2026-09-05T06:54:57Z';
+      const d: DataRow[] = [{ created: '2026-09-05', updated: instant }];
+      for (const [format, sep] of [['csv', ','], ['tsv', '\t']] as const) {
+        const lines = (exportData(d, dateCols, format) as string).split('\n');
+        expect(lines[1]).toBe(`2026-09-05${sep}${wall(new Date(instant))}`);
+      }
+    });
+
+    it('🔴a local-midnight `Date` in a date column stays on its day (no UTC shift to the day before)', () => {
+      const d: DataRow[] = [{ created: new Date(2026, 9, 2), updated: new Date(2026, 9, 2, 14, 5, 9) }];
+      const lines = (exportData(d, dateCols, 'csv') as string).split('\n');
+      expect(lines[1]).toBe('2026-10-02,2026-10-02 14:05:09');
+    });
+
+    it('a `Date` from exportValue is wall-clock text too', () => {
+      const cols: ColumnDefinition[] = [{ key: 'at', label: 'At', exportValue: (v) => new Date(v as number) }];
+      const at = Date.UTC(2026, 0, 1, 23, 30, 0);
+      const lines = (exportData([{ at }], cols, 'csv') as string).split('\n');
+      expect(lines[1]).toBe(wall(new Date(at)));
+    });
+
+    it('NEGATIVE text in a date column that is not a date stays as it is', () => {
+      const lines = (exportData([{ created: 'TBD', updated: 'soon' }], dateCols, 'csv') as string).split('\n');
+      expect(lines[1]).toBe('TBD,soon');
     });
 
     it('should export Date objects as ISO 8601 in JSON', () => {
@@ -105,11 +128,11 @@ describe('exportData', () => {
       expect(parsed[0].updated).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     });
 
-    it('should handle string date values as-is', () => {
+    it('a date string without an offset is already wall clock — written in the same shape', () => {
       const d: DataRow[] = [{ created: '2024-03-15', updated: '2024-03-15T10:30:00' }];
       const result = exportData(d, dateCols, 'csv') as string;
       const lines = result.split('\n');
-      expect(lines[1]).toBe('2024-03-15,2024-03-15T10:30:00');
+      expect(lines[1]).toBe('2024-03-15,2024-03-15 10:30:00');
     });
   });
 });

@@ -6,10 +6,12 @@ import { parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/u
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 import { t } from '../locale.js';
 import { getCellValue } from '../core/cell-value.js';
+import { exportDate, exportDateText } from '../export/values.js';
 
 /**
  * Copy selected range to clipboard as TSV — the spreadsheet clipboard format (see `encodeTsv`):
- * a cell containing a tab, a line break or a quote is quoted, so it pastes into Excel as one cell.
+ * a cell containing a tab, a line break or a quote is quoted, so it pastes into Excel as one cell. A date is its
+ * wall-clock text (as in a CSV export), which a spreadsheet reads as a date and a paste here reads back.
  */
 export function copyToClipboard(
   data: DataRow[],
@@ -23,7 +25,8 @@ export function copyToClipboard(
     for (let c = range.startCol; c <= range.endCol; c++) {
       const col = columns[c];
       const value = getCellValue(row, col.key);
-      cells.push(value == null ? '' : String(value));
+      const date = value == null ? null : exportDate(value, col);
+      cells.push(value == null ? '' : date ? exportDateText(date, col) : String(value));
     }
     rows.push(cells);
   }

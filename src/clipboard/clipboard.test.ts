@@ -120,3 +120,27 @@ describe('date-times', () => {
     expect(editableDateTime('')).toBe('');
   });
 });
+
+describe('copying dates — the wall clock, which a paste reads back', () => {
+  const dateCols: ColumnDefinition[] = [
+    { key: 'd', label: 'D', type: 'date' },
+    { key: 't', label: 'T', type: 'datetime' },
+  ];
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  it('🔴a UTC instant is copied as local wall-clock text and pastes back as the same local time', () => {
+    const instant = '2026-09-05T06:54:57Z';
+    const local = new Date(instant);
+    const text = copyToClipboard([{ d: '2026-09-05', t: instant }], dateCols, { startRow: 0, startCol: 0, endRow: 0, endCol: 1 });
+    const wall = `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())} ${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}`;
+    expect(text).toBe(`2026-09-05\t${wall}`);
+    // 붙여넣기는 datetime 을 편집과 같은 분 단위로 읽는다 — 같은 로컬 분이면 된다.
+    const pasted = parseValueForColumn(wall, dateCols[1]) as string;
+    expect(new Date(pasted).getTime()).toBe(new Date(local).setSeconds(0, 0));
+  });
+
+  it('a `Date` is not copied as `Date#toString()`', () => {
+    const text = copyToClipboard([{ d: new Date(2026, 9, 2), t: new Date(2026, 9, 2, 8, 0, 0) }], dateCols, { startRow: 0, startCol: 0, endRow: 0, endCol: 1 });
+    expect(text).toBe('2026-10-02\t2026-10-02 08:00:00');
+  });
+});

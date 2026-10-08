@@ -31,3 +31,16 @@ export function excelSerial(d: Date): number {
   const wall = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
   return (wall - Date.UTC(1899, 11, 30)) / 86400000;
 }
+
+const pad = (n: number, width = 2) => String(n).padStart(width, '0');
+
+/**
+ * 글자 형식(CSV·TSV)의 날짜 — **벽시계 글자**다(표가 보여 주는 로컬 날짜·시각, XLSX 의 날짜 셀과 같은 값). `date` 열은
+ * `YYYY-MM-DD`, 그 밖은 `YYYY-MM-DD HH:mm:ss` — 스프레드시트가 날짜로 읽는 모양이다. ISO(`toISOString`)는 UTC 라 UTC 가
+ * 아닌 시간대에서 시각이 화면과 달랐고, 로컬 자정의 날짜는 전날이 됐다.
+ */
+export function exportDateText(d: Date, col: ColumnDefinition): string {
+  const day = `${pad(d.getFullYear(), 4)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (col.type === 'date') return day;
+  return `${day} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}

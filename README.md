@@ -316,7 +316,9 @@ What goes into the file:
   status code shown as a label: `{ key: 'status', render: …, exportValue: (v) => statusLabel(v) }`.
 - **Dates**: in XLSX a `date`/`datetime` column is a date cell — a `Date`, or an ISO string as JSON sources (OData) send
   it (`YYYY-MM-DD` is that day; a full ISO string is read with its offset), the same rule the cells display with. The
-  cell holds the wall-clock time the table shows. A string that does not read as a date stays text.
+  cell holds the wall-clock time the table shows. In CSV/TSV (and a copied range) the same date is wall-clock text —
+  `YYYY-MM-DD` in a `date` column, `YYYY-MM-DD HH:mm:ss` otherwise — which spreadsheets read as a date. JSON keeps
+  `Date` values as ISO instants. A string that does not read as a date stays text.
 - **BOM**: `{ bom: true }` starts CSV/TSV with a UTF-8 byte order mark so Excel on a non-UTF-8 system code page reads
   non-ASCII text correctly — the default for `exportToFile`, off for `exportToString`/`exportToBlob`.
 

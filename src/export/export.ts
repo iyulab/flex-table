@@ -1,6 +1,6 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { buildXlsx, buildXlsxDeflated } from './xlsx-writer.js';
-import { exportCellValue, exportDate } from './values.js';
+import { exportCellValue, exportDate, exportDateText } from './values.js';
 
 export type ExportFormat = 'csv' | 'tsv' | 'json' | 'xlsx';
 
@@ -53,10 +53,11 @@ export async function exportDataBlob(
   return new Blob([content], { type: getExportMimeType(format) });
 }
 
-function formatValueForExport(value: unknown): string {
+function formatValueForExport(value: unknown, col: ColumnDefinition): string {
   if (value == null) return '';
-  // 글자 형식은 `Date` 를 ISO 로 쓴다 — 날짜 열의 문자열은 이미 글자라 그대로 둔다.
-  if (value instanceof Date) return value.toISOString();
+  // 날짜(`Date` · 날짜 열의 ISO 문자열)는 벽시계 글자로 — XLSX 의 날짜 셀과 같은 값. 읽지 못하면 원시 글자 그대로.
+  const date = exportDate(value, col);
+  if (date) return exportDateText(date, col);
   return String(value);
 }
 
@@ -68,7 +69,7 @@ function exportDelimited(
   const header = columns.map(col => escapeDelimited(col.label, delimiter)).join(delimiter);
   const rows = data.map(row =>
     columns.map(col => {
-      const formatted = formatValueForExport(exportCellValue(row, col));
+      const formatted = formatValueForExport(exportCellValue(row, col), col);
       return escapeDelimited(formatted, delimiter);
     }).join(delimiter)
   );
