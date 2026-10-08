@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`importFromFile` reports what did not come in.** It returns an `ImportReport` — and `data-import` now carries the
+  same object — `{ count, unmatchedHeaders, missingColumns, coercionFailures }`: file headers no column matched (their
+  values were dropped without a trace before), columns the file lacks, and cells that are not their column's type
+  (`{ row, key, raw }` — the cell keeps its text). `null` for a file type it does not read.
+- **`ColumnDefinition.importAliases`** — other headers a file may give the column (a template a person made says
+  «관리 번호» where the label is «관리번호»). Headers now also match ignoring surrounding spaces.
+- `flexTableLocale` keys `booleanTrueWords` / `booleanFalseWords` — the words a boolean column reads as true and false
+  (`yes,y` / `no,n`; Korean `예,네` / `아니오,아니요`), besides `true`/`false`/`1`/`0` and the locale's labels.
+
+### Changed
+
+- **A boolean column keeps text it cannot read** — on import and on paste — instead of turning it into `false`.
+  «예», «Y» or «yes» became «no»; now the words above are read and anything else stays as written (and is reported on
+  import), as `number` and `date` columns already did.
+
 ### Fixed
+
+- **A comma-separated `.csv` imports.** It was read as tab-separated, so each line became one cell under an unmatched
+  header and the whole file came in as empty rows. A CSV may now be separated by commas or semicolons (Excel on
+  comma-decimal locales), detected from the header line.
+- A CSV that starts with a byte-order mark — as `exportToFile` writes it — reads back: the mark was part of the first
+  header, so that column did not match.
+- Two file headers that match the same column no longer both write into it; the second is reported as unmatched.
 
 - **A hidden `flex-table` is hidden.** Its host's `display: block` outranked the browser's `[hidden]` rule, so
   `hidden` did nothing — a list that switches between a table and a card view (which hides the view it is not

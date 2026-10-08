@@ -3,6 +3,7 @@ import { html } from 'lit';
 import './flex-table.js';
 import type { FlexTable } from './flex-table.js';
 import { buildXlsx } from './export/xlsx-writer.js';
+import { exportData } from './export/export.js';
 import type { ColumnDefinition, DataRow } from './models/types.js';
 import { effectiveAlign } from './models/types.js';
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
@@ -3128,6 +3129,35 @@ describe('FlexTable', () => {
       expect(el.data).toHaveLength(2);
       expect(el.data[0]['name']).toBe('Alice');
       expect(el.data[0]['age']).toBe(30);
+    });
+
+    it('importFromFile reads back its own CSV export (commas, byte-order mark) and returns the report data-import carries', async () => {
+      const el = createElement();
+      el.columns = importCols;
+      el.data = [];
+      await el.updateComplete;
+
+      const csv = exportData(importData, importCols, 'csv', { bom: true }) as string;
+      let detail: unknown;
+      el.addEventListener('data-import', (e) => { detail = e.detail; });
+      const report = await el.importFromFile(new File([csv], 'export.csv', { type: 'text/csv' }));
+
+      expect(el.data).toEqual(importData);
+      expect(report).toEqual({ count: 2, unmatchedHeaders: [], missingColumns: [], coercionFailures: [] });
+      expect(detail).toEqual(report);
+    });
+
+    it('importFromFile keeps an unread boolean as its text and reports it — it does not become false', async () => {
+      const el = createElement();
+      el.columns = importCols;
+      el.data = [];
+      await el.updateComplete;
+
+      const report = await el.importFromFile(new File(['Name,Active,Extra\nAlice,Y,1\nBob,maybe,2'], 'a.csv'));
+      expect(el.data).toEqual([{ name: 'Alice', active: true }, { name: 'Bob', active: 'maybe' }]);
+      expect(report?.unmatchedHeaders).toEqual(['Extra']);
+      expect(report?.missingColumns).toEqual(['age']);
+      expect(report?.coercionFailures).toEqual([{ row: 1, key: 'active', raw: 'maybe' }]);
     });
 
     it('importFromFile xlsx undo restores previous data', async () => {

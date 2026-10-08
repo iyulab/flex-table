@@ -19,6 +19,9 @@ import { exportData, exportDataBlob, downloadBlob, getExportExtension } from './
 import type { ExportFormat } from './export/export.js';
 import { readXlsx } from './export/xlsx-reader.js';
 import type { ImportedSheet } from './export/xlsx-reader.js';
+import { readDelimited } from './export/delimited-reader.js';
+import { buildImport } from './export/import.js';
+import type { ImportReport } from './export/import.js';
 import type { CellPosition, CellRange } from './core/selection.js';
 import type { SortCriteria } from './core/sorting.js';
 import type { ColumnFilter, FilterPredicate } from './core/filtering.js';
@@ -1140,36 +1143,28 @@ export class FlexTable extends LitElement {
   // --- Public API: Import ---
 
   /**
-   * Import data from an xlsx or csv File.
-   * Dispatches 'data-import' event with { count } on success.
+   * Imports an `.xlsx`, `.csv` or `.tsv` file — the first row is the header, matched to columns by `label` or
+   * `importAliases`, and each cell is read as its column's type. Replaces `data` (undoable) and fires `data-import`.
+   * Returns the report of what came in and what did not (headers no column matched, columns the file lacks, cells
+   * that are not their column's type — those keep their text); `null` for a file type it does not read.
+   * A CSV may be separated by commas or semicolons; a leading byte-order mark is not part of the first header.
    */
-  async importFromFile(file: File): Promise<void> {
+  async importFromFile(file: File): Promise<ImportReport | null> {
     const name = file.name.toLowerCase();
+    let sheet: ImportedSheet;
     if (name.endsWith('.xlsx')) {
-      const buf = await file.arrayBuffer();
-      const sheet = await readXlsx(buf);
-      this._applyImportedSheet(sheet);
+      sheet = await readXlsx(await file.arrayBuffer());
     } else if (name.endsWith('.csv') || name.endsWith('.tsv')) {
-      const text = await file.text();
-      const rows = decodeTsv(text);
-      this._applyImportedRows(rows);
+      sheet = readDelimited(await file.text(), name.endsWith('.tsv') ? 'tsv' : 'csv');
     } else {
       console.warn(`flex-table importFromFile: unsupported file type "${file.name}"`);
+      return null;
     }
+    return this._applyImportedSheet(sheet);
   }
 
-  private _applyImportedSheet(sheet: ImportedSheet): void {
-    const colMap = this._buildHeaderColumnMap(sheet.headers);
-    const imported: DataRow[] = sheet.rows.map(raw => {
-      const row: DataRow = {};
-      sheet.headers.forEach((hdr, i) => {
-        const key = colMap.get(hdr);
-        if (!key) return;
-        const col = this.columns.find(c => c.key === key);
-        row[key] = col ? parseValueForColumn(raw[i] ?? '', col) : (raw[i] ?? null);
-      });
-      return row;
-    });
+  private _applyImportedSheet(sheet: ImportedSheet): ImportReport {
+    const { rows: imported, report } = buildImport(sheet, this.columns);
     const prev = [...this.data];
     this.data = imported;
     this._undo.push({
@@ -1177,45 +1172,8 @@ export class FlexTable extends LitElement {
       undo: () => { this.data = prev; this.requestUpdate(); },
       redo: () => { this.data = imported; this.requestUpdate(); },
     });
-    this._emit('data-import', { count: imported.length });
-  }
-
-  private _applyImportedRows(rows: string[][]): void {
-    if (rows.length === 0) return;
-    const headers = rows[0];
-    const colMap = this._buildHeaderColumnMap(headers);
-    const imported: DataRow[] = rows.slice(1).map(raw => {
-      const row: DataRow = {};
-      headers.forEach((hdr, i) => {
-        const key = colMap.get(hdr);
-        if (!key) return;
-        const col = this.columns.find(c => c.key === key);
-        row[key] = col ? parseValueForColumn(raw[i] ?? '', col) : (raw[i] ?? null);
-      });
-      return row;
-    });
-    const prev = [...this.data];
-    this.data = imported;
-    this._undo.push({
-      label: 'import',
-      undo: () => { this.data = prev; this.requestUpdate(); },
-      redo: () => { this.data = imported; this.requestUpdate(); },
-    });
-    this._emit('data-import', { count: imported.length });
-  }
-
-  /** Map header text → column key using exact header match (case-insensitive fallback). */
-  private _buildHeaderColumnMap(headers: string[]): Map<string, string> {
-    const map = new Map<string, string>();
-    for (const hdr of headers) {
-      // Exact match first
-      const exact = this.columns.find(c => c.label === hdr);
-      if (exact) { map.set(hdr, exact.key); continue; }
-      // Case-insensitive fallback
-      const ci = this.columns.find(c => c.label.toLowerCase() === hdr.toLowerCase());
-      if (ci) map.set(hdr, ci.key);
-    }
-    return map;
+    this._emit('data-import', report);
+    return report;
   }
 
   private _onDragover(e: DragEvent): void {

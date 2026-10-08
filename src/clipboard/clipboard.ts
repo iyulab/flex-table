@@ -4,6 +4,7 @@ import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { encodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
 import { parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
+import { t } from '../locale.js';
 
 /**
  * Copy selected range to clipboard as TSV — the spreadsheet clipboard format (see `encodeTsv`):
@@ -29,28 +30,53 @@ export function copyToClipboard(
 }
 
 export function parseValueForColumn(raw: string, col: ColumnDefinition): unknown {
-  if (raw === '') return null;
+  return parseCellForColumn(raw, col).value;
+}
+
+/**
+ * {@link parseValueForColumn} with the outcome: `failed` is true when the column has a type (`number`, `boolean`,
+ * `date`, `datetime`) and the text is not one — the value is then the text itself, unchanged. An importer reports
+ * those cells instead of losing them.
+ */
+export function parseCellForColumn(raw: string, col: ColumnDefinition): { value: unknown; failed: boolean } {
+  if (raw === '') return { value: null, failed: false };
+  // A parser's `null` is the failure; its result may equal the text (`2026-10-02` reads as itself).
+  const parsed = (value: unknown) => (value === null ? { value: raw, failed: true } : { value, failed: false });
 
   switch (col.type) {
     case 'number': {
       // Locale-aware first, so `1,5` from a comma-decimal spreadsheet is 1.5 and `1.234,5` is 1234.5.
       // Plain JS notation (`1e3`) is still read; text that is neither stays text, as before.
       const n = parseNumber(raw);
-      if (n !== null) return n;
+      if (n !== null) return { value: n, failed: false };
       const plain = Number(raw.trim());
-      return raw.trim() !== '' && Number.isFinite(plain) ? plain : raw;
+      return raw.trim() !== '' && Number.isFinite(plain) ? { value: plain, failed: false } : { value: raw, failed: true };
     }
-    case 'boolean':
-      return raw.toLowerCase() === 'true' || raw === '1';
+    case 'boolean': {
+      // `true`/`false`/`1`/`0`, the locale's labels and its true/false words; anything else stays text —
+      // turning «예» or «Y» into `false` would change what the file said.
+      const b = parseBoolean(raw);
+      return b === null ? { value: raw, failed: true } : { value: b, failed: false };
+    }
     case 'date':
       // `2026/10/2`, `20261002` and `2026. 10. 2.` become `2026-10-02`; text that is not a date stays text.
-      return parseDate(raw) ?? raw;
+      return parsed(parseDate(raw));
     case 'datetime':
       // `2026-10-02 14:05` becomes local `2026-10-02T14:05` (a date alone is midnight); text that is not one stays text.
-      return parseDateTime(raw) ?? raw;
+      return parsed(parseDateTime(raw));
     default:
-      return raw;
+      return { value: raw, failed: false };
   }
+}
+
+/** A boolean as a spreadsheet writes it, or `null` when the text is not one. */
+export function parseBoolean(raw: string): boolean | null {
+  const word = raw.trim().toLowerCase();
+  const words = (key: 'booleanTrueWords' | 'booleanFalseWords', label: 'booleanTrue' | 'booleanFalse', base: string[]) =>
+    new Set([...base, t(label), ...t(key).split(',')].map(w => w.trim().toLowerCase()).filter(Boolean));
+  if (words('booleanTrueWords', 'booleanTrue', ['true', '1']).has(word)) return true;
+  if (words('booleanFalseWords', 'booleanFalse', ['false', '0']).has(word)) return false;
+  return null;
 }
 
 /**

@@ -106,6 +106,9 @@ export type FlexTableMessageKey =
   // 필터의 불린 선택지 — 글리프는 템플릿에 남기고 낱말만 번역한다
   | 'booleanTrue'
   | 'booleanFalse'
+  // 가져오기·붙여넣기가 불린 열에서 «참»/«거짓» 으로 읽는 낱말(쉼표로 나눔 · 대소문자 무시). true/false/1/0 과 위 두 낱말은 늘 읽는다
+  | 'booleanTrueWords'
+  | 'booleanFalseWords'
   // 가져오기 오버레이
   | 'dropFileToImport'
   // 셀 편집 검증
@@ -195,6 +198,8 @@ flexTableLocale.register('en', {
 
   booleanTrue: 'True',
   booleanFalse: 'False',
+  booleanTrueWords: 'yes,y',
+  booleanFalseWords: 'no,n',
 
   dropFileToImport: 'Drop file to import (.xlsx / .csv)',
 
@@ -280,6 +285,8 @@ flexTableLocale.register('ko', {
 
   booleanTrue: '참',
   booleanFalse: '거짓',
+  booleanTrueWords: '예,네,yes,y',
+  booleanFalseWords: '아니오,아니요,no,n',
 
   dropFileToImport: '가져올 파일을 놓으세요 (.xlsx / .csv)',
 

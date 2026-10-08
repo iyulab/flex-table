@@ -1,3 +1,4 @@
+import type { ImportReport } from './export/import.js';
 import type { CellPosition, CellRange } from './core/selection.js';
 import type { SortCriteria } from './core/sorting.js';
 import type { ColumnDefinition, DataRow } from './models/types.js';
@@ -64,8 +65,8 @@ export interface FlexTableEventMap {
   'validation-error': CustomEvent<{ row: number; col: number; key: string; value: unknown; error: string }>;
   /** `id` — the row's id (comments stay on their rows); `dataIndex` — its position in `data` now (-1 when not loaded). */
   'comment-change': CustomEvent<{ dataIndex: number; id: string; colKey: string; text: string | null }>;
-  /** Rows were imported from a file; `count` is how many. */
-  'data-import': CustomEvent<{ count: number }>;
+  /** Rows were imported from a file — the same report `importFromFile` returns: `count`, and what did not come in. */
+  'data-import': CustomEvent<ImportReport>;
   'sort-change': CustomEvent<{ criteria: SortCriteria[] }>;
   /**
    * Right-click on a body cell. Cancelable: `preventDefault()` keeps the built-in menu closed so you

@@ -11,6 +11,7 @@ export { UndoStack } from './core/undo.js';
 export type { UndoAction } from './core/undo.js';
 export type { ExportFormat, ExportOptions } from './export/export.js';
 export { exportData, exportDataBlob, downloadBlob } from './export/export.js';
+export type { ImportReport } from './export/import.js';
 export { renderCell } from './renderers/cell-renderer.js';
 export { flexTableLocale } from './locale.js';
 export type { FlexTableMessageKey } from './locale.js';

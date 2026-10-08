@@ -130,7 +130,7 @@ Enter/Escape and blur-to-commit behavior.
 | `undo()` / `redo()` / `clearUndoHistory()` | |
 | `setComment(dataIndex, colKey, text)` | `null` or `''` removes; undoable |
 | `getComment(dataIndex, colKey)` / `clearComments()` | |
-| `importFromFile(file)` | `Promise<void>`; `.xlsx`, `.csv`, `.tsv`; fires `data-import` |
+| `importFromFile(file)` | `Promise<ImportReport \| null>`; `.xlsx`, `.csv` (comma or semicolon), `.tsv`; headers match `label` or `importAliases`; fires `data-import` with the same report — `{ count, unmatchedHeaders, missingColumns, coercionFailures }`; a cell that is not its column's type keeps its text and is reported (an unread boolean is not `false`) |
 | `exportToString(format, { selectionOnly? } \| { rows })` | `string \| Uint8Array`; format `'csv' \| 'tsv' \| 'json' \| 'xlsx'` (xlsx returns uncompressed bytes — synchronous). `rows`: export these rows with the visible columns |
 | `exportToBlob(format, options?)` | `Promise<Blob>` typed with the format's MIME; xlsx is DEFLATE-compressed |
 | `exportToFile(format, filename?, options?)` | `Promise<void>` — triggers a download (xlsx compressed); CSV/TSV start with a UTF-8 BOM unless `{ bom: false }` |
@@ -176,7 +176,7 @@ cast, and the React `on*` props carry the same types.
 | `fill-handle-apply` | `{ sourceRange, targetRange, cells }` |
 | `find-replace` | `{ type: 'replace' \| 'replace-all', cells }` |
 | `comment-change` | `{ dataIndex, id, colKey, text }` |
-| `data-import` | `{ count }` |
+| `data-import` | `ImportReport` — `{ count, unmatchedHeaders, missingColumns, coercionFailures }` |
 | `undo-state-change` | `{ canUndo, canRedo }` |
 | `context-menu` | `{ x, y, row, col, key, value, rowData }` — cancelable; `preventDefault()` suppresses the built-in menu |
 | `header-context-menu` | `{ key, label, x, y }` |

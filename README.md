@@ -323,6 +323,32 @@ try {
 Without a table, `exportDataBlob(rows, columns, format)` and `downloadBlob(blob, filename)` (root entry) do the same
 — `exportData` stays synchronous and writes XLSX uncompressed.
 
+### Import
+
+`importFromFile(file)` reads an `.xlsx`, `.csv` or `.tsv` file into `data` (undoable) — also what dropping a file on a
+table with `import-enabled` does. The first row is the header: each header goes to the column whose `label` — or one
+of its `importAliases` — it matches, exactly first, then ignoring case and surrounding spaces. Each cell is read as its
+column's type, the same way pasting reads it. A CSV may be separated by commas or semicolons; the byte-order mark an
+export starts with is not part of the first header, so an exported file reads back as it was.
+
+Nothing is dropped silently. The returned report — the same object `data-import` carries — says what did not come in:
+
+```ts
+const report = await table.importFromFile(file); // null for a file type it does not read
+// { count: 120,
+//   unmatchedHeaders: ['비고2'],                          // their values were not imported
+//   missingColumns: ['since'],                            // empty in every imported row
+//   coercionFailures: [{ row: 4, key: 'qty', raw: 'many' }] } // the cell keeps its text
+```
+
+A boolean column reads `true`/`false`/`1`/`0`, the locale's true/false labels and its words (`flexTableLocale` keys
+`booleanTrueWords`/`booleanFalseWords` — `yes,y`/`no,n` in English, `예,네`/`아니오,아니요` in Korean); any other text
+stays text and is reported, rather than becoming `false`.
+
+```ts
+{ key: 'code', label: '관리번호', importAliases: ['관리 번호', 'Asset no.'] } // a template a person made
+```
+
 ## Events
 
 All events use `CustomEvent` with `bubbles: true, composed: true`. They are typed: `FlexTableEventMap` maps
@@ -349,7 +375,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 | `row-activate` | `{ row, id, via, index, col, key }` | "Open this row" (e.g. navigate to a detail view): a plain click on a body cell (`via: 'click'`), or Enter on a non-editable cell (`via: 'keyboard'`). Not a Shift / Ctrl / Cmd click (those extend the selection), the click that ends a drag, or a click on a control the cell renders (a link, a button). The grid's own contract — its Enter handler keeps the keystroke from reliably reaching a listener the host attaches to the same element |
 | `batch-update` | `{ changes: [{ row, key, oldValue, newValue }] }` | Batch update applied |
 | `row-reorder` | `{ from, to }` | Row dragged to a new place (data indices) |
-| `data-import` | `{ count }` | Rows imported from a file |
+| `data-import` | `ImportReport` — `{ count, unmatchedHeaders, missingColumns, coercionFailures }` | Rows imported from a file (see Import) |
 | `fill-handle-apply` | `{ sourceRange, targetRange, cells }` | Fill handle wrote `cells` (`{ dataRow, key, oldValue, newValue }`) |
 | `find-replace` | `{ type, cells }` | Replace (`type: 'replace'`) or replace-all from the find panel; `cells` are `{ row, col, oldValue, newValue }` with `col` the column key |
 | `comment-change` | `{ dataIndex, id, colKey, text }` | Cell comment set, changed or removed (`text: null`). Comments stay on their rows (`id`) when rows move |

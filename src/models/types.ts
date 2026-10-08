@@ -132,6 +132,11 @@ export interface ColumnDefinition<T = DataRow> {
    * code shown as a label: `exportValue: (v) => statusLabel(v)`. A returned `Date` becomes a date cell in XLSX.
    */
   exportValue?: (value: unknown, row: T) => string | number | boolean | Date | null | undefined;
+  /**
+   * Other headers an imported file may give this column (`importFromFile`) — a template a person made says
+   * «관리 번호» where the label is «관리번호». Matched like the label: exactly, then ignoring case and surrounding spaces.
+   */
+  importAliases?: string[];
   /** Per-column conditional formatting rules applied during cell rendering */
   conditionalRules?: ConditionalRule<T>[];
   /**
