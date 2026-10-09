@@ -100,7 +100,7 @@ The grid's own chrome (column menu, filters, find/replace, context menu, empty s
 namespace. English and Korean are built in and follow the active `@iyulab/components` locale:
 
 ```ts
-import { Locale } from '@iyulab/components';
+import { Locale } from '@iyulab/components/dist/utilities/Locale.js'; // the barrel would register every component
 Locale.set('ko');
 ```
 

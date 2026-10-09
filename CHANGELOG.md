@@ -7,6 +7,11 @@
 - Comments inside the components' `css` styles are no longer shipped. A tagged template's body is a string, so a
   consumer's bundler could not remove them; they were design notes, sent to every browser.
 
+### Documentation
+
+- Examples import `Locale`/`Theme`/`formatCurrency` from their own module in `@iyulab/components`
+  (`dist/utilities/…`) — the components barrel registers every component even when one value is taken from it.
+
 ## [0.64.1] - 2026-10-08
 
 ### Fixed

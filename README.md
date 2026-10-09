@@ -563,7 +563,7 @@ empty-state message — resolves through a locale namespace. English and Korean 
 and follow whatever locale `@iyulab/components` has active:
 
 ```ts
-import { Locale } from '@iyulab/components';
+import { Locale } from '@iyulab/components/dist/utilities/Locale.js'; // the barrel would register every component
 
 Locale.set('ko');   // the table's own chrome follows
 ```
