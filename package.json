@@ -87,6 +87,7 @@
     }
   },
   "devDependencies": {
+    "@iyulab/components": "^2.19.0",
     "@lit/react": "^1.0.8",
     "@types/node": "^26.1.1",
     "@types/react": "^19.3.0",
