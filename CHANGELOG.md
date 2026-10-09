@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Comments inside the components' `css` styles are no longer shipped. A tagged template's body is a string, so a
+  consumer's bundler could not remove them; they were design notes, sent to every browser.
+
 ## [0.64.1] - 2026-10-08
 
 ### Fixed
