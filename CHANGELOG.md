@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.64.3] - 2026-10-12
+
+### Fixed
+
+- Committing a `datetime` cell without changing it no longer rewrites the value. A cell holding an instant — a
+  server `…Z` / `…+09:00` string or a `Date` — is shown in the editor as the local wall clock; pressing Enter
+  stored that text (`2026-09-07T07:22`) in place of the server's value and recorded an edit and an undo entry that
+  nobody made. The edit now ends without a write when the person did not change what was shown. A changed value is
+  stored as before, as local `YYYY-MM-DDTHH:mm`.
+
 ## [0.64.2] - 2026-10-09
 
 ### Changed
