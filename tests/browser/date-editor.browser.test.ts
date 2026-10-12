@@ -122,6 +122,28 @@ describe('flex-table — datetime editor', () => {
     expect(errors).toEqual([]);
   });
 
+  it('🔴a server instant (…Z) committed without a change stays as it was — not cut to its UTC digits', async () => {
+    const instant = '2026-09-06T22:22:34Z';
+    const { text } = await editing('datetime', instant);
+    // The text box shows this browser's wall clock of that moment.
+    const local = new Date(instant);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    expect(text().value).toBe(`${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())} ${pad(local.getHours())}:${pad(local.getMinutes())}`);
+    await userEvent.keyboard('{Enter}');
+    await settle();
+    expect(table.data[0].d).toBe(instant);
+    expect(errors).toEqual([]);
+  });
+
+  it('a server instant the person changes is stored as the edited local YYYY-MM-DDTHH:mm', async () => {
+    const { text } = await editing('datetime', '2026-09-06T22:22:34Z');
+    await userEvent.fill(text(), '2026-12-31 9:30');
+    await userEvent.keyboard('{Enter}');
+    await settle();
+    expect(table.data[0].d).toBe('2026-12-31T09:30');
+    expect(errors).toEqual([]);
+  });
+
   it('rejects an impossible time and keeps the value', async () => {
     const { text } = await editing('datetime', '2026-10-02T14:05');
     await userEvent.fill(text(), '2026-12-31 25:00');

@@ -1859,7 +1859,16 @@ export class FlexTable extends LitElement {
       // The picker's datetime value carries seconds and the browser's offset; the cell keeps the
       // local `YYYY-MM-DDTHH:mm` a typed edit has always stored.
       const v = picker.value || null;
-      this._applyEdit(v && col.type === 'datetime' ? v.slice(0, 16) : v);
+      const picked = v && col.type === 'datetime' ? v.slice(0, 16) : v;
+      // A value the person did not change, in a form an edit would not store (a server `…Z`, a `Date`), was
+      // handed to the picker as its local wall clock and comes back as that. Writing it would replace the
+      // server's value with a local string and record an edit nobody made — the edit ends without a write.
+      const original = this._editing.current?.originalValue;
+      if (picked && picked !== original && picked === pickerValue(original, col.type === 'datetime')) {
+        this._cancelEdit();
+        return;
+      }
+      this._applyEdit(picked);
       return;
     }
 
