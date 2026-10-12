@@ -1,0 +1,92 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Resolve version from tag
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if already published
+        id: check
+        run: |
+          if npm view "@iyulab/flex-table@${{ steps.version.outputs.value }}" version 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip if already published
+        if: steps.check.outputs.exists == 'true'
+        run: echo "Version ${{ steps.version.outputs.value }} already published — skipping."
+
+      - run: npm install
+        if: steps.check.outputs.exists == 'false'
+
+      - run: npm run build
+        if: steps.check.outputs.exists == 'false'
+
+      # `npm test` runs the browser project too (tests/browser/**, chromium) — without the
+      # browser installed vitest fails at launch, which is exactly how the first tag after the
+      # browser project landed died here while `ci.yml` (which installs it) stayed green.
+      - name: Install Chromium
+        if: steps.check.outputs.exists == 'false'
+        run: npx playwright install --with-deps chromium
+
+      - run: npm test
+        if: steps.check.outputs.exists == 'false'
+
+      - name: Sync version from release tag
+        if: steps.check.outputs.exists == 'false'
+        run: npm version "${{ steps.version.outputs.value }}" --no-git-tag-version --allow-same-version
+
+      # Pack first and check the tarball that will be published - a module the source
+      # registers can drop out of the packed files while the local build looks fine.
+      - name: Pack
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          dest="${RUNNER_TEMP}/pack"
+          mkdir -p "${dest}"
+          tgz=$(npm pack --pack-destination "${dest}" --silent | tail -n 1)
+          tar -xzf "${dest}/${tgz}" -C "${dest}"
+          echo "PACKED_TARBALL=${dest}/${tgz}" >> "$GITHUB_ENV"
+          echo "PACKED_DIR=${dest}/package" >> "$GITHUB_ENV"
+
+      - name: Verify packed tarball
+        if: steps.check.outputs.exists == 'false'
+        run: node .github/scripts/verify-packed.mjs
+
+      - name: Publish
+        if: steps.check.outputs.exists == 'false'
+        run: npm publish "${PACKED_TARBALL}" --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### 📦 @iyulab/flex-table@${{ steps.version.outputs.value }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.check.outputs.exists }}" = "true" ]; then
+            echo "Already published — skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Published successfully." >> "$GITHUB_STEP_SUMMARY"
+          fi
