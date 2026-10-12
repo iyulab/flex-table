@@ -5,6 +5,7 @@
 
 // 숫자 구분 기호는 앱이 정한 로캘을 따른다(`Locale.get()`) — 런타임 기본 로캘이 아니라.
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
+import { readCellDate } from '../core/date-value.js';
 
 /**
  * Apply a format string or function to a cell value.
@@ -88,7 +89,10 @@ export function formatDateValue(value: unknown, fmt: string): string {
   if (value instanceof Date) {
     d = value;
   } else if (typeof value === 'string' || typeof value === 'number') {
-    d = new Date(value);
+    // 표시 경로와 같은 읽기 — `YYYY-MM-DD` 는 그 날 로컬 자정, 없는 날은 글자 그대로.
+    const read = readCellDate(value);
+    if (!read) return String(value);
+    d = read;
   } else {
     return String(value);
   }

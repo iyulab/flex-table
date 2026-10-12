@@ -1,5 +1,6 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { getCellValue } from './cell-value.js';
+import { readCellDate } from './date-value.js';
 
 /**
  * Sort direction.
@@ -75,8 +76,9 @@ function compareValues(a: unknown, b: unknown, type: string): number {
       return (a ? 1 : 0) - (b ? 1 : 0);
     case 'date':
     case 'datetime': {
-      const da = new Date(a as string).getTime();
-      const db = new Date(b as string).getTime();
+      // 표시 경로와 같은 읽기 — `YYYY-MM-DD` 는 로컬 자정(UTC 자정이 아니다)이라 같은 날의 시각과 바르게 줄 선다.
+      const da = readCellDate(a)?.getTime() ?? NaN;
+      const db = readCellDate(b)?.getTime() ?? NaN;
       return (isNaN(da) ? 0 : da) - (isNaN(db) ? 0 : db);
     }
     default: // text

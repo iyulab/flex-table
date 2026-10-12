@@ -120,6 +120,16 @@ describe('exportData', () => {
       expect(lines[1]).toBe('TBD,soon');
     });
 
+    it('NEGATIVE a day that does not exist stays the text it was — not a rolled-over date', () => {
+      const lines = (exportData([{ created: '2026-02-30', updated: '2026-02-30T10:00' }], dateCols, 'csv') as string).split('\n');
+      expect(lines[1]).toBe('2026-02-30,2026-02-30T10:00');
+    });
+
+    it('a plain date-time (no offset) is its own wall clock', () => {
+      const lines = (exportData([{ created: '2026-10-02', updated: '2026-10-02T14:05' }], dateCols, 'csv') as string).split('\n');
+      expect(lines[1]).toBe('2026-10-02,2026-10-02 14:05:00');
+    });
+
     it('should export Date objects as ISO 8601 in JSON', () => {
       const d: DataRow[] = [{ created: new Date('2024-03-15'), updated: new Date('2024-03-15T10:30:00Z') }];
       const result = exportData(d, dateCols, 'json') as string;

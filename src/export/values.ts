@@ -1,5 +1,6 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { getCellValue } from '../core/cell-value.js';
+import { readCellDate } from '../core/date-value.js';
 
 /**
  * 내보낼 셀 값 — 열이 `exportValue` 를 주면 그 결과, 아니면 원시값. 표시 규칙(`format`·`render`)은 쓰지 않는다:
@@ -11,16 +12,14 @@ export function exportCellValue(row: DataRow, col: ColumnDefinition): unknown {
 }
 
 /**
- * 날짜로 내보낼 값이면 `Date` — 표시 경로(`@iyulab/components` `formatDate`)와 같은 규칙이다: `Date` 는 그대로, 날짜 열의
- * 문자열은 `YYYY-MM-DD` 면 그 날(로컬 달력), 아니면 ISO 로 읽는다. 읽지 못하면 `null`(글자로 남긴다 — 버리지 않는다).
- * JSON 으로 오는 소스(OData 포함)는 날짜가 문자열이라, 종전에는 날짜 열이어도 XLSX 에 글자 셀로 들어갔다.
+ * 날짜로 내보낼 값이면 `Date` — 표시 경로(`@iyulab/components` `formatDate`)와 같은 규칙, 같은 읽기(`readCellDate`)다:
+ * `Date` 는 그대로, 날짜 열의 문자열은 종류대로 — `YYYY-MM-DD` 는 그 날 로컬 자정 · 오프셋 없는 날짜-시각은 벽시계 · 오프셋
+ * 있는 것은 그 순간. 날짜 모양인데 없는 날(`2026-02-30`)이거나 읽지 못하면 `null`(글자로 남긴다 — 버리지 않는다).
  */
 export function exportDate(value: unknown, col: ColumnDefinition): Date | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
   if (typeof value !== 'string' || (col.type !== 'date' && col.type !== 'datetime')) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
+  return readCellDate(value);
 }
 
 /**

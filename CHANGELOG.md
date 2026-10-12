@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **Date cells read their values the way the display path does** — through `@iyulab/components`'
+  `readDateValue`, which tells the three kinds apart: a plain date (`YYYY-MM-DD`, local midnight), a plain date-time
+  (no offset — the wall clock) and an instant (`Z`, an offset, a `Date` — that moment). Editing, copying and exporting
+  follow it:
+  - A `date` cell holding an instant edits as the local day the cell shows. It used to take the UTC day from the text
+    (`2026-10-02T23:30:00Z` edited as October 2 in Seoul while the cell showed October 3).
+  - A `datetime` cell holding a plain date edits at its local midnight instead of opening an empty picker.
+  - A day or time that does not exist (`2026-02-30`, `24:30`) stays the text it was in the editor, a copy, an
+    export and a `format` pattern — it used to become the rolled-over date (March 2).
+- **Sorting, the date filter and `format` patterns read a plain date as local midnight**, not UTC midnight.
+  `new Date('2026-10-02')` is UTC midnight, so in a time zone ahead of UTC a plain date sorted after the same day's
+  early-morning times, the filter's lower bound dropped values from the start of that day, and a `HH:mm` pattern
+  showed the offset (`09:00`) instead of `00:00`; behind UTC a plain date showed as the day before.
+- The `@iyulab/components` peer range starts at `2.21.0`, the first version with `readDateValue`.
+
 ## [0.64.3] - 2026-10-12
 
 ### Fixed

@@ -93,10 +93,21 @@ describe('dates', () => {
 
   it('writes a date for editing without a timezone shift', () => {
     expect(editableDate('2026-10-02')).toBe('2026-10-02');
-    expect(editableDate('2026-10-02T23:30:00Z')).toBe('2026-10-02');
+    expect(editableDate('2026-10-02T23:30')).toBe('2026-10-02');
     expect(editableDate(new Date(2026, 9, 2))).toBe('2026-10-02');
     expect(editableDate(null)).toBe('');
     expect(editableDate('soon')).toBe('soon');
+  });
+
+  it('an instant edits as the local day the cell shows, not the UTC day', () => {
+    const instant = new Date(Date.UTC(2026, 9, 2, 23, 30));
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const localDay = `${instant.getFullYear()}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}`;
+    expect(editableDate('2026-10-02T23:30:00Z')).toBe(localDay);
+  });
+
+  it('⚪NEGATIVE — a day that does not exist stays the text it was, not a rolled-over date', () => {
+    expect(editableDate('2026-02-30')).toBe('2026-02-30');
   });
 });
 
@@ -118,6 +129,14 @@ describe('date-times', () => {
     expect(editableDateTime('2026-10-02T00:00:00Z'))
       .toBe(`${utc.getFullYear()}-${pad(utc.getMonth() + 1)}-${pad(utc.getDate())} ${pad(utc.getHours())}:${pad(utc.getMinutes())}`);
     expect(editableDateTime('')).toBe('');
+  });
+
+  it('a plain date in a datetime cell edits at its local midnight', () => {
+    expect(editableDateTime('2026-10-02')).toBe('2026-10-02 00:00');
+  });
+
+  it('⚪NEGATIVE — a time that does not exist stays the text it was', () => {
+    expect(editableDateTime('2026-10-02T24:30')).toBe('2026-10-02T24:30');
   });
 });
 

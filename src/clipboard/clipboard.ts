@@ -4,6 +4,7 @@ import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { encodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
 import { parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
+import { readDateValue, writePlainDate, writePlainDateTime } from '@iyulab/components/dist/utilities/dateValue.js';
 import { t } from '../locale.js';
 import { getCellValue } from '../core/cell-value.js';
 import { exportDate, exportDateText } from '../export/values.js';
@@ -96,34 +97,32 @@ export function editableNumber(value: number): string {
   return decimal && decimal !== '.' ? plain.replace('.', decimal) : plain;
 }
 
+/** A cell value read as a date (`readDateValue` — the rule the display path uses), or `null`. */
+function readCellDate(value: unknown) {
+  return value instanceof Date || typeof value === 'string' ? readDateValue(value) : null;
+}
+
 /**
- * A `date` cell's value as `YYYY-MM-DD` for editing — the form the editor reads back. A date string
- * keeps its own calendar day (`new Date('2026-10-02')` would be UTC midnight, the day before in
- * negative offsets); a `Date` uses its local day. Anything else is shown as it is.
+ * A `date` cell's value as `YYYY-MM-DD` for editing — the form the editor reads back — and the day the
+ * cell shows: a plain date is that day, a plain date-time its own wall-clock day, an instant (`Z`, an
+ * offset, a `Date`) its local day. Anything else, a day that does not exist included, is shown as it is.
  */
 export function editableDate(value: unknown): string {
   if (value == null || value === '') return '';
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) return '';
-    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
-  }
-  const text = String(value);
-  const iso = /^(\d{4}-\d{2}-\d{2})(?:$|T)/.exec(text);
-  return iso ? iso[1] : text;
+  const read = readCellDate(value);
+  if (read) return writePlainDate(read.date);
+  return value instanceof Date ? '' : String(value);
 }
 
 /**
  * A `datetime` cell's value as `YYYY-MM-DD HH:mm` (local) for editing — the form the editor reads
- * back. A local date-time string (`2026-10-02T14:05`, no offset) keeps its wall-clock time; a `Date`
- * or a string with an offset (`Z`, `+09:00`) is shown in local time. Anything else is shown as it is.
+ * back. A plain date-time (`2026-10-02T14:05`, no offset) keeps its wall clock, an instant (`Z`, an
+ * offset, a `Date`) is shown in local time and a plain date at its local midnight. Anything else is
+ * shown as it is.
  */
 export function editableDateTime(value: unknown): string {
   if (value == null || value === '') return '';
-  const text = value instanceof Date ? '' : String(value);
-  const local = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(text);
-  if (local) return `${local[1]} ${local[2]}`;
-  const d = value instanceof Date ? value : /^\d{4}-\d{2}-\d{2}T/.test(text) ? new Date(text) : null;
-  if (!d || Number.isNaN(d.getTime())) return text;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const read = readCellDate(value);
+  if (read) return writePlainDateTime(read.date, false).replace('T', ' ');
+  return value instanceof Date ? '' : String(value);
 }

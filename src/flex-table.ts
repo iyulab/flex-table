@@ -33,6 +33,7 @@ import type { TemplateResult } from 'lit';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
+import { readCellDate } from './core/date-value.js';
 
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
 type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
@@ -3458,15 +3459,19 @@ export class FlexTable extends LitElement {
     if (state.from == null && state.to == null) return null;
     return (v) => {
       if (v == null || v === '') return false;
-      const d = v instanceof Date ? v : new Date(String(v));
-      if (isNaN(d.getTime())) return false;
+      // 셀과 경계를 표시 경로와 같은 읽기로 — `YYYY-MM-DD` 는 로컬 자정이라, 오프셋 있는 순간 값도 화면에 보이는 날로 걸러진다.
+      const d = readCellDate(v);
+      if (!d) return false;
       if (state.from) {
-        if (d < new Date(state.from)) return false;
+        const from = readCellDate(state.from);
+        if (from && d < from) return false;
       }
       if (state.to) {
-        const to = new Date(state.to);
-        if (state.to.length === 10) to.setHours(23, 59, 59, 999);
-        if (d > to) return false;
+        const to = readCellDate(state.to);
+        if (to) {
+          if (state.to.length === 10) to.setHours(23, 59, 59, 999);
+          if (d > to) return false;
+        }
       }
       return true;
     };
