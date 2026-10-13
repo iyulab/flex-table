@@ -31,15 +31,10 @@ import { effectiveAlign } from './models/types.js';
 import type { FlexTableEventMap } from './events.js';
 import type { TemplateResult } from 'lit';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
-import { CompositionTracker } from '@iyulab/components/dist/utilities/composition.js';
+import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
 import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
 import { readCellDate } from './core/date-value.js';
-
-/** 조합이 끝난 입력 칸의 `input` 처리기를 다시 부른다 — 그 칸 자신의 처리기만(전파하지 않는다). */
-function rerunInput(input: HTMLInputElement | HTMLTextAreaElement): void {
-  input.dispatchEvent(new Event('input', { bubbles: false, composed: false }));
-}
 
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
 type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
@@ -3646,9 +3641,9 @@ export class FlexTable extends LitElement {
    * 보이며, 필터는 그 술어를 바깥에도 알린다 — 조합 중에는 글자만 담고 적용은 조합이 끝날 때 한다(같은 처리기를 다시 부른다).
    * 칸의 값이 상태에 묶여 있어(`.value=`) 상태에는 늘 상자의 글자 전체를 둔다.
    */
-  private readonly _textEntryIme = new CompositionTracker(rerunInput);
+  private readonly _textEntryIme = new CompositionTracker(replayInput);
   /** 자동완성 편집기의 IME 조합 — 후보는 확정된 부분의 접두로 고른다(최종 글자의 후보를 숨기지 않는다). */
-  private readonly _editorIme = new CompositionTracker(rerunInput);
+  private readonly _editorIme = new CompositionTracker(replayInput);
   private _numberFilterState: Map<string, NumberAdvState> = new Map();
   private _dateFilterState: Map<string, { from?: string; to?: string }> = new Map();
   private _emptyFilterState: Map<string, 'empty' | 'non-empty'> = new Map();
