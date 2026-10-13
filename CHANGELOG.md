@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `--ft-selection-color` — the colour of the row checkboxes, from the selection role `--u-selection-color` (the
+  primary colour unless the theme sets it). They read `--ft-active-color` before, so a theme with an ink primary and
+  a blue selection drew ink checks on a blue-tinted selected row.
+
 ## [0.66.0] - 2026-10-13
 
 ### Added

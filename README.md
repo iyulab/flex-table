@@ -479,6 +479,7 @@ flex-table {
   /* Accent */
   --ft-active-color: #1a73e8;        /* --u-primary-color */
   --ft-selection-bg: #e8f0fe;        /* --u-primary-bg-color */
+  --ft-selection-color: #1a73e8;     /* --u-selection-color — the row checkboxes */
   --ft-bool-color: #2196f3;          /* --u-primary-color */
 
   /* State overlays — these are translucent on purpose, so the row striping and

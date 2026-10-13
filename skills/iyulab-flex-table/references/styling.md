@@ -25,7 +25,7 @@ Override individual properties to make the table differ from the rest of the app
 | Surfaces / text | `--ft-bg`, `--ft-text-color`, `--ft-border-color`, `--ft-editor-bg`, `--ft-empty-color` |
 | Header | `--ft-header-bg`, `--ft-header-hover-bg`, `--ft-header-text-color`, `--ft-sort-indicator-color` |
 | Rows | `--ft-row-even-bg`, `--ft-row-odd-bg`, `--ft-row-hover-bg`, `--ft-row-odd-hover-bg` |
-| Accent | `--ft-active-color`, `--ft-selection-bg`, `--ft-bool-color` |
+| Accent | `--ft-active-color`, `--ft-selection-bg`, `--ft-selection-color` (row checkboxes — from `--u-selection-color`), `--ft-bool-color` |
 | State overlays | `--ft-invalid-color`, `--ft-drop-color`, `--ft-find-color` (translucent backgrounds derive from these) |
 
 ```css

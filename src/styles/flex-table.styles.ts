@@ -38,6 +38,7 @@ export const flexTableStyles = css`
     --ft-row-odd-hover-bg: var(--u-bg-color-raised-hover, #F5F5F5);
     --ft-active-color: var(--u-primary-color, #1976D2);
     --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
+    --ft-selection-color: var(--u-selection-color, #1976D2);
     --ft-bool-color: var(--u-primary-color, #1976D2);
     --ft-sort-indicator-color: var(--u-txt-color-weak, #616161);
     --ft-editor-bg: var(--u-input-bg-color, #FFFFFF);
@@ -82,6 +83,7 @@ export const flexTableStyles = css`
       --ft-row-odd-hover-bg: var(--u-bg-color-raised-hover, #F5F5F5);
       --ft-active-color: var(--u-primary-color, #1976D2);
       --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
+      --ft-selection-color: var(--u-selection-color, #1976D2);
       --ft-bool-color: var(--u-primary-color, #1976D2);
       --ft-sort-indicator-color: var(--u-txt-color-weak, #616161);
       --ft-editor-bg: var(--u-input-bg-color, #FFFFFF);
@@ -103,6 +105,7 @@ export const flexTableStyles = css`
     --ft-row-odd-hover-bg: var(--u-bg-color-raised-hover, #F5F5F5);
     --ft-active-color: var(--u-primary-color, #1976D2);
     --ft-selection-bg: var(--u-primary-bg-color, #E3F2FD);
+    --ft-selection-color: var(--u-selection-color, #1976D2);
     --ft-bool-color: var(--u-primary-color, #1976D2);
     --ft-sort-indicator-color: var(--u-txt-color-weak, #616161);
     --ft-editor-bg: var(--u-input-bg-color, #FFFFFF);
@@ -709,7 +712,7 @@ export const flexTableStyles = css`
     width: 16px;
     height: 16px;
     cursor: pointer;
-    accent-color: var(--ft-active-color);
+    accent-color: var(--ft-selection-color);
   }
 
   /* --- Footer Row --- */
