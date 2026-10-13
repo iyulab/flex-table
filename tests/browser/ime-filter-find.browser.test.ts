@@ -95,3 +95,36 @@ describe('flex-table — 조합 중 거르기', () => {
     expect(candidates()).toEqual(['서울']);
   });
 });
+
+describe('flex-table — 검색 일치(자모 · 초성)', () => {
+  it('텍스트 필터 «포함» 은 확정된 음절을 음절 그대로 견준다 — «서» 는 성남이 아니다', async () => {
+    const any = await mount([{ key: 'city', label: 'City', type: 'text', width: 160 }]);
+    any._textFilterState.set('city', { value: '서', mode: 'contains' });
+    any._applyTextFilter('city');
+    await table.updateComplete;
+    expect(any.filteredRowCount).toBe(1);
+  });
+
+  it('텍스트 필터 «포함» 은 초성으로도 찾는다 — «ㅅㅇ» 은 서울', async () => {
+    const any = await mount([{ key: 'city', label: 'City', type: 'text', width: 160 }]);
+    any._textFilterState.set('city', { value: 'ㅅㅇ', mode: 'contains' });
+    any._applyTextFilter('city');
+    await table.updateComplete;
+    expect(any.filteredRowCount).toBe(1);
+  });
+
+  it('자동완성: 글 끝에서 조합 중인 «성» 은 자모로 서울 · 성남을 후보로 낸다', async () => {
+    const any = await mount([{ key: 'city', label: 'City', autocomplete: true, width: 160 }]);
+    any._selection.setActive(2, 0);
+    any._syncActiveCell();
+    any._startEdit();
+    await table.updateComplete;
+    const editor = table.shadowRoot!.querySelector('.ft-editor') as HTMLInputElement;
+    editor.focus();
+    editor.select();
+    await compose(['ㅅ', '서', '성']);
+    await table.updateComplete;
+    const candidates = [...table.shadowRoot!.querySelectorAll('.ft-autocomplete-item')].map((n) => n.textContent!.trim());
+    expect(candidates).toEqual(['서울', '성남']);
+  });
+});

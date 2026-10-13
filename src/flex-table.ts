@@ -32,6 +32,7 @@ import type { FlexTableEventMap } from './events.js';
 import type { TemplateResult } from 'lit';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
+import { foldForSearch } from '@iyulab/components/dist/utilities/search.js';
 import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
 import { readCellDate } from './core/date-value.js';
@@ -2029,15 +2030,15 @@ export class FlexTable extends LitElement {
     }
   }
 
-  private _getAutocompleteCandidates(col: ColumnDefinition, text: string): string[] {
-    const lower = text.toLowerCase();
+  /** `composing` — `text` 의 마지막 음절이 아직 IME 로 조합 중이다(검색 일치가 자모 앞부분으로 견준다). */
+  private _getAutocompleteCandidates(col: ColumnDefinition, text: string, composing = false): string[] {
     const seen = new Set<string>();
     const results: string[] = [];
     for (const row of this.data) {
       const v = getCellValue(row, col.key);
       if (v == null) continue;
       const s = String(v);
-      if (!seen.has(s) && (text === '' || s.toLowerCase().includes(lower))) {
+      if (!seen.has(s) && (text === '' || Locale.matchesSearch(s, text, { composing }))) {
         seen.add(s);
         results.push(s);
         if (results.length >= 20) break;
@@ -2049,7 +2050,8 @@ export class FlexTable extends LitElement {
   private _onAutocompleteInput(e: Event, col: ColumnDefinition): void {
     const input = e.target as HTMLInputElement;
     const text = input.value;
-    const candidates = this._getAutocompleteCandidates(col, this._editorIme.settled(input)).filter(c => c !== text);
+    const { query, composing } = this._editorIme.searchQuery(input);
+    const candidates = this._getAutocompleteCandidates(col, query, composing).filter(c => c !== text);
     this._autocompleteState = candidates.length > 0 ? { candidates, activeIndex: -1 } : null;
   }
 
@@ -3364,11 +3366,17 @@ export class FlexTable extends LitElement {
     `;
   }
 
+  /**
+   * 텍스트 필터의 술어. «포함» 은 components 의 검색 일치(`Locale.matchesSearch` — 대소문자 · 발음 구별 기호를 접고, 한글
+   * 자음만의 질의는 초성으로)를, «시작» · «끝» 은 같은 접은 꼴(`foldForSearch`)을 쓴다 — 목록 검색과 같은 규칙으로 찾는다.
+   * 필터는 조합이 끝날 때 적용되므로(확정된 질의) 음절은 음절 그대로 견준다. 와일드카드는 패턴 그대로(대소문자만 접는다).
+   */
   private _buildTextPredicate(value: string, mode: TextFilterMode): FilterPredicate {
     const lower = value.toLowerCase();
+    const folded = foldForSearch(value);
     switch (mode) {
-      case 'starts': return (v) => String(v ?? '').toLowerCase().startsWith(lower);
-      case 'ends': return (v) => String(v ?? '').toLowerCase().endsWith(lower);
+      case 'starts': return (v) => foldForSearch(String(v ?? '')).startsWith(folded);
+      case 'ends': return (v) => foldForSearch(String(v ?? '')).endsWith(folded);
       case 'wildcard': {
         const pattern = lower
           .replace(/[.+^${}()|[\]\\]/g, '\\$&')
@@ -3378,7 +3386,7 @@ export class FlexTable extends LitElement {
         return (v) => regex.test(String(v ?? ''));
       }
       default: // 'contains'
-        return (v) => String(v ?? '').toLowerCase().includes(lower);
+        return (v) => Locale.matchesSearch(String(v ?? ''), value);
     }
   }
 
@@ -3642,7 +3650,7 @@ export class FlexTable extends LitElement {
    * 칸의 값이 상태에 묶여 있어(`.value=`) 상태에는 늘 상자의 글자 전체를 둔다.
    */
   private readonly _textEntryIme = new CompositionTracker(replayInput);
-  /** 자동완성 편집기의 IME 조합 — 후보는 확정된 부분의 접두로 고른다(최종 글자의 후보를 숨기지 않는다). */
+  /** 자동완성 편집기의 IME 조합 — 후보는 검색 질의(`searchQuery` — 글 끝 한글 조합은 자모 앞부분으로)로 고른다. */
   private readonly _editorIme = new CompositionTracker(replayInput);
   private _numberFilterState: Map<string, NumberAdvState> = new Map();
   private _dateFilterState: Map<string, { from?: string; to?: string }> = new Map();

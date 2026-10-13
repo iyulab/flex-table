@@ -12,7 +12,11 @@
 
 ### Changed
 
-- Requires `@iyulab/components` 2.22.0 or later (peer), for its composition helper.
+- The text filter's «contains», «starts with» and «ends with» fold diacritics as well as case, and «contains» with a
+  query of Hangul consonants only also matches initials (`ㅅㅇ` finds `서울`) — the same search matching as
+  `u-select` (`Locale.matchesSearch` in `@iyulab/components`). Autocomplete uses it too, and while a syllable is
+  being composed it compares that syllable by its jamo, so `성` already offers `서울` and `성남`.
+- Requires `@iyulab/components` 2.22.0 or later (peer), for its composition helper and search matching.
 
 ## [0.65.0] - 2026-10-12
 
