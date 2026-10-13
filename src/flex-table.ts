@@ -1785,11 +1785,16 @@ export class FlexTable extends LitElement {
 
   // --- Editing ---
 
-  /** Check if a column is editable based on global + per-column settings */
-  private _isCellEditable(col: ColumnDefinition): boolean {
+  /** Whether a cell may change: the table's `editable`, then the column's — a function decides per row. */
+  private _isCellEditable(col: ColumnDefinition, row: DataRow | undefined): boolean {
     if (!this.editable) return false;
-    if (col.editable === false) return false;
-    return true;
+    if (typeof col.editable === 'function') return row != null && col.editable(row, col);
+    return col.editable !== false;
+  }
+
+  /** The active cell's data row — `undefined` when nothing is active. */
+  private _activeRow(): DataRow | undefined {
+    return this._activeCell ? this.data[this._toDataIndex(this._activeCell.row)] : undefined;
   }
 
   /**
@@ -1810,7 +1815,7 @@ export class FlexTable extends LitElement {
     if (!this._activeCell) return;
     const cols = this.visibleColumns;
     const col = cols[this._activeCell.col];
-    if (!col || !this._isCellEditable(col)) return;
+    if (!col || !this._isCellEditable(col, this._activeRow())) return;
 
     // Boolean: toggle immediately, don't enter edit mode
     if (col.type === 'boolean') {
@@ -2112,7 +2117,7 @@ export class FlexTable extends LitElement {
     if ((e.key === 'Enter' || e.key === 'F2') && this._activeCell && !isImeComposing(e)) {
       e.preventDefault();
       const col = cols[this._activeCell.col];
-      if (col && this._isCellEditable(col)) {
+      if (col && this._isCellEditable(col, this._activeRow())) {
         this._startEdit();
       } else if (e.key === 'Enter') {
         this._fireRowActivate(col, 'keyboard');
@@ -2157,7 +2162,7 @@ export class FlexTable extends LitElement {
     // Printable character starts editing with that character
     if (this._activeCell && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const col = cols[this._activeCell.col];
-      if (col && this._isCellEditable(col)) {
+      if (col && this._isCellEditable(col, this._activeRow())) {
         this._startEdit();
       }
       return;
@@ -2380,7 +2385,8 @@ export class FlexTable extends LitElement {
         return true;
       case 'h':
         e.preventDefault();
-        this._toggleFindPanel('replace');
+        // A table that cannot change offers find only — a replace field there would do nothing.
+        this._toggleFindPanel(this.editable ? 'replace' : 'find');
         return true;
       default:
         return false;
@@ -2488,7 +2494,7 @@ export class FlexTable extends LitElement {
   /** Runs once the text is on the clipboard — only then is a cut range cleared. */
   private _afterCopy(range: CellRange, text: string, cut: boolean): void {
     if (cut) {
-      this._clearRange(range);
+      this._clearRanges([range]);
     }
     this._emit(cut ? 'clipboard-cut' : 'clipboard-copy', { range, text });
   }
@@ -2576,6 +2582,8 @@ export class FlexTable extends LitElement {
         const colIndex = anchor.col + c;
         if (colIndex >= cols.length) break;
         const col = cols[colIndex];
+        // A cell that may not change keeps its value — the paste still covers the block it was given.
+        if (!this._isCellEditable(col, this.data[dataRow])) continue;
         const oldValue = getCellValue(this.data[dataRow], col.key);
         const newValue = parseValueForColumn(parsed[r][c], col);
         setCellValue(this.data[dataRow], col.key, newValue);
@@ -2594,9 +2602,9 @@ export class FlexTable extends LitElement {
     if (range.startRow === range.endRow && range.startCol === range.endCol) {
       if (range.startRow === 0) return;
       const col = cols[range.startCol];
-      if (!col || !this._isCellEditable(col)) return;
       const sourceRow = this._toDataIndex(range.startRow - 1);
       const destRow = this._toDataIndex(range.startRow);
+      if (!col || !this._isCellEditable(col, this.data[destRow])) return;
       this.updateRows([{ row: destRow, key: col.key, value: getCellValue(this.data[sourceRow], col.key) }]);
       return;
     }
@@ -2604,10 +2612,12 @@ export class FlexTable extends LitElement {
     const changes: Array<{ row: number; key: string; value: unknown }> = [];
     for (let c = range.startCol; c <= range.endCol; c++) {
       const col = cols[c];
-      if (!col || !this._isCellEditable(col)) continue;
+      if (!col) continue;
       const sourceValue = getCellValue(this.data[this._toDataIndex(range.startRow)], col.key);
       for (let r = range.startRow + 1; r <= range.endRow; r++) {
-        changes.push({ row: this._toDataIndex(r), key: col.key, value: sourceValue });
+        const dataRow = this._toDataIndex(r);
+        if (!this._isCellEditable(col, this.data[dataRow])) continue;
+        changes.push({ row: dataRow, key: col.key, value: sourceValue });
       }
     }
     if (changes.length > 0) this.updateRows(changes);
@@ -2623,8 +2633,8 @@ export class FlexTable extends LitElement {
       if (range.startCol === 0) return;
       const col = cols[range.startCol];
       const srcCol = cols[range.startCol - 1];
-      if (!col || !this._isCellEditable(col) || !srcCol) return;
       const dataRow = this._toDataIndex(range.startRow);
+      if (!col || !srcCol || !this._isCellEditable(col, this.data[dataRow])) return;
       this.updateRows([{ row: dataRow, key: col.key, value: getCellValue(this.data[dataRow], srcCol.key) }]);
       return;
     }
@@ -2637,7 +2647,7 @@ export class FlexTable extends LitElement {
       const rawValue = getCellValue(this.data[dataRow], srcCol.key);
       for (let c = range.startCol + 1; c <= range.endCol; c++) {
         const col = cols[c];
-        if (!col || !this._isCellEditable(col)) continue;
+        if (!col || !this._isCellEditable(col, this.data[dataRow])) continue;
         const value = parseValueForColumn(rawValue == null ? '' : String(rawValue), col);
         changes.push({ row: dataRow, key: col.key, value });
       }
@@ -2666,44 +2676,12 @@ export class FlexTable extends LitElement {
           if (visited.has(key)) continue;
           visited.add(key);
           const col = cols[c];
+          if (!col || !this._isCellEditable(col, this.data[dataRow])) continue;
           const oldValue = getCellValue(this.data[dataRow], col.key);
           const clearValue = col.type === 'boolean' ? false : col.type === 'number' ? 0 : '';
           setCellValue(this.data[dataRow], col.key, clearValue);
           saved.push({ target: this.data[dataRow], key: col.key, oldValue, clearValue });
         }
-      }
-    }
-
-    if (saved.length > 0) {
-      this._undo.push({
-        label: 'clear',
-        undo: () => {
-          for (const s of saved) { setCellValue(s.target, s.key, s.oldValue); }
-          this.requestUpdate();
-        },
-        redo: () => {
-          for (const s of saved) { setCellValue(s.target, s.key, s.clearValue); }
-          this.requestUpdate();
-        },
-      });
-      this._dispatchUndoStateEvent();
-    }
-
-    this.requestUpdate();
-  }
-
-  private _clearRange(range: { startRow: number; startCol: number; endRow: number; endCol: number }): void {
-    const cols = this.visibleColumns;
-    const saved: Array<{ target: DataRow; key: string; oldValue: unknown; clearValue: unknown }> = [];
-
-    for (let r = range.startRow; r <= range.endRow; r++) {
-      const dataRow = this._toDataIndex(r);
-      for (let c = range.startCol; c <= range.endCol; c++) {
-        const col = cols[c];
-        const oldValue = getCellValue(this.data[dataRow], col.key);
-        const clearValue = col.type === 'boolean' ? false : col.type === 'number' ? 0 : '';
-        setCellValue(this.data[dataRow], col.key, clearValue);
-        saved.push({ target: this.data[dataRow], key: col.key, oldValue, clearValue });
       }
     }
 
@@ -3990,6 +3968,7 @@ export class FlexTable extends LitElement {
       for (let r = targetRange.startRow; r <= targetRange.endRow; r++) {
         if (r >= sourceRange.startRow && r <= sourceRange.endRow) continue;
         const dataRow = this._toDataIndex(r);
+        if (!this._isCellEditable(col, this.data[dataRow])) continue;
         const oldValue = getCellValue(this.data[dataRow], col.key);
         let newValue: unknown;
         if (series && r > sourceRange.endRow) {
@@ -4263,6 +4242,7 @@ export class FlexTable extends LitElement {
 
     for (const { row, col } of results) {
       const dataRow = this._toDataIndex(row);
+      if (!this._isCellEditable(cols[col], this.data[dataRow])) continue;
       const key = cols[col].key;
       const oldValue = getCellValue(this.data[dataRow], key);
       setCellValue(this.data[dataRow], key, replaceWith);
@@ -4292,6 +4272,11 @@ export class FlexTable extends LitElement {
     const dataRow = this._toDataIndex(row);
     const key = this.visibleColumns[col].key;
     const target = this.data[dataRow];
+    // A match in a cell that may not change is found, not replaced — move on to the next one.
+    if (!this._isCellEditable(this.visibleColumns[col], target)) {
+      this._findNext();
+      return;
+    }
     const oldValue = getCellValue(target, key);
     setCellValue(target, key, replaceWith);
 
@@ -4702,7 +4687,7 @@ export class FlexTable extends LitElement {
       cellStyle = `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
     }
 
-    const readonly = !this._isCellEditable(col);
+    const readonly = !this._isCellEditable(col, row);
 
     // Apply conditional formatting rules
     if (col.conditionalRules && col.conditionalRules.length > 0) {

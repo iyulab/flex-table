@@ -104,8 +104,17 @@ export interface ColumnDefinition<T = DataRow> {
   headerAlign?: ColumnAlign;
   /** Custom cell renderer — overrides built-in type rendering */
   render?: CellRenderer<T>;
-  /** Whether the column is editable (default: true — follows global editable setting) */
-  editable?: boolean;
+  /**
+   * Whether the column's cells can be edited (default: true — the table's `editable` still applies).
+   * - `false`: no cell of the column is edited.
+   * - Function: `(row, col) => boolean` — decides per row, for a column whose cells lock with the row's
+   *   state (a shipped order's quantity, a total row): `editable: (row) => row.status !== 'shipped'`.
+   *
+   * A cell that is not editable opens no editor (double-click, Enter, F2, typing, Space on a checkbox),
+   * takes no paste, fill, Delete or cut, and is `aria-readonly`. This answers «may the cell change»;
+   * `validator` answers «is this value acceptable». Programmatic writes (`updateRows`, `data`) are not gated.
+   */
+  editable?: boolean | ((row: T, col: ColumnDefinition<T>) => boolean);
   /** Custom cell editor — overrides built-in type editing */
   editor?: CellEditor<T>;
   /** Pin the column to one side during horizontal scroll */

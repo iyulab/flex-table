@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **A column's `editable` can decide per row** — `editable: (row, col) => boolean`, for cells that lock with their
+  row's state (a shipped order's quantity, a total row). A cell for which it returns `false` opens no editor
+  (double-click, Enter, F2, typing), takes no write from paste, fill (Ctrl+D / Ctrl+R / the fill handle), Delete, cut
+  or replace, and is `aria-readonly`; Enter on it fires `row-activate`. Until now the only per-row answer was a
+  `validator` that rejected the value — after the editor had already opened.
+
+### Fixed
+
+- A column with `editable: false` (or a whole table with `editable = false`) no longer takes writes from paste,
+  Delete, cut, the fill handle or replace. Only the editor and Ctrl+D / Ctrl+R checked it; Delete cleared a read-only
+  column and a paste wrote into it. Ctrl+H on a read-only table opens find only.
+
 ## [0.65.1] - 2026-10-13
 
 ### Fixed

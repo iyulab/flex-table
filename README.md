@@ -143,7 +143,7 @@ interface ColumnDefinition {
   sortable?: boolean;      // Enable sorting (default: true)
   align?: 'start' | 'center' | 'end';       // Cell alignment (default from type: number → end, boolean → center, else start)
   headerAlign?: 'start' | 'center' | 'end'; // Header alignment (default: the cell alignment above)
-  editable?: boolean;      // Per-column edit control (follows global editable)
+  editable?: boolean | ((row, col) => boolean); // Per-column edit control, or per row (follows global editable) — see below
   pinned?: 'left' | 'right'; // Freeze column during horizontal scroll
   options?: string[] | SelectOption[]; // Allowed values for type: 'select' (SelectOption = { label, value })
   autocomplete?: boolean | 'strict'; // Suggest existing column values while editing; 'strict' rejects values not in the list
@@ -756,6 +756,23 @@ table.columns = [
 ```
 
 When validation fails, the cell displays a red border for 3 seconds and the `validation-error` event fires.
+
+### Cells that lock with their row
+
+A validator answers «is this value acceptable». Whether a cell may change at all is a separate
+question — answer it with `editable`, which takes a function of the row when the answer depends on the
+row's state (a shipped order's quantity, a total row):
+
+```typescript
+table.columns = [
+  { key: 'qty', label: 'Qty', type: 'number', editable: (row) => row.status !== 'shipped' },
+];
+```
+
+A cell for which it returns `false` opens no editor (double-click, Enter, F2, typing), takes no paste,
+fill, Delete, cut or replace — a block edit writes the cells around it and leaves it — and is
+`aria-readonly`. Enter on it fires `row-activate`, as on any read-only cell. Programmatic writes
+(`updateRows`, `data`) are not gated. The table-wide `editable` still applies first.
 
 ### Pinned Columns
 

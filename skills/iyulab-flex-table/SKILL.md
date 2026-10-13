@@ -78,6 +78,8 @@ Use `updateRows([{ row, key, value }])` for programmatic edits (undoable, fires 
 `table.editable = false` (a property, since a boolean attribute cannot express `false`) — Enter on a non-editable cell then fires
 `row-activate`, the grid's "open this row" contract; a plain click on a cell fires it too (`via: 'click'`).
 Open a row's detail on `row-activate`, never on `cell-select` — that one is focus and fires when Tab arrives on the grid.
+A cell that locks with its row (a shipped order's quantity) takes `editable: (row) => …` on its column — not a
+`validator` that rejects the value: the validator only answers after the editor opened.
 
 **Row selection is kept by row id.** Enable with `selectable` (`selection-mode="single|multi"`).
 The id is the row's `row-key` field (`_id` by default, as in `u-rich-table`) or a `rowKey` function, so
