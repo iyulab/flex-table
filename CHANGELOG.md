@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.65.1] - 2026-10-13
+
+### Fixed
+
+- The text filter, find and autocomplete no longer act on a syllable still being composed with an IME (Korean,
+  Japanese, Chinese). Typing «서울» with a Korean IME filtered on «ㅅ» and «성» on the way — the filter hid every row
+  and announced its predicate through `filter-change`, and find showed "No results". The text filter and find now
+  apply when the composition ends; autocomplete picks candidates by the committed part, so «서울» stays a candidate
+  while «서우» is being typed.
+
+### Changed
+
+- Requires `@iyulab/components` 2.22.0 or later (peer), for its composition helper.
+
 ## [0.65.0] - 2026-10-12
 
 ### Changed

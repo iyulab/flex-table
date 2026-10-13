@@ -31,9 +31,15 @@ import { effectiveAlign } from './models/types.js';
 import type { FlexTableEventMap } from './events.js';
 import type { TemplateResult } from 'lit';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
+import { CompositionTracker } from '@iyulab/components/dist/utilities/composition.js';
 import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
 import { readCellDate } from './core/date-value.js';
+
+/** 조합이 끝난 입력 칸의 `input` 처리기를 다시 부른다 — 그 칸 자신의 처리기만(전파하지 않는다). */
+function rerunInput(input: HTMLInputElement | HTMLTextAreaElement): void {
+  input.dispatchEvent(new Event('input', { bubbles: false, composed: false }));
+}
 
 type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
 type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
@@ -2048,7 +2054,7 @@ export class FlexTable extends LitElement {
   private _onAutocompleteInput(e: Event, col: ColumnDefinition): void {
     const input = e.target as HTMLInputElement;
     const text = input.value;
-    const candidates = this._getAutocompleteCandidates(col, text).filter(c => c !== text);
+    const candidates = this._getAutocompleteCandidates(col, this._editorIme.settled(input)).filter(c => c !== text);
     this._autocompleteState = candidates.length > 0 ? { candidates, activeIndex: -1 } : null;
   }
 
@@ -3517,10 +3523,14 @@ export class FlexTable extends LitElement {
       </div>
       <input class="ft-filter-input" type="text" placeholder=${t('searchPlaceholder')} aria-label=${t('filterText')}
         .value=${state.value}
+        @compositionstart=${this._textEntryIme}
+        @compositionupdate=${this._textEntryIme}
+        @compositionend=${this._textEntryIme}
         @input=${(e: InputEvent) => {
           const value = (e.target as HTMLInputElement).value;
           const cur = this._textFilterState.get(col.key) ?? { value: '', mode: 'contains' as TextFilterMode };
           this._textFilterState.set(col.key, { ...cur, value });
+          if (this._textEntryIme.composing) return;
           // Text input clears empty filter (mutually exclusive)
           this._emptyFilterState.delete(col.key);
           this._applyTextFilter(col.key);
@@ -3630,6 +3640,15 @@ export class FlexTable extends LitElement {
     return typeof entry.error === 'function' ? entry.error() : entry.error;
   }
   private _textFilterState: Map<string, { value: string; mode: TextFilterMode }> = new Map();
+
+  /**
+   * 텍스트 필터 · 찾기 칸의 IME 조합. 조합 중인 음절(«서울» 의 가는 길 «ㅅ» · «성»)로 거르면 찾는 행을 숨기고 «결과 없음» 을
+   * 보이며, 필터는 그 술어를 바깥에도 알린다 — 조합 중에는 글자만 담고 적용은 조합이 끝날 때 한다(같은 처리기를 다시 부른다).
+   * 칸의 값이 상태에 묶여 있어(`.value=`) 상태에는 늘 상자의 글자 전체를 둔다.
+   */
+  private readonly _textEntryIme = new CompositionTracker(rerunInput);
+  /** 자동완성 편집기의 IME 조합 — 후보는 확정된 부분의 접두로 고른다(최종 글자의 후보를 숨기지 않는다). */
+  private readonly _editorIme = new CompositionTracker(rerunInput);
   private _numberFilterState: Map<string, NumberAdvState> = new Map();
   private _dateFilterState: Map<string, { from?: string; to?: string }> = new Map();
   private _emptyFilterState: Map<string, 'empty' | 'non-empty'> = new Map();
@@ -4303,8 +4322,12 @@ export class FlexTable extends LitElement {
         <div class="ft-find-row">
           <input class="ft-find-input" type="text" placeholder=${t('findPlaceholder')} aria-label=${t('findInput')}
             .value=${query}
+            @compositionstart=${this._textEntryIme}
+            @compositionupdate=${this._textEntryIme}
+            @compositionend=${this._textEntryIme}
             @input=${(e: Event) => {
               this._findState!.query = (e.target as HTMLInputElement).value;
+              if (this._textEntryIme.composing) return;
               this._findSearch();
             }}>
           <span class="ft-find-count">${count > 0 ? `${current}/${count}` : query ? t('findNoResults') : ''}</span>
@@ -4817,6 +4840,9 @@ export class FlexTable extends LitElement {
           aria-controls="ft-autocomplete-list"
           aria-activedescendant=${activeIdx >= 0 && candidates.length > 0 ? `ft-autocomplete-${activeIdx}` : nothing}
           .value=${strValue}
+          @compositionstart=${this._editorIme}
+          @compositionupdate=${this._editorIme}
+          @compositionend=${this._editorIme}
           @input=${(e: Event) => this._onAutocompleteInput(e, col)}
           @keydown=${this._onEditorKeyDown}
           @blur=${this._onEditorBlur}>
