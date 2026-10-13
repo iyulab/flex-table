@@ -1,10 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import '../../src/index.js';
 import type { FlexTable } from '../../src/flex-table.js';
+import { compose, commitWithEnter } from './ime.js';
 
 /**
  * 셀 편집 중 IME 조합(한국어 등)을 확정하는 Enter 는 확정·아래 이동이 아니다.
- * 조합 중 keydown 은 `isComposing: true`, Safari 의 확정 키는 `keyCode: 229` 로 온다 — 둘 다 잰다.
+ * 조합은 Chromium 의 실제 조합(`ime.ts`)으로, Chromium 이 낼 수 없는 Safari 의 확정 키(`keyCode: 229`)는 합성 대역으로 잰다.
  */
 const key = (init: KeyboardEventInit & { keyCode?: number }) => {
   const e = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true, ...init });
@@ -37,12 +38,20 @@ async function editing(): Promise<{ editor: () => HTMLInputElement | null }> {
 }
 
 describe('flex-table — 편집 중 조합을 확정하는 Enter 로 확정하지 않는다', () => {
-  it.each([
-    ['isComposing', { isComposing: true }],
-    ['keyCode 229(Safari)', { keyCode: 229 }],
-  ])('%s', async (_n, init) => {
+  it('실제 조합을 Enter 로 확정 — 여전히 편집 중이고 글자는 들어간다', async () => {
     const { editor } = await editing();
-    editor()!.dispatchEvent(key(init));
+    editor()!.focus();
+    editor()!.select();
+    await compose(['ㄴ', '나']);
+    await commitWithEnter('나');
+    await table.updateComplete;
+    expect(editor()).not.toBeNull();
+    expect(editor()!.value).toBe('나');
+  });
+
+  it('keyCode 229(Safari — 합성 대역)', async () => {
+    const { editor } = await editing();
+    editor()!.dispatchEvent(key({ keyCode: 229 }));
     await table.updateComplete;
     expect(editor()).not.toBeNull();
   });
