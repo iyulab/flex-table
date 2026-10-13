@@ -8,6 +8,11 @@
   primary colour unless the theme sets it). They read `--ft-active-color` before, so a theme with an ink primary and
   a blue selection drew ink checks on a blue-tinted selected row.
 
+### Changed
+
+- Requires `@iyulab/components` 2.24.0 or later (peer range `>=2.24.0`), the first release that defines the
+  selection role.
+
 ## [0.66.0] - 2026-10-13
 
 ### Added
