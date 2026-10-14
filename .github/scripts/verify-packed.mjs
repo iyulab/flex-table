@@ -364,7 +364,7 @@ function compileEntryDeclarations(pkgRoot, { depsRoots = [pkgRoot] } = {}) {
 			const file = resolve(work, m[1]);
 			const own = ownFile(file);
 			if (!own) foreign.push(`${relative(work, file).split(sep).join("/")}(${m[2]},${m[3]}): ${m[4]}`);
-			else if (/^TS2307:/.test(m[4])) unresolved.add(m[4].match(/'([^']+)'/)?.[1] ?? m[4]);
+			else if (/^TS2307:/.test(m[4]) && !ownSpecifier(m[4].match(/'([^']+)'/)?.[1] ?? "", manifest.name)) unresolved.add(m[4].match(/'([^']+)'/)?.[1] ?? m[4]);
 			else errors.push(`${own}(${m[2]},${m[3]}): ${m[4]}`);
 		}
 		if (run.status !== 0 && !errors.length && !foreign.length && !unresolved.size) return {
@@ -393,6 +393,9 @@ function compileEntryDeclarations(pkgRoot, { depsRoots = [pkgRoot] } = {}) {
 			force: true
 		});
 	}
+}
+function ownSpecifier(spec, name) {
+	return /^\.{1,2}(\/|$)/.test(spec) || spec.startsWith("/") || spec === name || spec.startsWith(`${name}/`);
 }
 function declarationExportKeys(exportsMap) {
 	return Object.entries(exportsMap).filter(([k, v]) => !k.includes("*") && v && typeof v === "object" && typeof v.types === "string").map(([k]) => k);
