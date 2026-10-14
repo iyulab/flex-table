@@ -458,8 +458,8 @@ Override an individual `--ft-*` when you want the table to differ from the rest 
 
 ```css
 flex-table {
-  --ft-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --ft-font-size: 14px;
+  --ft-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;  /* --u-font-base */
+  --ft-font-size: 14px;                                                     /* --u-density */
 
   /* Surfaces and text            derived from */
   --ft-bg: #fff;                     /* --u-bg-color */

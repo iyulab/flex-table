@@ -3,7 +3,8 @@ import { css } from 'lit';
 export const flexTableStyles = css`
   /* --- Theme Variables (Light defaults) --- */
   :host {
-    --ft-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    /* 글꼴은 색과 같이 components 토큰에서 파생한다 — 시트가 없으면 종전 묶음. */
+    --ft-font-family: var(--u-font-base, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
     /* 밀도 스위치 진입점 — components 의 --u-density 를 그대로 읽는다. */
     --ft-font-size: var(--u-density, 14px);
 
