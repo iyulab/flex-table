@@ -1,9 +1,10 @@
 // Generated file: checks the packed tarball before publish (verify_command). Do not edit by hand.
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { dirname, join, posix, relative } from "path";
-import { exec } from "child_process";
+import { dirname, join, posix, relative, resolve, sep } from "path";
+import { exec, spawnSync } from "child_process";
 import { promisify } from "util";
+import { createRequire } from "module";
 promisify(exec);
 const DEFAULT_OUTPUT_DIR = "dist";
 const CONFIG_RE = /^(vite\.config|tsconfig).*\.(ts|js|mjs|cjs|json)$/;
@@ -282,6 +283,154 @@ function checkSideEffectsCoverage(pkgPath) {
 		}
 	};
 }
+function compileEntryDeclarations(pkgRoot, { depsRoots = [pkgRoot] } = {}) {
+	const manifest = JSON.parse(readFileSync(join(pkgRoot, "package.json"), "utf-8"));
+	const entries = declarationExportKeys(manifest.exports ?? {});
+	const empty = {
+		entries: [],
+		errors: [],
+		foreign: []
+	};
+	if (!entries.length) return {
+		status: "skip",
+		detail: "types 를 가진 exports 엔트리가 없다",
+		...empty
+	};
+	const published = distManifest(manifest);
+	const missing = entries.map((k) => published.exports[k].types).filter((t) => !existsSync(join(pkgRoot, t)));
+	if (missing.length) return {
+		status: "skip",
+		detail: `선언 파일이 없다(미빌드): ${missing.join(", ")}`,
+		...empty
+	};
+	const tsc = findTsc(depsRoots);
+	if (!tsc) return {
+		status: "skip",
+		detail: "TypeScript 를 찾지 못했다",
+		...empty
+	};
+	const work = mkdtempSync(join(tmpdir(), "dts-compile-"));
+	try {
+		const self = join(work, "node_modules", ...manifest.name.split("/"));
+		mkdirSync(self, { recursive: true });
+		writeFileSync(join(self, "package.json"), JSON.stringify(published));
+		for (const e of readdirSync(pkgRoot, { withFileTypes: true })) {
+			if (e.name === "package.json" || e.name === "node_modules" || e.name.startsWith(".")) continue;
+			if (e.isDirectory()) symlinkSync(resolve(pkgRoot, e.name), join(self, e.name), "junction");
+			else copyFileSync(join(pkgRoot, e.name), join(self, e.name));
+		}
+		linkDependencies(depsRoots, join(work, "node_modules"), manifest.name);
+		const specifiers = entries.map((k) => k === "." ? manifest.name : `${manifest.name}/${k.replace(/^\.\//, "")}`);
+		writeFileSync(join(work, "entries.ts"), specifiers.map((s, i) => `import type * as e${i} from '${s}';\nexport type { e${i} };\n`).join(""));
+		writeFileSync(join(work, "tsconfig.json"), JSON.stringify({
+			compilerOptions: {
+				target: "ES2022",
+				module: "ESNext",
+				moduleResolution: "Bundler",
+				strict: true,
+				skipLibCheck: false,
+				noEmit: true,
+				jsx: "react-jsx",
+				lib: [
+					"ES2022",
+					"DOM",
+					"DOM.Iterable"
+				],
+				types: [],
+				preserveSymlinks: true
+			},
+			files: ["entries.ts"]
+		}));
+		const run = spawnSync(process.execPath, [
+			tsc,
+			"-p",
+			work
+		], {
+			encoding: "utf-8",
+			cwd: work
+		});
+		const out = `${run.stdout ?? ""}${run.stderr ?? ""}`;
+		const ownRoots = [resolve(pkgRoot), self];
+		const ownFile = (file) => {
+			const base = ownRoots.find((r) => file.startsWith(r + sep) && !file.startsWith(join(r, "node_modules") + sep));
+			return base ? relative(base, file).split(sep).join("/") : null;
+		};
+		const errors = [];
+		const foreign = [];
+		const unresolved = new Set();
+		for (const line of out.split(/\r?\n/)) {
+			const m = line.match(/^(.+?)\((\d+),(\d+)\): error (TS\d+: .*)$/);
+			if (!m) continue;
+			const file = resolve(work, m[1]);
+			const own = ownFile(file);
+			if (!own) foreign.push(`${relative(work, file).split(sep).join("/")}(${m[2]},${m[3]}): ${m[4]}`);
+			else if (/^TS2307:/.test(m[4])) unresolved.add(m[4].match(/'([^']+)'/)?.[1] ?? m[4]);
+			else errors.push(`${own}(${m[2]},${m[3]}): ${m[4]}`);
+		}
+		if (run.status !== 0 && !errors.length && !foreign.length && !unresolved.size) return {
+			status: "skip",
+			detail: `tsc 가 오류 위치 없이 끝났다: ${out.trim().split(/\r?\n/)[0] ?? ""}`,
+			entries: specifiers,
+			errors,
+			foreign
+		};
+		if (!errors.length && unresolved.size) return {
+			status: "skip",
+			detail: `의존 타입을 풀지 못했다: ${[...unresolved].join(", ")}`,
+			entries: specifiers,
+			errors,
+			foreign
+		};
+		return {
+			status: errors.length ? "fail" : "ok",
+			entries: specifiers,
+			errors,
+			foreign
+		};
+	} finally {
+		rmSync(work, {
+			recursive: true,
+			force: true
+		});
+	}
+}
+function declarationExportKeys(exportsMap) {
+	return Object.entries(exportsMap).filter(([k, v]) => !k.includes("*") && v && typeof v === "object" && typeof v.types === "string").map(([k]) => k);
+}
+function distManifest(manifest) {
+	const rewrite = (v) => typeof v === "string" ? v.replace(/^\.\/src\//, "./dist/") : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, rewrite(x)])) : v;
+	return {
+		name: manifest.name,
+		version: manifest.version,
+		type: manifest.type,
+		exports: rewrite(manifest.exports)
+	};
+}
+function findTsc(roots) {
+	for (const root of roots) try {
+		const pkg = createRequire(join(resolve(root), "package.json")).resolve("typescript/package.json");
+		const bin = join(dirname(pkg), "bin", "tsc");
+		if (existsSync(bin)) return bin;
+	} catch {}
+	return null;
+}
+function linkDependencies(roots, target, selfName) {
+	for (const root of roots) {
+		const nm = join(resolve(root), "node_modules");
+		if (!existsSync(nm)) continue;
+		for (const e of readdirSync(nm)) {
+			if (e.startsWith(".")) continue;
+			const names = e.startsWith("@") ? readdirSync(join(nm, e)).map((c) => `${e}/${c}`) : [e];
+			for (const name of names) {
+				if (name === selfName) continue;
+				const dest = join(target, ...name.split("/"));
+				if (existsSync(dest)) continue;
+				mkdirSync(dirname(dest), { recursive: true });
+				symlinkSync(join(nm, ...name.split("/")), dest, "junction");
+			}
+		}
+	}
+}
 function missingExportTargets(root, exportsField) {
 	const targets = [];
 	const collect = (v) => {
@@ -296,7 +445,19 @@ function missingExportTargets(root, exportsField) {
 		return !existsSync(join(root, probe));
 	});
 }
-function inspectAssembled(root, source) {
+function inspectAssembled(root, source, { depsRoots } = {}) {
+	const r = inspectAssembledParts(root, source);
+	if (!depsRoots) return r;
+	const d = compileEntryDeclarations(root, { depsRoots });
+	return {
+		...r,
+		status: r.status === "fail" || d.status === "fail" ? "fail" : r.status,
+		declarationStatus: d.status,
+		declarationDetail: d.detail,
+		declarationErrors: d.errors
+	};
+}
+function inspectAssembledParts(root, source) {
 	const publishedManifest = JSON.parse(readFileSync(join(root, "package.json"), "utf-8"));
 	if (!srcReachesTarball(root, publishedManifest)) {
 		const missingExports = missingExportTargets(root, publishedManifest.exports);
@@ -348,7 +509,7 @@ function verifyPacked(repoRoot, packedDir) {
 		cpSync(packedDir, root, { recursive: true });
 		const src = join(repoRoot, "src");
 		if (existsSync(src)) cpSync(src, join(root, "src"), { recursive: true });
-		return inspectAssembled(root, "checkout");
+		return inspectAssembled(root, "checkout", { depsRoots: [repoRoot] });
 	} finally {
 		rmSync(work, {
 			recursive: true,
@@ -369,6 +530,8 @@ function formatVerifyResult(r) {
 	list("entry points not covered by sideEffects", r.uncoveredEntries);
 	list("side-effect-only modules not covered", r.uncoveredSideOnly);
 	list("side-effect-only modules missing from dist", r.missingSideOnly);
+	list("entry declarations that do not compile on their own (skipLibCheck: false)", r.declarationErrors);
+	if (r.declarationStatus === "skip" && r.declarationDetail) lines.push(`declarations: not checked — ${r.declarationDetail}`);
 	if (r.coverageStatus && r.coverageStatus !== "ok" && r.coverageDetail) lines.push(`sideEffects: ${r.coverageDetail}`);
 	return lines;
 }
@@ -380,7 +543,7 @@ if (!packedDir) {
 const r = verifyPacked(process.cwd(), packedDir);
 for (const line of formatVerifyResult(r)) console.log(line);
 if (r.status === "fail") {
-	console.error("verify-packed: the packed tarball would ship without something its source registers — publish stopped");
+	console.error("verify-packed: the packed tarball would ship broken (see the lines above) — publish stopped");
 	process.exit(1);
 }
 console.log(`verify-packed: ok (${r.source})`);
