@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.67.1] - 2026-10-14
+
+### Fixed
+
+- `--ft-font-family` defaults to `--u-font-base` (falling back to the previous stack), the way the table's colours
+  already default to the `--u-*` tokens. A theme that sets the type tokens now reaches the table without a
+  per-table override; an explicit `--ft-font-family` still wins.
+
 ## [0.67.0] - 2026-10-14
 
 ### Added
