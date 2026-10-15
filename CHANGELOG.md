@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Console diagnostics begin with `[@iyulab/flex-table]`, so a message in a console shared by several packages says which one wrote it (several also say what to do next).
+
 ## [0.67.1] - 2026-10-14
 
 ### Fixed

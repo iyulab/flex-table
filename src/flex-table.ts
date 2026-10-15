@@ -1161,7 +1161,7 @@ export class FlexTable extends LitElement {
     } else if (name.endsWith('.csv') || name.endsWith('.tsv')) {
       sheet = readDelimited(await file.text(), name.endsWith('.tsv') ? 'tsv' : 'csv');
     } else {
-      console.warn(`flex-table importFromFile: unsupported file type "${file.name}"`);
+      console.warn(`[@iyulab/flex-table] importFromFile: unsupported file type "${file.name}" — use .csv, .tsv, .json or .xlsx.`);
       return null;
     }
     return this._applyImportedSheet(sheet);
