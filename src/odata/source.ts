@@ -253,13 +253,13 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
       lastRequest = null;
       schedule();
     },
-    async fetchAll({ maxRows = DEFAULT_MAX_ROWS, signal, onProgress } = {}) {
+    async fetchAll({ maxRows = DEFAULT_MAX_ROWS, signal, onProgress, headers } = {}) {
       const { sortCriteria, search } = inner;
       const queryString = buildODataQuery({ sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter, expand: opts.expand, select: opts.select });
       const fullUrl = `${opts.baseUrl ?? window.location.origin}${currentUrl}${queryString}`;
       const { rows } = await readPages<T>(
         fullUrl,
-        { fetcher: opts.fetcher ?? fetch, signal, onUnauthorized: opts.onUnauthorized },
+        { fetcher: opts.fetcher ?? fetch, signal, headers, onUnauthorized: opts.onUnauthorized },
         (got, count) => {
           // 서버가 센 개수가 상한을 넘으면 첫 응답에서 거절한다 — 더 읽지 않는다. 세지 않았으면 받은 만큼으로 잰다.
           if (count !== undefined && count > maxRows) throw new RowLimitError(maxRows, count);
@@ -297,6 +297,8 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
 interface PageTransport {
   fetcher: (input: string, init: RequestInit) => Promise<Response>;
   signal?: AbortSignal;
+  /** 이 읽기에만 더할 머리글 — 페이지마다 싣는다. */
+  headers?: HeadersInit;
   onUnauthorized?: (response: Response) => void;
 }
 
@@ -312,13 +314,13 @@ interface PageTransport {
  */
 async function readPages<T>(
   firstUrl: string,
-  { fetcher, signal, onUnauthorized }: PageTransport,
+  { fetcher, signal, headers, onUnauthorized }: PageTransport,
   more: (rows: T[], count: number | undefined) => boolean,
 ): Promise<{ count: number | undefined; rows: T[] }> {
   const fetchPage = async (pageUrl: string) => {
     let res: Response;
     try {
-      res = await fetcher(pageUrl, { signal });
+      res = await fetcher(pageUrl, headers ? { signal, headers } : { signal });
     } catch (err) {
       // 거둔 요청은 실패가 아니다 — 부르는 쪽이 `AbortError` 를 조용히 넘기거나 그대로 거절한다.
       if ((err as Error)?.name === 'AbortError') throw err;

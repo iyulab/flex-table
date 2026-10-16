@@ -12,6 +12,12 @@ export interface FetchAllOptions {
   signal?: AbortSignal;
   /** 페이지를 하나 받을 때마다 — 받은 행 수와 전체(서버가 세지 않았으면 `undefined`). */
   onProgress?: (loaded: number, total: number | undefined) => void;
+  /**
+   * 이 읽기의 요청에만 더할 머리글 — 용도 표지(«이 조회는 내보내기다») · 추적 표지처럼 이 호출에만 뜻이 있는 것.
+   * 서버 주도 페이징을 따라가는 모든 페이지 요청에 싣는다. 표의 페이지 읽기에는 실리지 않는다. 요청을 보내지 않는
+   * 소스(배열)에서는 쓰이지 않는다.
+   */
+  headers?: HeadersInit;
 }
 
 /** «전부 읽기» 의 기본 상한 — 브라우저 메모리와 서버 부하를 지키는 선. 넘으면 조용히 자르지 않고 거절한다. */

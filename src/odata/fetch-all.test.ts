@@ -196,3 +196,26 @@ describe('entries carry what a fetchAll caller needs', () => {
     expect(typeof rootEntry.downloadBlob).toBe('function');
   });
 });
+
+describe('ODataSource.fetchAll — headers', () => {
+  const headersOf = (fetcher: ReturnType<typeof serve>['fetcher']) =>
+    fetcher.mock.calls.map(([, init]) => new Headers((init as RequestInit).headers).get('X-Purpose'));
+
+  it('🔴puts the call\'s headers on every page it reads', async () => {
+    const { fetcher } = serve({
+      '/api/assets': { value: rows(1, 2), '@odata.nextLink': '/api/assets?$skiptoken=2' },
+      '/api/assets?$skiptoken=2': { value: rows(3, 1) },
+    });
+    const source = createODataSource('/api/assets', { fetcher, baseUrl: 'http://localhost' });
+    await source.fetchAll({ headers: { 'X-Purpose': 'export' } });
+    expect(headersOf(fetcher)).toEqual(['export', 'export']);
+  });
+
+  it('🔴headers belong to one call — a later fetchAll carries none', async () => {
+    const { fetcher } = serve({ '/api/assets': { value: rows(1, 1) } });
+    const source = createODataSource('/api/assets', { fetcher, baseUrl: 'http://localhost' });
+    await source.fetchAll({ headers: { 'X-Purpose': 'export' } });
+    await source.fetchAll();
+    expect(headersOf(fetcher)).toEqual(['export', null]);
+  });
+});

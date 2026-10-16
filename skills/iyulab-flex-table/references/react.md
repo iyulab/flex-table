@@ -116,7 +116,7 @@ function Orders() {
 | `sortCriteria`, `onSortChange` | Pass `onSortChange` to the table's `sort-change` (resets to page 0) |
 | `search`, `setSearch` | Literal text (resets to page 0) |
 | `refresh` | Re-run the current request |
-| `fetchAll(options?)` | The whole result of the current sort/search/filter (no paging, follows `@odata.nextLink`) — for export. `maxRows` (default 100000) rejects with `RowLimitError` rather than cutting; `signal`, `onProgress` |
+| `fetchAll(options?)` | The whole result of the current sort/search/filter (no paging, follows `@odata.nextLink`) — for export. `maxRows` (default 100000) rejects with `RowLimitError` rather than cutting; `signal`, `onProgress`, `headers` (this call's page requests only — e.g. an export mark) |
 
 Search is literal: each whitespace-separated token becomes a quoted phrase joined with `AND`
 (`red shirt` → `"red" AND "shirt"`); double quotes are stripped. If the result set shrinks below

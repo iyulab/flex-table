@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- `fetchAll({ headers })`: headers for that read only, on every page request it makes — a purpose mark such as «this
+  read is an export». The table's own page reads do not carry them, so a page turn during an export is not marked.
+
 ### Changed
 
 - Console diagnostics begin with `[@iyulab/flex-table]`, so a message in a console shared by several packages says which one wrote it (several also say what to do next).
