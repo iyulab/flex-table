@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.68.1] - 2026-10-17
+
+### Fixed
+
+- A row taller than its content (a theme raising `--ft-row-height`, such as 44px rows) keeps one-line cell text in the
+  vertical middle — the text sat under the top padding with the rest of the row below it (6px above, 19px below in a
+  44px row). The block padding is now a floor; content taller than the cell still starts at the top.
+
 ## [0.68.0] - 2026-10-16
 
 ### Added
