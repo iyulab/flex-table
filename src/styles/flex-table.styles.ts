@@ -257,6 +257,9 @@ export const flexTableStyles = css`
     position: absolute;
     top: 0;
     padding: var(--ft-cell-padding-block) var(--ft-cell-padding-inline);
+    /* 행이 «패딩 + 한 줄» 보다 높으면(테마가 --ft-row-height 를 키운 경우) 내용은 가운데에 선다 — 세로 패딩은
+       내용의 시작점이 아니라 하한이다. safe: 셀보다 큰 내용은 위에서 시작한다(잘려도 첫 줄은 보인다). */
+    align-content: safe center;
     border-bottom: 1px solid var(--ft-border-color);
     overflow: hidden;
     text-overflow: ellipsis;
