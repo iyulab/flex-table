@@ -1161,6 +1161,7 @@ export class FlexTable extends LitElement {
     } else if (name.endsWith('.csv') || name.endsWith('.tsv')) {
       sheet = readDelimited(await file.text(), name.endsWith('.tsv') ? 'tsv' : 'csv');
     } else {
+      // eslint-disable-next-line no-console -- a developer diagnostic: the caller passed a file type this reader does not take
       console.warn(`[@iyulab/flex-table] importFromFile: unsupported file type "${file.name}" — use .csv, .tsv, .json or .xlsx.`);
       return null;
     }
@@ -1608,6 +1609,7 @@ export class FlexTable extends LitElement {
     if (this._visibleRowCount < UNCONSTRAINED_WARN_ROWS) return;
     if (this.scrollHeight > this.clientHeight + 1) return; // 스크롤 컨테이너다 — 가상화가 살아 있다
     this._warnedUnconstrained = true;
+    // eslint-disable-next-line no-console -- a development-only diagnostic (skipped in production builds)
     console.warn(
       `[@iyulab/flex-table] ${this._visibleRowCount} rows but the host has no height constraint — it grew to fit every row, ` +
       'so virtual scrolling is off and all rows are rendered. Give the host a height (e.g. height: 400px, ' +
