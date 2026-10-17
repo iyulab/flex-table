@@ -26,7 +26,7 @@ import { readDelimited } from './export/delimited-reader.js';
 import { getCellValue, setCellValue } from './core/cell-value.js';
 import { buildImport } from './export/import.js';
 import type { ImportReport } from './export/import.js';
-import type { CellPosition, CellRange } from './core/selection.js';
+import type { CellPosition } from './core/selection.js';
 import type { SortCriteria } from './core/sorting.js';
 import type { ColumnFilter, FilterPredicate } from './core/filtering.js';
 import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './models/types.js';
@@ -37,6 +37,7 @@ import { ColumnGestures } from './controllers/column-gestures.js';
 import { DEFAULT_COL_WIDTH, MIN_COL_WIDTH } from './core/column-width.js';
 import { FindReplaceController } from './controllers/find-replace.js';
 import { ClipboardController } from './controllers/clipboard.js';
+import { FillHandleController } from './controllers/fill-handle.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
@@ -361,11 +362,6 @@ export class FlexTable extends LitElement {
   /** Same as `_wasHeaderDrag`, for the row-number gutter's real row-drag reorder vs. its own
    * `click`-to-select-row listener. */
   private _wasRowDrag = false;
-  private _fillDrag: {
-    sourceRange: CellRange;
-    targetRange: CellRange | null;
-    active: boolean;
-  } | null = null;
   private _rowDrag: {
     rowIndex: number;
     startY: number;
@@ -3588,6 +3584,28 @@ export class FlexTable extends LitElement {
     emit: (name, detail) => { this._emit(name, detail); },
     invalidate: () => this.requestUpdate(),
   });
+  /** The fill handle at the selection's corner — drag to repeat the selection or continue a numeric series. */
+  private readonly _fillHandle = new FillHandleController({
+    host: this,
+    columns: () => this.visibleColumns,
+    data: () => this.data,
+    rowCount: () => this._visibleRowCount,
+    dataIndex: (row) => this._toDataIndex(row),
+    isEditable: (col, row) => this._isCellEditable(col, row),
+    editable: () => this.editable,
+    selection: this._selection,
+    rowHeight: () => this.rowHeight,
+    headerHeight: () => this.headerHeight,
+    scrollLeft: () => this._scrollLeft,
+    scrollTop: () => this._scrollTop,
+    prefixWidth: () => this._prefixWidth,
+    colLeftOffsets: () => this._colLeftOffsets,
+    colWidth: (col) => this._getColWidth(col),
+    rowSpaceY: (clientY) => this._rowSpaceY(clientY),
+    pushUndo: (step) => { this._undo.push(step); this._dispatchUndoStateEvent(); },
+    emitApply: (detail) => { this._emit('fill-handle-apply', detail); },
+    invalidate: () => this.requestUpdate(),
+  });
   /** 자동완성 편집기의 IME 조합 — 후보는 검색 질의(`searchQuery` — 글 끝 한글 조합은 자모 앞부분으로)로 고른다. */
   private readonly _editorIme = new CompositionTracker(replayInput);
   private _numberFilterState: Map<string, NumberAdvState> = new Map();
@@ -3668,165 +3686,6 @@ export class FlexTable extends LitElement {
     this.removeFilter(key);
     this._clearFilterState(key);
     this._openFilterKey = null;
-  }
-
-  // --- Fill Handle ---
-
-  private _onFillHandleMouseDown(e: MouseEvent): void {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const sourceRange = this._selection.getEffectiveRange();
-    if (!sourceRange) return;
-
-    this._fillDrag = { sourceRange, targetRange: null, active: false };
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!this._fillDrag) return;
-      this._fillDrag.active = true;
-      this._updateFillDrag(ev);
-    };
-
-    const onMouseUp = () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      if (this._fillDrag?.active && this._fillDrag.targetRange) {
-        this._applyFillHandle(this._fillDrag.sourceRange, this._fillDrag.targetRange);
-      }
-      this._fillDrag = null;
-      this.requestUpdate();
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }
-
-  private _updateFillDrag(e: MouseEvent): void {
-    if (!this._fillDrag) return;
-    const rect = this.getBoundingClientRect();
-    const mx = e.clientX - rect.left + this._scrollLeft - this._prefixWidth;
-    const my = this._rowSpaceY(e.clientY);
-    const cols = this.visibleColumns;
-
-    let colIdx = 0;
-    for (let i = 0; i < cols.length; i++) {
-      if ((this._colLeftOffsets[i] ?? 0) <= mx) colIdx = i;
-    }
-    const rowIdx = Math.max(0, Math.min(this._visibleRowCount - 1, Math.floor(my / this.rowHeight)));
-
-    const { sourceRange: src } = this._fillDrag;
-    const dRow = rowIdx - src.endRow;
-    const dCol = colIdx - src.endCol;
-
-    let target: CellRange;
-    if (Math.abs(dRow) >= Math.abs(dCol)) {
-      if (dRow >= 0) {
-        target = { ...src, endRow: rowIdx };
-      } else {
-        target = { ...src, startRow: Math.min(rowIdx, src.startRow) };
-      }
-    } else {
-      if (dCol >= 0) {
-        target = { ...src, endCol: colIdx };
-      } else {
-        target = { ...src, startCol: Math.min(colIdx, src.startCol) };
-      }
-    }
-    this._fillDrag.targetRange = target;
-    this.requestUpdate();
-  }
-
-  _applyFillHandle(sourceRange: CellRange, targetRange: CellRange): void {
-    const cols = this.visibleColumns;
-    const saved: Array<{ dataRow: number; key: string; oldValue: unknown; newValue: unknown }> = [];
-    const targets: DataRow[] = [];
-
-    for (let c = targetRange.startCol; c <= targetRange.endCol; c++) {
-      const col = cols[c];
-      const srcRows = [];
-      for (let r = sourceRange.startRow; r <= sourceRange.endRow; r++) {
-        srcRows.push(getCellValue(this.data[this._toDataIndex(r)], col.key));
-      }
-      const series = this._detectNumericSeries(srcRows);
-
-      for (let r = targetRange.startRow; r <= targetRange.endRow; r++) {
-        if (r >= sourceRange.startRow && r <= sourceRange.endRow) continue;
-        const dataRow = this._toDataIndex(r);
-        if (!this._isCellEditable(col, this.data[dataRow])) continue;
-        const oldValue = getCellValue(this.data[dataRow], col.key);
-        let newValue: unknown;
-        if (series && r > sourceRange.endRow) {
-          const step = r - sourceRange.endRow;
-          const lastSrc = series.last + series.diff * step;
-          newValue = col.type === 'number' ? lastSrc : String(lastSrc);
-        } else {
-          const srcIdx = (r - sourceRange.startRow) % srcRows.length;
-          const normalizedIdx = srcIdx < 0 ? srcIdx + srcRows.length : srcIdx;
-          newValue = srcRows[normalizedIdx];
-        }
-        setCellValue(this.data[dataRow], col.key, newValue);
-        saved.push({ dataRow, key: col.key, oldValue, newValue });
-        targets.push(this.data[dataRow]);
-      }
-    }
-
-    if (saved.length > 0) {
-      this._undo.push({
-        label: 'fill-handle',
-        undo: () => { saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.oldValue); }); this.requestUpdate(); },
-        redo: () => { saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.newValue); }); this.requestUpdate(); },
-      });
-      this._dispatchUndoStateEvent();
-      this._emit('fill-handle-apply', { sourceRange, targetRange, cells: saved });
-    }
-    this.requestUpdate();
-  }
-
-  private _detectNumericSeries(values: unknown[]): { last: number; diff: number } | null {
-    if (values.length < 2) return null;
-    const nums = values.map(v => Number(v));
-    if (nums.some(n => isNaN(n))) return null;
-    const diff = nums[1] - nums[0];
-    for (let i = 2; i < nums.length; i++) {
-      if (Math.abs(nums[i] - nums[i - 1] - diff) > 1e-9) return null;
-    }
-    return { last: nums[nums.length - 1], diff };
-  }
-
-  private _renderFillHandle() {
-    if (!this.editable) return '';
-    const range = this._selection.getEffectiveRange();
-    if (!range) return '';
-    const cols = this.visibleColumns;
-    if (range.endCol >= cols.length || range.endRow >= this._visibleRowCount) return '';
-
-    const left = (this._colLeftOffsets[range.endCol] ?? 0) + this._getColWidth(cols[range.endCol]) - this._scrollLeft - 4;
-    const top = this.headerHeight + (range.endRow + 1) * this.rowHeight - this._scrollTop - 4;
-
-    if (left < 0 || top < this.headerHeight) return '';
-
-    // Preview dashed border during drag
-    const preview = this._fillDrag?.active && this._fillDrag.targetRange
-      ? this._renderFillPreview(this._fillDrag.targetRange)
-      : '';
-
-    return html`
-      ${preview}
-      <div class="ft-fill-handle"
-        style="left:${left}px;top:${top}px;"
-        @mousedown=${(e: MouseEvent) => this._onFillHandleMouseDown(e)}>
-      </div>
-    `;
-  }
-
-  private _renderFillPreview(range: CellRange) {
-    const cols = this.visibleColumns;
-    if (range.endCol >= cols.length || range.endRow >= this._visibleRowCount) return '';
-    const left = (this._colLeftOffsets[range.startCol] ?? 0) - this._scrollLeft;
-    const top = this.headerHeight + range.startRow * this.rowHeight - this._scrollTop;
-    const width = (this._colLeftOffsets[range.endCol] ?? 0) + this._getColWidth(cols[range.endCol]) - (this._colLeftOffsets[range.startCol] ?? 0);
-    const height = (range.endRow - range.startRow + 1) * this.rowHeight;
-    return html`<div class="ft-fill-preview" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px;"></div>`;
   }
 
   // --- Row drag reorder ---
@@ -4022,7 +3881,7 @@ export class FlexTable extends LitElement {
       rows.push(this._renderRow(i, colStart, colEnd, pinnedIndices, (i - fr) * this.rowHeight));
     }
 
-    const fillHandle = this._renderFillHandle();
+    const fillHandle = this._fillHandle.render();
     const rowDropIndicator = this._rowDragIndicatorY != null
       // `tw` (_totalRowWidth) already starts at _prefixWidth — adding it again drew the
       // indicator past the last column by the width of the checkbox/row-number gutter.

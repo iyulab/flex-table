@@ -2900,7 +2900,7 @@ describe('FlexTable', () => {
       (el as any)._selection.setActive(0, 0);
       (el as any)._activeCell = { row: 0, col: 0 };
       // Source range: row 0, col 0. Target: extend to row 2
-      (el as any)._applyFillHandle({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 }, { startRow: 0, startCol: 0, endRow: 2, endCol: 0 });
+      (el as any)._fillHandle.apply({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 }, { startRow: 0, startCol: 0, endRow: 2, endCol: 0 });
       await el.updateComplete;
 
       expect(el.data[1]['a']).toBe(5);
@@ -2914,7 +2914,7 @@ describe('FlexTable', () => {
       el.data = [{ a: 1 }, { a: 3 }, { a: 0 }, { a: 0 }];
       await el.updateComplete;
 
-      (el as any)._applyFillHandle(
+      (el as any)._fillHandle.apply(
         { startRow: 0, startCol: 0, endRow: 1, endCol: 0 },
         { startRow: 0, startCol: 0, endRow: 3, endCol: 0 }
       );
@@ -2931,7 +2931,7 @@ describe('FlexTable', () => {
       el.data = [{ a: 'x' }, { a: '' }, { a: '' }];
       await el.updateComplete;
 
-      (el as any)._applyFillHandle({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 }, { startRow: 0, startCol: 0, endRow: 2, endCol: 0 });
+      (el as any)._fillHandle.apply({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 }, { startRow: 0, startCol: 0, endRow: 2, endCol: 0 });
       await el.updateComplete;
       expect(el.data[1]['a']).toBe('x');
 
