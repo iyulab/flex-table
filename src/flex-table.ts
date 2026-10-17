@@ -14,11 +14,10 @@ import { computeFilteredIndices } from './core/filtering.js';
 import { filterModelPredicate, isEmptyFilterModel, isFilterModel } from './core/filter-model.js';
 import type { FilterModel, FilterModels, NumericOp, TextFilterMode } from './core/filter-model.js';
 import { UndoStack } from './core/undo.js';
-import { copyToClipboard, editableDate, editableDateTime, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
+import { editableDate, editableDateTime, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
 import { parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
 // The date and datetime cell editor (registers `u-date-picker`).
 import '@iyulab/components/dist/components/date-picker/UDatePicker.js';
-import { decodeTsv } from '@iyulab/components/dist/utilities/tsv.js';
 import { exportData, exportDataBlob, downloadBlob, getExportExtension } from './export/export.js';
 import type { ExportFormat } from './export/export.js';
 import { readXlsx } from './export/xlsx-reader.js';
@@ -37,9 +36,9 @@ import type { TemplateResult } from 'lit';
 import { ColumnGestures } from './controllers/column-gestures.js';
 import { DEFAULT_COL_WIDTH, MIN_COL_WIDTH } from './core/column-width.js';
 import { FindReplaceController } from './controllers/find-replace.js';
+import { ClipboardController } from './controllers/clipboard.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
-import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
 
 /** How a `mergeRepeated` cell joins the cells above and below it in its column. */
@@ -2456,24 +2455,13 @@ export class FlexTable extends LitElement {
         e.preventDefault();
         this.redo();
         return true;
-      // Copy, cut and paste leave the key to the browser (not prevented): `copyFromKey`/`pasteFromKey`
-      // take the browser's clipboard event where it fires and the Clipboard API where it does not
-      // (Safari, which fires no copy event without a text selection).
+      // Copy, cut and paste leave the key to the browser (not prevented) — see ClipboardController.
       case 'c':
-      case 'x': {
-        if (isTextEntry(e.composedPath()[0])) return true;
-        const copied = this._selectionTsv();
-        if (!copied) return true;
-        const cut = e.key.toLowerCase() === 'x' && this.editable;
-        void copyFromKey(copied.text).then((ok) => {
-          if (ok) this._afterCopy(copied.range, copied.text, cut);
-          else this._clipboardError('copy', new Error('The clipboard did not take the copied text'));
-        });
+      case 'x':
+        this._clipboard.onCopyKey(e);
         return true;
-      }
       case 'v':
-        if (isTextEntry(e.composedPath()[0]) || !this.editable || !this._activeCell) return true;
-        pasteFromKey().then((text) => this._pasteText(text), (err) => this._clipboardError('paste', err));
+        this._clipboard.onPasteKey(e);
         return true;
       case 'd':
         e.preventDefault();
@@ -2564,138 +2552,6 @@ export class FlexTable extends LitElement {
       default:
         return false;
     }
-  }
-
-  // --- Clipboard ---
-
-  /**
-   * The selection as TSV in display (sorted) order, or `null` without a selection.
-   */
-  private _selectionTsv(): { range: CellRange; text: string } | null {
-    const range = this._selection.getEffectiveRange();
-    if (!range) return null;
-    const sortedData = this._sortedIndices.map(i => this.data[i]);
-    return { range, text: copyToClipboard(sortedData, this.visibleColumns, range) };
-  }
-
-  /** The context menu's Copy — a click, not a key, so it goes through the async Clipboard API. */
-  private async _copyFromMenu(): Promise<void> {
-    const copied = this._selectionTsv();
-    if (!copied) return;
-    try {
-      await navigator.clipboard.writeText(copied.text);
-    } catch (err) {
-      // Nothing reached the clipboard: report the failure and stop — no `clipboard-copy`.
-      this._clipboardError('copy', err);
-      return;
-    }
-    this._afterCopy(copied.range, copied.text, false);
-  }
-
-  private _clipboardError(action: 'copy' | 'paste', error: unknown): void {
-    this._emit('clipboard-error', { action, error });
-  }
-
-  /** Runs once the text is on the clipboard — only then is a cut range cleared. */
-  private _afterCopy(range: CellRange, text: string, cut: boolean): void {
-    if (cut) {
-      this._clearRanges([range]);
-    }
-    this._emit(cut ? 'clipboard-cut' : 'clipboard-copy', { range, text });
-  }
-
-  private _pasteText(text: string): void {
-    if (!this._activeCell) return;
-
-    const parsed = decodeTsv(text);
-    if (parsed.length === 0) return;
-
-    const addedRows = this._expandRowsForPaste(this._activeCell.row, parsed.length);
-    const changes = this._applyPasteData(this._activeCell, parsed);
-    this._selectPastedRange(this._activeCell, parsed);
-
-    if (changes.length > 0 || addedRows.length > 0) {
-      // Row objects, not positions: `data` can change between the paste and its undo.
-      const targets = changes.map(c => this.data[c.row]);
-      const added = addedRows.map(i => this.data[i]);
-      this._undo.push({
-        label: 'paste',
-        undo: () => {
-          changes.forEach((c, i) => { setCellValue(targets[i], c.key, c.oldValue); });
-          for (const row of added) {
-            const at = this.data.indexOf(row);
-            if (at >= 0) this.data.splice(at, 1);
-          }
-          this.requestUpdate();
-        },
-        redo: () => {
-          for (const row of added) this.data.push(row);
-          changes.forEach((c, i) => { setCellValue(targets[i], c.key, c.newValue); });
-          this.requestUpdate();
-        },
-      });
-      this._dispatchUndoStateEvent();
-    }
-
-    this.requestUpdate();
-    this._emit('clipboard-paste', { changes, addedRows: addedRows.length });
-  }
-
-  /**
-   * After a paste, the cells it wrote are the selection — as in spreadsheets — so the reader sees
-   * what changed and can copy, clear or undo it as one block. The active cell stays where the
-   * paste began (the same shape as selecting a column: range to the far corner, focus at the start).
-   */
-  private _selectPastedRange(anchor: { row: number; col: number }, parsed: string[][]): void {
-    const width = Math.max(...parsed.map(r => r.length));
-    const endRow = Math.min(anchor.row + parsed.length, this._visibleRowCount) - 1;
-    const endCol = Math.min(anchor.col + width, this.visibleColumns.length) - 1;
-    if (endRow === anchor.row && endCol === anchor.col) return;
-    // Rows a paste appended are not in the selection's bounds until the next update.
-    this._selection.setDimensions(this._visibleRowCount, this.visibleColumns.length);
-    this._selection.setActive(anchor.row, anchor.col);
-    this._selection.setActiveWithRange(endRow, endCol);
-    this._activeCell = { row: anchor.row, col: anchor.col };
-  }
-
-  private _expandRowsForPaste(startRow: number, pasteRowCount: number): number[] {
-    const addedRows: number[] = [];
-    const requiredRows = startRow + pasteRowCount;
-    const rowLimit = this.maxRows > 0 ? this.maxRows : Infinity;
-    while (this.data.length < requiredRows && this.data.length < rowLimit) {
-      const insertAt = this.data.length;
-      this.data.push(this._createEmptyRow());
-      addedRows.push(insertAt);
-    }
-    if (addedRows.length > 0) {
-      this._recomputeView();
-    }
-    return addedRows;
-  }
-
-  private _applyPasteData(
-    anchor: { row: number; col: number },
-    parsed: string[][],
-  ): Array<{ row: number; col: number; key: string; oldValue: unknown; newValue: unknown }> {
-    const cols = this.visibleColumns;
-    const changes: Array<{ row: number; col: number; key: string; oldValue: unknown; newValue: unknown }> = [];
-    for (let r = 0; r < parsed.length; r++) {
-      const visualRow = anchor.row + r;
-      if (visualRow >= this._visibleRowCount) break;
-      const dataRow = this._toDataIndex(visualRow);
-      for (let c = 0; c < parsed[r].length; c++) {
-        const colIndex = anchor.col + c;
-        if (colIndex >= cols.length) break;
-        const col = cols[colIndex];
-        // A cell that may not change keeps its value — the paste still covers the block it was given.
-        if (!this._isCellEditable(col, this.data[dataRow])) continue;
-        const oldValue = getCellValue(this.data[dataRow], col.key);
-        const newValue = parseValueForColumn(parsed[r][c], col);
-        setCellValue(this.data[dataRow], col.key, newValue);
-        changes.push({ row: dataRow, col: colIndex, key: col.key, oldValue, newValue });
-      }
-    }
-    return changes;
   }
 
   private _handleFillDown(): void {
@@ -3252,7 +3108,7 @@ export class FlexTable extends LitElement {
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: var(--u-layer-floating, 1000);"
         @mousedown=${(e: MouseEvent) => e.stopPropagation()}
         @keydown=${(e: KeyboardEvent) => this._onMenuKeydown(e, '.ft-body-context-menu', close)}>
-        ${item(t('copy'), () => this._copyFromMenu())}
+        ${item(t('copy'), () => this._clipboard.copyFromMenu())}
         ${separator}
         ${item(t('insertRowAbove'), () => this.addRow(undefined, dataIndex))}
         ${item(t('insertRowBelow'), () => this.addRow(undefined, dataIndex + 1))}
@@ -3711,6 +3567,26 @@ export class FlexTable extends LitElement {
     invalidate: () => this.requestUpdate(),
     focusInput: () => { this.shadowRoot?.querySelector<HTMLInputElement>('.ft-find-input')?.focus(); },
     ime: this._textEntryIme,
+  });
+  /** Copy, cut and paste of the selection as TSV — the keys, the context menu's Copy, and their events. */
+  private readonly _clipboard = new ClipboardController({
+    columns: () => this.visibleColumns,
+    data: () => this.data,
+    sortedIndices: () => this._sortedIndices,
+    rowCount: () => this._visibleRowCount,
+    dataIndex: (row) => this._toDataIndex(row),
+    isEditable: (col, row) => this._isCellEditable(col, row),
+    editable: () => this.editable,
+    maxRows: () => this.maxRows,
+    createEmptyRow: () => this._createEmptyRow(),
+    recomputeView: () => this._recomputeView(),
+    selection: this._selection,
+    activeCell: () => this._activeCell,
+    setActiveCell: (position) => { this._activeCell = position; },
+    clearRanges: (ranges) => this._clearRanges(ranges),
+    pushUndo: (step) => { this._undo.push(step); this._dispatchUndoStateEvent(); },
+    emit: (name, detail) => { this._emit(name, detail); },
+    invalidate: () => this.requestUpdate(),
   });
   /** 자동완성 편집기의 IME 조합 — 후보는 검색 질의(`searchQuery` — 글 끝 한글 조합은 자모 앞부분으로)로 고른다. */
   private readonly _editorIme = new CompositionTracker(replayInput);
