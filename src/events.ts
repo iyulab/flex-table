@@ -1,3 +1,4 @@
+import type { FilterModels } from './core/filter-model.js';
 import type { ImportReport } from './export/import.js';
 import type { CellPosition, CellRange } from './core/selection.js';
 import type { SortCriteria } from './core/sorting.js';
@@ -27,7 +28,14 @@ export interface FlexTableEventMap {
   /** After any undoable change, undo or redo. */
   'undo-state-change': CustomEvent<{ canUndo: boolean; canRedo: boolean }>;
   /** The set of column filters changed. `filteredCount` is the rows left visible. */
-  'filter-change': CustomEvent<{ keys: string[]; filteredCount: number }>;
+  'filter-change': CustomEvent<{
+    keys: string[];
+    filteredCount: number;
+    /** The filters that can be saved, sent to a server or set back (`table.filters`), by column key. */
+    filters: FilterModels;
+    /** Keys filtered by a bare predicate — they have no model, so `filters` cannot carry them. */
+    unmodeled: string[];
+  }>;
   /** A column filter predicate threw for a row; the row is kept. */
   'filter-error': CustomEvent<{ error: unknown; row: DataRow; filterKey: string }>;
   'column-add': CustomEvent<{ column: ColumnDefinition; index: number }>;

@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import '../flex-table.js';
-import type { FlexTable } from '../flex-table.js';
 import { readCellDate } from './date-value.js';
+import { filterModelPredicate } from './filter-model.js';
 import { computeSortedIndices } from './sorting.js';
 import { formatDateValue } from '../renderers/format.js';
 
@@ -53,14 +53,12 @@ describe('the paths that read a date cell', () => {
     expect(formatDateValue('2026-02-30', 'yyyy-MM-dd')).toBe('2026-02-30');
   });
 
-  it('date filter — the lower bound is the local start of the day, so an early-morning value on it passes', async () => {
-    const el = document.body.appendChild(document.createElement('flex-table')) as FlexTable;
-    await el.updateComplete;
-    const build = (el as unknown as { _buildDatePredicate(s: { from?: string; to?: string }): (v: unknown) => boolean })._buildDatePredicate.bind(el);
-    const onTheDay = build({ from: '2026-10-02', to: '2026-10-02' });
-    expect(onTheDay('2026-10-02T05:00')).toBe(true);
-    expect(onTheDay('2026-10-02T23:59')).toBe(true);
-    expect(onTheDay('2026-10-01T23:59')).toBe(false);
-    expect(onTheDay('2026-10-03T00:00')).toBe(false);
+  it('date filter — the lower bound is the local start of the day, so an early-morning value on it passes', () => {
+    const onTheDay = filterModelPredicate({ type: 'date', from: '2026-10-02', to: '2026-10-02' });
+    const row = {};
+    expect(onTheDay('2026-10-02T05:00', row)).toBe(true);
+    expect(onTheDay('2026-10-02T23:59', row)).toBe(true);
+    expect(onTheDay('2026-10-01T23:59', row)).toBe(false);
+    expect(onTheDay('2026-10-03T00:00', row)).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import type { DataRow } from '../models/types.js';
 import { getCellValue } from './cell-value.js';
+import type { FilterModel } from './filter-model.js';
 
 /**
  * Filter predicate function.
@@ -15,6 +16,8 @@ export interface ColumnFilter {
   key: string;
   /** Filter predicate */
   predicate: FilterPredicate;
+  /** The serializable form this predicate was made from — absent for a filter set with a bare predicate. */
+  model?: FilterModel;
 }
 
 /**

@@ -9,6 +9,8 @@ import { EditingState } from './core/editing.js';
 import { RowSelectionState } from './core/row-selection.js';
 import { computeSortedIndices, toggleSort } from './core/sorting.js';
 import { computeFilteredIndices } from './core/filtering.js';
+import { filterModelPredicate, isEmptyFilterModel, isFilterModel } from './core/filter-model.js';
+import type { FilterModel, FilterModels, NumericOp, TextFilterMode } from './core/filter-model.js';
 import { UndoStack } from './core/undo.js';
 import { copyToClipboard, editableDate, editableDateTime, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
 import { parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
@@ -32,13 +34,9 @@ import type { FlexTableEventMap } from './events.js';
 import type { TemplateResult } from 'lit';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
-import { foldForSearch } from '@iyulab/components/dist/utilities/search.js';
 import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
-import { readCellDate } from './core/date-value.js';
 
-type TextFilterMode = 'contains' | 'starts' | 'ends' | 'wildcard';
-type NumericOp = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
 /** How a `mergeRepeated` cell joins the cells above and below it in its column. */
 interface MergeState { continues: boolean; opensDown: boolean; headParity: 'even' | 'odd' }
 /** `text` is what the person typed — kept so a re-render never rewrites a half-typed `1,` to `1`. */
@@ -592,13 +590,66 @@ export class FlexTable extends LitElement {
 
   /**
    * Set a filter for a column. Replaces any existing filter on the same key.
+   *
+   * A `FilterModel` is the serializable form (what the filter popover builds): it shows in the popover, is carried by
+   * `filter-change` and `filters`, and a server source can turn it into `$filter`. A bare predicate is the escape
+   * hatch — it filters the rows the table holds, but has no model to save or send. A model that filters nothing
+   * (empty text, a date range with no end) removes the filter.
    */
-  setFilter(key: string, predicate: FilterPredicate): void {
+  setFilter(key: string, filter: FilterPredicate | FilterModel): void {
+    if (typeof filter === 'function') {
+      this._commitFilter(key, filter);
+      return;
+    }
+    if (isEmptyFilterModel(filter)) {
+      this._clearFilterState(key);
+      this.removeFilter(key);
+      return;
+    }
+    this._syncFilterState(key, filter);
+    this._commitFilter(key, filterModelPredicate(filter), filter);
+  }
+
+  /** Puts a filter in place and recomputes. The popover's own path — it already holds the state it built the model from. */
+  private _commitFilter(key: string, predicate: FilterPredicate, model?: FilterModel): void {
     this._filters = this._filters.filter(f => f.key !== key);
-    this._filters.push({ key, predicate });
+    this._filters.push(model ? { key, predicate, model } : { key, predicate });
     this._recomputeView();
     this.requestUpdate();
     this._dispatchFilterEvent();
+  }
+
+  /**
+   * The filters as models, by column key — save them, send them to a server, set them back. A filter set with a bare
+   * predicate has no model and is not here (`filter-change` lists those keys as `unmodeled`).
+   */
+  get filters(): FilterModels {
+    const out: FilterModels = {};
+    for (const f of this._filters) if (f.model) out[f.key] = f.model;
+    return out;
+  }
+
+  /**
+   * Replaces the model filters with these (a stale or hand-written model is skipped with a warning); filters set with a
+   * bare predicate stay. Quiet like `data`: no `filter-change` — the caller already knows. The popovers show the models.
+   */
+  set filters(models: FilterModels) {
+    for (const f of this._filters) if (f.model) this._clearFilterState(f.key);
+    const kept = this._filters.filter(f => !f.model);
+    const added: ColumnFilter[] = [];
+    for (const [key, model] of Object.entries(models ?? {})) {
+      if (!isFilterModel(model)) {
+        // eslint-disable-next-line no-console -- the caller's stored model is wrong; say which column
+        console.warn('[@iyulab/flex-table] ignored a filter model that is not valid for "%s":', key, model);
+        continue;
+      }
+      if (isEmptyFilterModel(model)) continue;
+      this._syncFilterState(key, model);
+      added.push({ key, predicate: filterModelPredicate(model), model });
+    }
+    this._filters = [...kept.filter(f => !added.some(a => a.key === f.key)), ...added];
+    this._recomputeView();
+    this.requestUpdate();
   }
 
   /**
@@ -683,7 +734,12 @@ export class FlexTable extends LitElement {
   }
 
   private _dispatchFilterEvent(): void {
-    this._emit('filter-change', { keys: this.filterKeys, filteredCount: this.filteredRowCount });
+    this._emit('filter-change', {
+      keys: this.filterKeys,
+      filteredCount: this.filteredRowCount,
+      filters: this.filters,
+      unmodeled: this._filters.filter(f => !f.model).map(f => f.key),
+    });
   }
 
   // --- Public API: Column Operations ---
@@ -3158,7 +3214,7 @@ export class FlexTable extends LitElement {
         ${item(`${t('sortAscending')} ↑`, () => this._applySortFromMenu(col.key, 'asc'))}
         ${item(`${t('sortDescending')} ↓`, () => this._applySortFromMenu(col.key, 'desc'))}
         ${separator}
-        ${item(t('filterByThisValue'), () => this.setFilter(col.key, (v) => v === value))}
+        ${item(t('filterByThisValue'), () => this.setFilter(col.key, value === null || ['string', 'number', 'boolean'].includes(typeof value) ? { type: 'equals', value: value as string | number | boolean | null } : (v) => v === value))}
         ${hasFilter ? item(t('clearFilter'), () => this.removeFilter(col.key)) : nothing}
         ${separator}
         ${item(hasComment ? t('editComment') : t('addComment'), () => this._openCommentPopup(dataIndex, col.key, x, y))}
@@ -3346,48 +3402,11 @@ export class FlexTable extends LitElement {
     `;
   }
 
-  /**
-   * 텍스트 필터의 술어. «포함» 은 components 의 검색 일치(`Locale.matchesSearch` — 대소문자 · 발음 구별 기호를 접고, 한글
-   * 자음만의 질의는 초성으로)를, «시작» · «끝» 은 같은 접은 꼴(`foldForSearch`)을 쓴다 — 목록 검색과 같은 규칙으로 찾는다.
-   * 필터는 조합이 끝날 때 적용되므로(확정된 질의) 음절은 음절 그대로 견준다. 와일드카드는 패턴 그대로(대소문자만 접는다).
-   */
-  private _buildTextPredicate(value: string, mode: TextFilterMode): FilterPredicate {
-    const lower = value.toLowerCase();
-    const folded = foldForSearch(value);
-    switch (mode) {
-      case 'starts': return (v) => foldForSearch(String(v ?? '')).startsWith(folded);
-      case 'ends': return (v) => foldForSearch(String(v ?? '')).endsWith(folded);
-      case 'wildcard': {
-        const pattern = lower
-          .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-          .replace(/\*/g, '.*')
-          .replace(/\?/g, '.');
-        const regex = new RegExp('^' + pattern + '$', 'i');
-        return (v) => regex.test(String(v ?? ''));
-      }
-      default: // 'contains'
-        return (v) => Locale.matchesSearch(String(v ?? ''), value);
-    }
-  }
 
   private _applyTextFilter(key: string): void {
-    const emptyVal = this._emptyFilterState.get(key);
-    if (emptyVal) {
-      this.setFilter(key, this._buildEmptyPredicate(emptyVal));
-      return;
-    }
-    const state = this._textFilterState.get(key);
-    if (state?.value) {
-      this.setFilter(key, this._buildTextPredicate(state.value, state.mode));
-    } else {
-      this.removeFilter(key);
-    }
+    this._applyFilterForKey(key);
   }
 
-  private _buildEmptyPredicate(empty: 'empty' | 'non-empty'): FilterPredicate {
-    if (empty === 'empty') return (v) => v == null || v === '';
-    return (v) => v != null && v !== '';
-  }
 
   private _renderEmptyFilterRow(key: string, onChangeExtra?: () => void) {
     const current = this._emptyFilterState.get(key) ?? '';
@@ -3417,72 +3436,67 @@ export class FlexTable extends LitElement {
     `;
   }
 
-  private _evalNumCond(n: number, cond: NumCondition): boolean {
-    const v = cond.value!;
-    switch (cond.op) {
-      case 'eq': return n === v;
-      case 'neq': return n !== v;
-      case 'gt': return n > v;
-      case 'lt': return n < v;
-      case 'gte': return n >= v;
-      case 'lte': return n <= v;
+
+  /** The number popover's state as a model — conditions without a value are not conditions. */
+  private _numberModel(state: NumberAdvState): FilterModel | null {
+    const conditions = [state.cond1, state.cond2]
+      .filter((c): c is NumCondition & { value: number } => c.value != null)
+      .map(c => ({ op: c.op, value: c.value }));
+    if (conditions.length === 0) return null;
+    return conditions.length === 2 ? { type: 'number', conditions, join: state.join } : { type: 'number', conditions };
+  }
+
+  private _dateModel(state: { from?: string; to?: string }): FilterModel | null {
+    if (state.from == null && state.to == null) return null;
+    return { type: 'date', ...(state.from != null ? { from: state.from } : {}), ...(state.to != null ? { to: state.to } : {}) };
+  }
+
+  /** The popover state of one column as a model — blank-cell choice first, then whichever control holds a value. */
+  private _filterModelFromState(key: string): FilterModel | null {
+    const emptyVal = this._emptyFilterState.get(key);
+    if (emptyVal) return { type: 'empty', empty: emptyVal };
+    const text = this._textFilterState.get(key);
+    if (text) return text.value ? { type: 'text', mode: text.mode, value: text.value } : null;
+    const number = this._numberFilterState.get(key);
+    if (number) return this._numberModel(number);
+    const date = this._dateFilterState.get(key);
+    if (date) return this._dateModel(date);
+    return null;
+  }
+
+  /** Puts a model into the popover state, so opening the popover shows what is filtering. */
+  private _syncFilterState(key: string, model: FilterModel): void {
+    this._clearFilterState(key);
+    switch (model.type) {
+      case 'text': this._textFilterState.set(key, { value: model.value, mode: model.mode }); break;
+      case 'number': {
+        const [first, second] = model.conditions;
+        const state = this._defaultNumState();
+        state.cond1 = { op: first.op, value: first.value };
+        if (second) {
+          state.cond2 = { op: second.op, value: second.value };
+          state.join = model.join ?? 'and';
+        }
+        this._numberFilterState.set(key, state);
+        break;
+      }
+      case 'date': this._dateFilterState.set(key, { from: model.from, to: model.to }); break;
+      case 'empty': this._emptyFilterState.set(key, model.empty); break;
+      default: break; // boolean · equals — no popover state to show
     }
   }
 
-  private _buildNumberPredicate(state: NumberAdvState): FilterPredicate | null {
-    const has1 = state.cond1.value != null;
-    const has2 = state.cond2.value != null;
-    if (!has1 && !has2) return null;
-    return (v) => {
-      const n = Number(v);
-      if (isNaN(n)) return false;
-      if (has1 && !has2) return this._evalNumCond(n, state.cond1);
-      if (!has1 && has2) return this._evalNumCond(n, state.cond2);
-      const r1 = this._evalNumCond(n, state.cond1);
-      const r2 = this._evalNumCond(n, state.cond2);
-      return state.join === 'or' ? r1 || r2 : r1 && r2;
-    };
-  }
-
-  private _buildDatePredicate(state: { from?: string; to?: string }): FilterPredicate | null {
-    if (state.from == null && state.to == null) return null;
-    return (v) => {
-      if (v == null || v === '') return false;
-      // 셀과 경계를 표시 경로와 같은 읽기로 — `YYYY-MM-DD` 는 로컬 자정이라, 오프셋 있는 순간 값도 화면에 보이는 날로 걸러진다.
-      const d = readCellDate(v);
-      if (!d) return false;
-      if (state.from) {
-        const from = readCellDate(state.from);
-        if (from && d < from) return false;
-      }
-      if (state.to) {
-        const to = readCellDate(state.to);
-        if (to) {
-          if (state.to.length === 10) to.setHours(23, 59, 59, 999);
-          if (d > to) return false;
-        }
-      }
-      return true;
-    };
+  private _clearFilterState(key: string): void {
+    this._textFilterState.delete(key);
+    this._numberFilterState.delete(key);
+    this._dateFilterState.delete(key);
+    this._emptyFilterState.delete(key);
   }
 
   private _applyFilterForKey(key: string): void {
-    const emptyVal = this._emptyFilterState.get(key);
-    if (emptyVal) {
-      this.setFilter(key, this._buildEmptyPredicate(emptyVal));
-      return;
-    }
-    if (this._textFilterState.has(key)) {
-      this._applyTextFilter(key);
-    } else if (this._numberFilterState.has(key)) {
-      const pred = this._buildNumberPredicate(this._numberFilterState.get(key)!);
-      pred ? this.setFilter(key, pred) : this.removeFilter(key);
-    } else if (this._dateFilterState.has(key)) {
-      const pred = this._buildDatePredicate(this._dateFilterState.get(key)!);
-      pred ? this.setFilter(key, pred) : this.removeFilter(key);
-    } else {
-      this.removeFilter(key);
-    }
+    const model = this._filterModelFromState(key);
+    if (model) this._commitFilter(key, filterModelPredicate(model), model);
+    else this.removeFilter(key);
   }
 
   private _renderTextFilter(col: ColumnDefinition) {
@@ -3694,7 +3708,7 @@ export class FlexTable extends LitElement {
           if (value === 'all') {
             this.removeFilter(col.key);
           } else {
-            this.setFilter(col.key, (v) => Boolean(v) === (value === 'true'));
+            this._commitFilter(col.key, (v) => Boolean(v) === (value === 'true'), { type: 'boolean', value: value === 'true' });
           }
         }}
         @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
@@ -3708,10 +3722,7 @@ export class FlexTable extends LitElement {
 
   private _clearColumnFilter(key: string): void {
     this.removeFilter(key);
-    this._textFilterState.delete(key);
-    this._numberFilterState.delete(key);
-    this._dateFilterState.delete(key);
-    this._emptyFilterState.delete(key);
+    this._clearFilterState(key);
     this._openFilterKey = null;
   }
 
