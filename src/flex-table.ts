@@ -12,10 +12,10 @@ import { mergeColumnViewState, snapshotViewState } from './core/view-state.js';
 import type { TableViewState, ViewStateChangeReason } from './core/view-state.js';
 import { computeFilteredIndices } from './core/filtering.js';
 import { filterModelPredicate, isEmptyFilterModel, isFilterModel } from './core/filter-model.js';
-import type { FilterModel, FilterModels, NumericOp, TextFilterMode } from './core/filter-model.js';
+import type { FilterModel, FilterModels } from './core/filter-model.js';
 import { UndoStack } from './core/undo.js';
 import { editableDate, editableDateTime, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
-import { parseDate, parseDateTime, parseNumber } from '@iyulab/components/dist/utilities/format.js';
+import { parseDate, parseDateTime } from '@iyulab/components/dist/utilities/format.js';
 // The date and datetime cell editor (registers `u-date-picker`).
 import '@iyulab/components/dist/components/date-picker/UDatePicker.js';
 import { exportData, exportDataBlob, downloadBlob, getExportExtension } from './export/export.js';
@@ -39,20 +39,14 @@ import { FindReplaceController } from './controllers/find-replace.js';
 import { ClipboardController } from './controllers/clipboard.js';
 import { FillHandleController } from './controllers/fill-handle.js';
 import { RowReorderController } from './controllers/row-reorder.js';
+import { FilterPopoverController } from './controllers/filter-popover.js';
+import { calendarOpen } from './core/calendar-state.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
 
 /** How a `mergeRepeated` cell joins the cells above and below it in its column. */
 interface MergeState { continues: boolean; opensDown: boolean; headParity: 'even' | 'odd' }
-/** `text` is what the person typed — kept so a re-render never rewrites a half-typed `1,` to `1`. */
-interface NumCondition { op: NumericOp; value: number | null; text?: string }
-interface NumberAdvState { cond1: NumCondition; join: 'and' | 'or'; cond2: NumCondition }
-
-const NUM_OP_LABELS: Record<NumericOp, string> = {
-  eq: '=', neq: '≠', gt: '>', lt: '<', gte: '≥', lte: '≤',
-};
-
 /**
  * 표 내보내기의 대상 — 선택 범위(`selectionOnly`) 또는 바깥에서 준 행(`rows`, 예: `await source.fetchAll()`). 둘은
  * 함께 쓰지 않는다(바깥 행에는 표의 선택 범위가 없다).
@@ -588,11 +582,11 @@ export class FlexTable extends LitElement {
       return;
     }
     if (isEmptyFilterModel(filter)) {
-      this._clearFilterState(key);
+      this._filterPopover.clearState(key);
       this.removeFilter(key);
       return;
     }
-    this._syncFilterState(key, filter);
+    this._filterPopover.syncState(key, filter);
     this._commitFilter(key, filterModelPredicate(filter), filter);
   }
 
@@ -620,7 +614,7 @@ export class FlexTable extends LitElement {
    * bare predicate stay. Quiet like `data`: no `filter-change` — the caller already knows. The popovers show the models.
    */
   set filters(models: FilterModels) {
-    for (const f of this._filters) if (f.model) this._clearFilterState(f.key);
+    for (const f of this._filters) if (f.model) this._filterPopover.clearState(f.key);
     const kept = this._filters.filter(f => !f.model);
     const added: ColumnFilter[] = [];
     for (const [key, model] of Object.entries(models ?? {})) {
@@ -630,7 +624,7 @@ export class FlexTable extends LitElement {
         continue;
       }
       if (isEmptyFilterModel(model)) continue;
-      this._syncFilterState(key, model);
+      this._filterPopover.syncState(key, model);
       added.push({ key, predicate: filterModelPredicate(model), model });
     }
     this._filters = [...kept.filter(f => !added.some(a => a.key === f.key)), ...added];
@@ -2893,7 +2887,7 @@ export class FlexTable extends LitElement {
           @mousedown=${(e: MouseEvent) => { e.stopPropagation(); this._wasHeaderDrag = true; this._columnGestures.startResize(e, colIndex); }}
           @dblclick=${(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); this._columnGestures.autoFit(col.key); }}></div>
       </div>
-      ${this._openFilterKey === col.key ? this._renderFilterDropdown(col) : ''}
+      ${this._openFilterKey === col.key ? this._filterPopover.renderDropdown(col) : ''}
     `;
   }
 
@@ -3059,7 +3053,7 @@ export class FlexTable extends LitElement {
         ` : nothing}
         ${this.showFilters ? html`
           ${item('filter', t('filter'), () => this._openFilterFromMenu(key))}
-          ${hasFilter ? item('clear-filter', t('clearFilter'), () => this._clearColumnFilter(key)) : nothing}
+          ${hasFilter ? item('clear-filter', t('clearFilter'), () => this._filterPopover.clearColumn(key)) : nothing}
           <div class="ft-header-menu-separator" role="separator"></div>
         ` : nothing}
         ${item('hide', t('hideColumn'), () => this._setColumnHidden(key, true))}
@@ -3256,255 +3250,6 @@ export class FlexTable extends LitElement {
     });
   }
 
-  /**
-   * Tab stays inside the filter dialog (it floats over the table, fixed to the header — a focus that left
-   * it would leave it open and unreachable behind the next control). Capture phase: the controls stop
-   * their own keydowns from reaching the grid.
-   */
-  private _onFilterDialogKeydown(e: KeyboardEvent): void {
-    if (e.key !== 'Tab') return;
-    const dialog = e.currentTarget as HTMLElement;
-    const stops = [...dialog.querySelectorAll<HTMLElement>('input, select, textarea, button, u-date-picker')]
-      .filter((el) => !(el as HTMLInputElement).disabled && el.getClientRects().length > 0);
-    if (stops.length === 0) return;
-    const path = e.composedPath();
-    const at = stops.findIndex((el) => path.includes(el));
-    const last = stops.length - 1;
-    if (e.shiftKey && at <= 0) {
-      e.preventDefault();
-      stops[last].focus();
-    } else if (!e.shiftKey && (at === last || at === -1)) {
-      e.preventDefault();
-      stops[0].focus();
-    }
-  }
-
-  private _renderFilterDropdown(col: ColumnDefinition) {
-    const type = col.type ?? 'text';
-
-    return html`
-      <div class="ft-filter-dropdown" role="dialog" aria-label=${t('filterFor', { header: col.label })}
-        @click=${(e: MouseEvent) => e.stopPropagation()}
-        @keydown=${{ handleEvent: (e: KeyboardEvent) => this._onFilterDialogKeydown(e), capture: true }}>
-        ${type === 'boolean' ? this._renderBooleanFilter(col)
-          : type === 'number' ? this._renderNumberFilter(col)
-          : type === 'date' || type === 'datetime' ? this._renderDateFilter(col)
-          : this._renderTextFilter(col)}
-        <div class="ft-filter-actions">
-          <button class="ft-filter-clear" @click=${() => this._clearColumnFilter(col.key)}>${t('clear')}</button>
-        </div>
-      </div>
-    `;
-  }
-
-
-  private _applyTextFilter(key: string): void {
-    this._applyFilterForKey(key);
-  }
-
-
-  private _renderEmptyFilterRow(key: string, onChangeExtra?: () => void) {
-    const current = this._emptyFilterState.get(key) ?? '';
-    return html`
-      <div class="ft-filter-empty-row">
-        <label>${t('blankCells')}</label>
-        <select class="ft-filter-mode-select" aria-label=${t('blankCells')}
-          .value=${current}
-          @change=${(e: Event) => {
-            const val = (e.target as HTMLSelectElement).value as 'empty' | 'non-empty' | '';
-            if (val === '' || val === 'empty' || val === 'non-empty') {
-              if (val) {
-                this._emptyFilterState.set(key, val);
-              } else {
-                this._emptyFilterState.delete(key);
-              }
-              onChangeExtra?.();
-              this._applyFilterForKey(key);
-            }
-          }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
-          <option value="">${t('blankAll')}</option>
-          <option value="empty">${t('emptyOnly')}</option>
-          <option value="non-empty">${t('nonEmptyOnly')}</option>
-        </select>
-      </div>
-    `;
-  }
-
-
-  /** The number popover's state as a model — conditions without a value are not conditions. */
-  private _numberModel(state: NumberAdvState): FilterModel | null {
-    const conditions = [state.cond1, state.cond2]
-      .filter((c): c is NumCondition & { value: number } => c.value != null)
-      .map(c => ({ op: c.op, value: c.value }));
-    if (conditions.length === 0) return null;
-    return conditions.length === 2 ? { type: 'number', conditions, join: state.join } : { type: 'number', conditions };
-  }
-
-  private _dateModel(state: { from?: string; to?: string }): FilterModel | null {
-    if (state.from == null && state.to == null) return null;
-    return { type: 'date', ...(state.from != null ? { from: state.from } : {}), ...(state.to != null ? { to: state.to } : {}) };
-  }
-
-  /** The popover state of one column as a model — blank-cell choice first, then whichever control holds a value. */
-  private _filterModelFromState(key: string): FilterModel | null {
-    const emptyVal = this._emptyFilterState.get(key);
-    if (emptyVal) return { type: 'empty', empty: emptyVal };
-    const text = this._textFilterState.get(key);
-    if (text) return text.value ? { type: 'text', mode: text.mode, value: text.value } : null;
-    const number = this._numberFilterState.get(key);
-    if (number) return this._numberModel(number);
-    const date = this._dateFilterState.get(key);
-    if (date) return this._dateModel(date);
-    return null;
-  }
-
-  /** Puts a model into the popover state, so opening the popover shows what is filtering. */
-  private _syncFilterState(key: string, model: FilterModel): void {
-    this._clearFilterState(key);
-    switch (model.type) {
-      case 'text': this._textFilterState.set(key, { value: model.value, mode: model.mode }); break;
-      case 'number': {
-        const [first, second] = model.conditions;
-        const state = this._defaultNumState();
-        state.cond1 = { op: first.op, value: first.value };
-        if (second) {
-          state.cond2 = { op: second.op, value: second.value };
-          state.join = model.join ?? 'and';
-        }
-        this._numberFilterState.set(key, state);
-        break;
-      }
-      case 'date': this._dateFilterState.set(key, { from: model.from, to: model.to }); break;
-      case 'empty': this._emptyFilterState.set(key, model.empty); break;
-      default: break; // boolean · equals — no popover state to show
-    }
-  }
-
-  private _clearFilterState(key: string): void {
-    this._textFilterState.delete(key);
-    this._numberFilterState.delete(key);
-    this._dateFilterState.delete(key);
-    this._emptyFilterState.delete(key);
-  }
-
-  private _applyFilterForKey(key: string): void {
-    const model = this._filterModelFromState(key);
-    if (model) this._commitFilter(key, filterModelPredicate(model), model);
-    else this.removeFilter(key);
-  }
-
-  private _renderTextFilter(col: ColumnDefinition) {
-    const state = this._textFilterState.get(col.key) ?? { value: '', mode: 'contains' as TextFilterMode };
-    return html`
-      <div class="ft-filter-mode-row">
-        <select class="ft-filter-mode-select" aria-label=${t('filterMatchMode')}
-          .value=${state.mode}
-          @change=${(e: Event) => {
-            const mode = (e.target as HTMLSelectElement).value as TextFilterMode;
-            const cur = this._textFilterState.get(col.key) ?? { value: '', mode: 'contains' as TextFilterMode };
-            this._textFilterState.set(col.key, { ...cur, mode });
-            this._applyTextFilter(col.key);
-          }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
-          <option value="contains">${t('contains')}</option>
-          <option value="starts">${t('startsWith')}</option>
-          <option value="ends">${t('endsWith')}</option>
-          <option value="wildcard">${t('wildcard')}</option>
-        </select>
-      </div>
-      <input class="ft-filter-input" type="text" placeholder=${t('searchPlaceholder')} aria-label=${t('filterText')}
-        .value=${state.value}
-        @compositionstart=${this._textEntryIme}
-        @compositionupdate=${this._textEntryIme}
-        @compositionend=${this._textEntryIme}
-        @input=${(e: InputEvent) => {
-          const value = (e.target as HTMLInputElement).value;
-          const cur = this._textFilterState.get(col.key) ?? { value: '', mode: 'contains' as TextFilterMode };
-          this._textFilterState.set(col.key, { ...cur, value });
-          if (this._textEntryIme.composing) return;
-          // Text input clears empty filter (mutually exclusive)
-          this._emptyFilterState.delete(col.key);
-          this._applyTextFilter(col.key);
-        }}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Escape') this._closeFilterDropdown();
-          e.stopPropagation();
-        }}>
-      ${this._renderEmptyFilterRow(col.key, () => {
-        // When empty filter is set, clear the text state
-        this._textFilterState.delete(col.key);
-      })}
-    `;
-  }
-
-  private _defaultNumState(): NumberAdvState {
-    return { cond1: { op: 'gte', value: null }, join: 'and', cond2: { op: 'lte', value: null } };
-  }
-
-  private _renderNumCondRow(key: string, which: 'cond1' | 'cond2') {
-    const state = this._numberFilterState.get(key) ?? this._defaultNumState();
-    const cond = state[which];
-    return html`
-      <div class="ft-num-cond-row">
-        <select class="ft-filter-mode-select ft-num-op-select" aria-label=${t('conditionOperator', { n: which === 'cond1' ? 1 : 2 })}
-          .value=${cond.op}
-          @change=${(e: Event) => {
-            const op = (e.target as HTMLSelectElement).value as NumericOp;
-            const cur = this._numberFilterState.get(key) ?? this._defaultNumState();
-            cur[which] = { ...cur[which], op };
-            this._numberFilterState.set(key, cur);
-            this._emptyFilterState.delete(key);
-            this._applyFilterForKey(key);
-          }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
-          ${(Object.keys(NUM_OP_LABELS) as NumericOp[]).map(op =>
-            html`<option value=${op}>${NUM_OP_LABELS[op]}</option>`)}
-        </select>
-        <input class="ft-filter-input ft-num-cond-input" type="text" inputmode="decimal" placeholder=${t('valuePlaceholder')}
-          aria-label=${t('conditionValue', { n: which === 'cond1' ? 1 : 2 })}
-          .value=${cond.text ?? (cond.value != null ? editableNumber(cond.value) : '')}
-          aria-invalid=${cond.text && cond.value == null ? 'true' : 'false'}
-          @input=${(e: InputEvent) => {
-            const raw = (e.target as HTMLInputElement).value;
-            const cur = this._numberFilterState.get(key) ?? this._defaultNumState();
-            cur[which] = { ...cur[which], text: raw, value: raw.trim() === '' ? null : parseNumber(raw) };
-            this._numberFilterState.set(key, cur);
-            this._emptyFilterState.delete(key);
-            this._applyFilterForKey(key);
-          }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
-      </div>
-    `;
-  }
-
-  private _renderNumberFilter(col: ColumnDefinition) {
-    const state = this._numberFilterState.get(col.key) ?? this._defaultNumState();
-    return html`
-      ${this._renderNumCondRow(col.key, 'cond1')}
-      <div class="ft-filter-mode-row">
-        <select class="ft-filter-mode-select" aria-label=${t('conditionJoin')}
-          .value=${state.join}
-          @change=${(e: Event) => {
-            const join = (e.target as HTMLSelectElement).value as 'and' | 'or';
-            const cur = this._numberFilterState.get(col.key) ?? this._defaultNumState();
-            cur.join = join;
-            this._numberFilterState.set(col.key, cur);
-            this._emptyFilterState.delete(col.key);
-            this._applyFilterForKey(col.key);
-          }}
-          @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
-          <option value="and">AND</option>
-          <option value="or">OR</option>
-        </select>
-      </div>
-      ${this._renderNumCondRow(col.key, 'cond2')}
-      ${this._renderEmptyFilterRow(col.key, () => {
-        this._numberFilterState.delete(col.key);
-      })}
-    `;
-  }
-
   /** 셀 오류 표시 — 우리 문장은 «그릴 때 찾는» 함수로(로캘 전환에 따라오게), 소비자 `validator` 문장은 그대로. */
   private _invalidCells: Map<string, { error: string | (() => string); timer: ReturnType<typeof setTimeout> }> = new Map();
 
@@ -3531,7 +3276,6 @@ export class FlexTable extends LitElement {
     if (!entry) return null;
     return typeof entry.error === 'function' ? entry.error() : entry.error;
   }
-  private _textFilterState: Map<string, { value: string; mode: TextFilterMode }> = new Map();
 
   /**
    * 텍스트 필터 · 찾기 칸의 IME 조합. 조합 중인 음절(«서울» 의 가는 길 «ㅅ» · «성»)로 거르면 찾는 행을 숨기고 «결과 없음» 을
@@ -3616,87 +3360,15 @@ export class FlexTable extends LitElement {
     emitReorder: (detail) => { this._emit('row-reorder', detail); },
     invalidate: () => this.requestUpdate(),
   });
+  /** The column filter popover — its controls and the per-column state they hold. */
+  private readonly _filterPopover = new FilterPopoverController({
+    commit: (key, predicate, model) => this._commitFilter(key, predicate, model),
+    remove: (key) => this.removeFilter(key),
+    close: (restoreFocus) => this._closeFilterDropdown(restoreFocus),
+    ime: this._textEntryIme,
+  });
   /** 자동완성 편집기의 IME 조합 — 후보는 검색 질의(`searchQuery` — 글 끝 한글 조합은 자모 앞부분으로)로 고른다. */
   private readonly _editorIme = new CompositionTracker(replayInput);
-  private _numberFilterState: Map<string, NumberAdvState> = new Map();
-  private _dateFilterState: Map<string, { from?: string; to?: string }> = new Map();
-  private _emptyFilterState: Map<string, 'empty' | 'non-empty'> = new Map();
-
-  /**
-   * From/to bounds as two `u-date-picker`s — the cell editor's control, for the same reason: the native
-   * date inputs show the browser's UI language (`10/02/2026` in an English browser) while the table
-   * shows ISO. Two pickers, not one `u-date-range-picker`: either bound may be left open ("from this
-   * day on"), which a range value cannot say. Each bound's calendar stops at the other bound.
-   */
-  private _renderDateFilter(col: ColumnDefinition) {
-    const datetime = col.type === 'datetime';
-    const state = this._dateFilterState.get(col.key) ?? {};
-    const day = (v: string | undefined) => v?.slice(0, 10);
-    const onKeyDown = (e: KeyboardEvent) => {
-      // Escape while a calendar is open closes that calendar, not the filter — the overlay layer that
-      // closes it listens on the document, so that one key is let through.
-      if (e.key === 'Escape' && calendarOpen(e.currentTarget as Element)) return;
-      e.stopPropagation();
-      if (e.key === 'Escape') this._closeFilterDropdown();
-    };
-    return html`
-      <div class="ft-filter-range ft-filter-range-dates">
-        <u-date-picker class="ft-filter-date" size="sm" clearable
-          mode=${datetime ? 'datetime' : 'date'} label=${t('fromPlaceholder')}
-          .value=${state.from ?? ''} max=${day(state.to) ?? nothing}
-          @change=${(e: Event) => this._applyDateFilter(col.key, e, 'from')}
-          @keydown=${onKeyDown}></u-date-picker>
-        <u-date-picker class="ft-filter-date" size="sm" clearable
-          mode=${datetime ? 'datetime' : 'date'} label=${t('toPlaceholder')}
-          .value=${state.to ?? ''} min=${day(state.from) ?? nothing}
-          @change=${(e: Event) => this._applyDateFilter(col.key, e, 'to')}
-          @keydown=${onKeyDown}></u-date-picker>
-      </div>
-      ${this._renderEmptyFilterRow(col.key, () => {
-        this._dateFilterState.delete(col.key);
-      })}
-    `;
-  }
-
-  private _applyDateFilter(key: string, e: Event, bound: 'from' | 'to'): void {
-    const value = (e.target as HTMLElement & { value?: string }).value ?? '';
-    const state = this._dateFilterState.get(key) ?? {};
-    if (value === '') {
-      delete state[bound];
-    } else {
-      state[bound] = value;
-    }
-    this._dateFilterState.set(key, state);
-    // Clear empty filter when type-specific filter is applied
-    this._emptyFilterState.delete(key);
-    this._applyFilterForKey(key);
-  }
-
-  private _renderBooleanFilter(col: ColumnDefinition) {
-    return html`
-      <select class="ft-filter-input" aria-label=${t('filterFor', { header: col.label })}
-        @change=${(e: Event) => {
-          const value = (e.target as HTMLSelectElement).value;
-          if (value === 'all') {
-            this.removeFilter(col.key);
-          } else {
-            this._commitFilter(col.key, (v) => Boolean(v) === (value === 'true'), { type: 'boolean', value: value === 'true' });
-          }
-        }}
-        @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._closeFilterDropdown(); e.stopPropagation(); }}>
-        <option value="all">${t('all')}</option>
-        <option value="true">\u2714 ${t('booleanTrue')}</option>
-        <option value="false">\u2718 ${t('booleanFalse')}</option>
-      </select>
-      ${this._renderEmptyFilterRow(col.key)}
-    `;
-  }
-
-  private _clearColumnFilter(key: string): void {
-    this.removeFilter(key);
-    this._clearFilterState(key);
-    this._openFilterKey = null;
-  }
 
   // --- Rendering ---
 
@@ -4232,15 +3904,6 @@ function pickerValue(value: unknown, datetime: boolean): string | undefined {
   }
   const text = editableDate(value);
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : undefined;
-}
-
-/** `u-date-picker` publishes its calendar state as `:state(open)`. Engines without `:state()` say no. */
-function calendarOpen(picker: Element): boolean {
-  try {
-    return picker.matches(':state(open)');
-  } catch {
-    return false;
-  }
 }
 
 /**

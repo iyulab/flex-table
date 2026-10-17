@@ -80,8 +80,8 @@ describe('filter models on the table', () => {
     const el = await make();
     el.filters = { qty: { type: 'number', conditions: [{ op: 'gt', value: 1 }, { op: 'lt', value: 15 }], join: 'and' } };
     expect(el.filteredRowCount).toBe(2); // 5 and 12
-    const priv = el as unknown as { _numberFilterState: Map<string, { cond1: { op: string; value: number | null }; join: string; cond2: { op: string; value: number | null } }> };
-    const state = priv._numberFilterState.get('qty')!;
+    const priv = el as unknown as { _filterPopover: { numberState: Map<string, { cond1: { op: string; value: number | null }; join: string; cond2: { op: string; value: number | null } }> } };
+    const state = priv._filterPopover.numberState.get('qty')!;
     expect(state.cond1).toMatchObject({ op: 'gt', value: 1 });
     expect(state.cond2).toMatchObject({ op: 'lt', value: 15 });
     expect(state.join).toBe('and');
