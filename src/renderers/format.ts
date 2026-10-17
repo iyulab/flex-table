@@ -3,9 +3,10 @@
  * Patterns follow Excel-like conventions.
  */
 
-// 숫자 구분 기호는 앱이 정한 로캘을 따른다(`Locale.get()`) — 런타임 기본 로캘이 아니라.
-import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 import { readCellDate } from '../core/date-value.js';
+import { formatWithCode, isDateFormat, type FormattedNumber } from './number-format.js';
+
+export type { FormattedNumber, FormatTone } from './number-format.js';
 
 /**
  * Apply a format string or function to a cell value.
@@ -19,61 +20,42 @@ export function applyFormat(
   if (typeof format === 'function') {
     return format(value);
   }
-  if (isDatePattern(format)) {
-    return formatDateValue(value, format);
-  }
-  return formatNumberValue(value, format);
+  return formatPattern(value, format).text;
 }
 
-/** Heuristic: contains date/time tokens */
-function isDatePattern(fmt: string): boolean {
-  return /[yMdHhms]/.test(fmt);
+/**
+ * Apply a string pattern, keeping the section color as a tone the cell paints with theme colors.
+ * A date pattern has no tone.
+ */
+export function formatPattern(value: unknown, format: string): FormattedNumber {
+  if (value == null) return { text: '' };
+  if (isDateFormat(format)) return { text: formatDateValue(value, format) };
+  return formatNumberPattern(value, format);
 }
 
 // ---------------------------------------------------------------------------
 // Number format
 // ---------------------------------------------------------------------------
 
+const warned = new Set<string>();
+
+function formatNumberPattern(value: unknown, fmt: string): FormattedNumber {
+  const result = formatWithCode(value, fmt);
+  if (result) return result;
+  if (!warned.has(fmt)) {
+    warned.add(fmt);
+    // eslint-disable-next-line no-console -- the column's format is wrong; say which one, once
+    console.warn(`[@iyulab/flex-table] number format "${fmt}" uses syntax the table does not support (conditions, [Color N], scientific or fractions) — showing values unformatted.`);
+  }
+  return { text: String(value) };
+}
+
 /**
- * Parse an Excel-style number format string and apply it.
- * Supported patterns: '#,##0', '#,##0.00', '0.00%', '$#,##0.00', '#,##0.00%'
+ * Apply a spreadsheet number format code (see `number-format.ts` for the supported syntax).
+ * Non-numeric values use the fourth (text) section when there is one, otherwise show as is.
  */
 export function formatNumberValue(value: unknown, fmt: string): string {
-  const num = typeof value === 'number' ? value : Number(value);
-  if (isNaN(num)) return String(value);
-
-  const isPercent = fmt.endsWith('%');
-  const currencyMatch = fmt.match(/^([^#0.,%]+)/);
-  const currencyPrefix = currencyMatch ? currencyMatch[1] : '';
-  const suffixAfterPercent = '';
-
-  const innerFmt = fmt
-    .replace(/^[^#0.,%]+/, '')  // strip leading currency prefix
-    .replace(/%$/, '');          // strip trailing %
-
-  // Count decimal places from '0.00' or '#,##0.00' pattern
-  const decimalMatch = innerFmt.match(/\.([0#]+)$/);
-  const decimalPlaces = decimalMatch ? decimalMatch[1].length : 0;
-
-  // Use grouping if comma appears (e.g. '#,##0')
-  const useGrouping = innerFmt.includes(',');
-
-  const opts: Intl.NumberFormatOptions = {
-    minimumFractionDigits: decimalPlaces,
-    maximumFractionDigits: decimalPlaces,
-    useGrouping,
-  };
-
-  let result: string;
-  if (isPercent) {
-    // Excel %: value 0.1235 → '12.35%'. Intl style:'percent' does the same.
-    result = new Intl.NumberFormat(Locale.get(), { ...opts, style: 'percent' }).format(num);
-  } else {
-    result = new Intl.NumberFormat(Locale.get(), opts).format(num);
-    if (currencyPrefix) result = currencyPrefix + result;
-  }
-
-  return result + suffixAfterPercent;
+  return formatNumberPattern(value, fmt).text;
 }
 
 // ---------------------------------------------------------------------------

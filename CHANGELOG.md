@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **Spreadsheet number formats are read as spreadsheets read them.** A `format` string such as `'#,##0;[Red](#,##0)'` drew
+  the format code itself in the cell (the `d` in `[Red]` was taken for a day), a trailing unit (`'#,##0원'`) was dropped, a
+  negative with a currency prefix read `₩-1,234`, and `;` sections and trailing-comma scaling were ignored. Supported now:
+  up to four sections (positive;negative;zero;text), quoted and `\` literals, any other character as a literal, trailing
+  `,` scaling, `%`, `_x` alignment space, `[$₩-412]` symbols and the colors `[Red]` `[Green]` `[Blue]` `[Yellow]`
+  `[Black]` — painted with the theme's danger, success, info and warning colors, not literal colors. A one-section format
+  puts the minus before the prefix (`-₩1,234`). A format the table cannot read (conditions, `[Color N]`, scientific,
+  fractions) shows the value unformatted and warns once, instead of showing the code.
+
 ## [0.70.0] - 2026-10-17
 
 ### Added

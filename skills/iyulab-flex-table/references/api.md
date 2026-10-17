@@ -63,7 +63,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `pinned` | `'left' \| 'right'` | |
 | `options` | `string[] \| SelectOption[]` | For `select`; `SelectOption` = `{ label, value }` |
 | `autocomplete` | `boolean \| 'strict'` | Suggest existing values; `'strict'` rejects others |
-| `format` | `string \| (value, row, col) => string` | Display only |
+| `format` | `string \| (value, row, col) => string` | Display only. A number pattern reads like a spreadsheet: `;` sections (positive;negative;zero;text), literals (`'#,##0원'`), trailing `,` ÷1000, `%`, colors `[Red]` `[Green]` `[Blue]` `[Yellow]` as theme tones. Unsupported syntax (conditions, scientific, fractions) shows the value as is and warns once |
 | `render` | `CellRenderer<T>` | `(value, row, col) => TemplateResult \| string` |
 | `editor` | `CellEditor<T>` | `(value, row, col) => TemplateResult` with an `.ft-editor` element |
 | `validator` | `CellValidator<T>` | `(value, row, col) => string \| null \| undefined` |

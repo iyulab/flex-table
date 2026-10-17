@@ -1,6 +1,6 @@
 import { html } from 'lit';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
-import { applyFormat } from './format.js';
+import { formatPattern } from './format.js';
 // 서브패스 — 배럴은 커스텀 엘리먼트 등록 46개를 부수효과로 끌어온다(locale.ts 참조).
 import { formatDate as formatLocaleDate, formatNumber as formatLocaleNumber } from '@iyulab/components/dist/utilities/format.js';
 
@@ -12,10 +12,10 @@ export function renderCell(value: unknown, row: DataRow, col: ColumnDefinition) 
     return col.render(value, row, col);
   }
   if (col.format) {
-    const formatted = typeof col.format === 'function'
-      ? col.format(value, row, col)
-      : applyFormat(value, col.format);
-    return formatted;
+    if (typeof col.format === 'function') return col.format(value, row, col);
+    const { text, tone } = formatPattern(value, col.format);
+    // 서식 섹션의 색([Red] 등)은 리터럴 색이 아니라 테마의 상태 색으로 칠한다.
+    return tone ? html`<span class="ft-format-tone" data-tone=${tone}>${text}</span>` : text;
   }
   return formatValue(value, col);
 }

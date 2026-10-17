@@ -388,6 +388,11 @@ export const flexTableStyles = css`
   .ft-cell.ft-align-center { text-align: center; }
   .ft-cell.ft-align-end { text-align: end; }
   .ft-bool { color: var(--ft-bool-color); }
+  /* 숫자 서식 섹션의 색([Red] · [Green] · [Blue] · [Yellow]) — 테마 상태 색으로 */
+  .ft-format-tone[data-tone='danger'] { color: var(--u-danger-color, #D32F2F); }
+  .ft-format-tone[data-tone='success'] { color: var(--u-success-color, #2E7D32); }
+  .ft-format-tone[data-tone='info'] { color: var(--u-info-color, #1976D2); }
+  .ft-format-tone[data-tone='warning'] { color: var(--u-warning-color-strong, #8A4A00); }
 
   .ft-empty {
     padding: 24px;

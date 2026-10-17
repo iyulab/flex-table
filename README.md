@@ -201,6 +201,24 @@ const columns: ColumnDefinition<Order>[] = [
 
 If both are set on the same column, `render` takes precedence — `format` has no effect once a custom `render` fully controls the cell's output.
 
+A number pattern is read the way a spreadsheet reads it, so a format copied from Excel shows the same text:
+
+| Pattern | `-1234` | `0` | `1234` |
+|---|---|---|---|
+| `'#,##0'` | `-1,234` | `0` | `1,234` |
+| `'₩#,##0'` | `-₩1,234` | `₩0` | `₩1,234` |
+| `'#,##0;(#,##0);"-"'` | `(1,234)` | `-` | `1,234` |
+| `'#,##0;[Red](#,##0)'` | `(1,234)` in the theme's danger color | `0` | `1,234` |
+| `'#,##0원'` | `-1,234원` | `0원` | `1,234원` |
+| `'#,##0,"K"'` | `-1K` | `0K` | `1K` |
+
+Supported: up to four `;` sections (positive; negative; zero; text — the negative section shows the absolute value, so
+write its sign or parentheses), digit placeholders `0` `#` `?`, grouping `,`, trailing `,` (÷1000 each), `%`, quoted
+`"…"` and `\` literals (any other character is a literal too), `_x` alignment space, `[$₩-412]` symbols, `@` in the text
+section, and the colors `[Red]` `[Green]` `[Blue]` `[Yellow]` `[Black]`, painted with the theme's danger, success, info
+and warning colors. Separators follow the app locale. Conditions (`[>100]`), `[Color N]`, scientific and fractions are
+not supported: the value shows unformatted and the table warns once.
+
 ### Conditional Formatting
 
 `conditionalRules` applies a style to a cell when its `when` predicate matches — a declarative alternative to writing a `render` function just to color-code status/threshold values:
