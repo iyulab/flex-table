@@ -38,6 +38,7 @@ import { DEFAULT_COL_WIDTH, MIN_COL_WIDTH } from './core/column-width.js';
 import { FindReplaceController } from './controllers/find-replace.js';
 import { ClipboardController } from './controllers/clipboard.js';
 import { FillHandleController } from './controllers/fill-handle.js';
+import { RowReorderController } from './controllers/row-reorder.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
@@ -362,14 +363,6 @@ export class FlexTable extends LitElement {
   /** Same as `_wasHeaderDrag`, for the row-number gutter's real row-drag reorder vs. its own
    * `click`-to-select-row listener. */
   private _wasRowDrag = false;
-  private _rowDrag: {
-    rowIndex: number;
-    startY: number;
-    ghost: HTMLElement | null;
-    active: boolean;
-    targetIndex: number;
-  } | null = null;
-  private _rowDragIndicatorY: number | null = null;
   private _columnWidths: Map<string, number> = new Map();
   /** Column resize and drag-reorder — the gestures on the header. */
   private readonly _columnGestures = new ColumnGestures({
@@ -3606,6 +3599,23 @@ export class FlexTable extends LitElement {
     emitApply: (detail) => { this._emit('fill-handle-apply', detail); },
     invalidate: () => this.requestUpdate(),
   });
+  /** Drag a row by its number to move it. */
+  private readonly _rowReorder = new RowReorderController({
+    host: this,
+    columns: () => this.visibleColumns,
+    data: () => this.data,
+    setData: (rows) => { this.data = rows; },
+    rowCount: () => this._visibleRowCount,
+    dataIndex: (row) => this._toDataIndex(row),
+    rowHeight: () => this.rowHeight,
+    headerHeight: () => this.headerHeight,
+    rowSpaceY: (clientY) => this._rowSpaceY(clientY),
+    rowBoundaryViewportY: (index) => this._rowBoundaryViewportY(index),
+    markRowDrag: () => { this._wasRowDrag = true; },
+    pushUndo: (step) => { this._undo.push(step); this._dispatchUndoStateEvent(); },
+    emitReorder: (detail) => { this._emit('row-reorder', detail); },
+    invalidate: () => this.requestUpdate(),
+  });
   /** 자동완성 편집기의 IME 조합 — 후보는 검색 질의(`searchQuery` — 글 끝 한글 조합은 자모 앞부분으로)로 고른다. */
   private readonly _editorIme = new CompositionTracker(replayInput);
   private _numberFilterState: Map<string, NumberAdvState> = new Map();
@@ -3686,112 +3696,6 @@ export class FlexTable extends LitElement {
     this.removeFilter(key);
     this._clearFilterState(key);
     this._openFilterKey = null;
-  }
-
-  // --- Row drag reorder ---
-
-  private _onRowNumMouseDown(e: MouseEvent, rowIndex: number): void {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    this._rowDrag = { rowIndex, startY: e.clientY, ghost: null, active: false, targetIndex: rowIndex };
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!this._rowDrag) return;
-      const dy = Math.abs(ev.clientY - this._rowDrag.startY);
-      if (!this._rowDrag.active && dy > 5) {
-        this._rowDrag.active = true;
-        this._startRowGhost(ev, rowIndex);
-        this.requestUpdate();
-      }
-      if (this._rowDrag.active) this._updateRowDrag(ev);
-    };
-
-    const onMouseUp = () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      if (this._rowDrag?.active) {
-        this._wasRowDrag = true;
-        this._finishRowDrag();
-      }
-      if (this._rowDrag?.ghost) this._rowDrag.ghost.remove();
-      this._rowDrag = null;
-      this._rowDragIndicatorY = null;
-      this.requestUpdate();
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }
-
-  private _startRowGhost(e: MouseEvent, rowIndex: number): void {
-    const dataIndex = this._toDataIndex(rowIndex);
-    const row = this.data[dataIndex];
-    const label = this.visibleColumns[0]
-      ? String(row[this.visibleColumns[0].key] ?? dataIndex + 1)
-      : String(dataIndex + 1);
-    const ghost = document.createElement('div');
-    ghost.textContent = label;
-    ghost.style.cssText = [
-      'position:fixed',
-      'pointer-events:none',
-      'z-index:var(--u-layer-overlay, 9999)',
-      'opacity:0.85',
-      'background:#e8f0fe',
-      'border:2px solid #3b82f6',
-      'padding:3px 10px',
-      'border-radius:3px',
-      'font-size:12px',
-      'white-space:nowrap',
-      `left:${e.clientX + 12}px`,
-      `top:${e.clientY - 10}px`,
-    ].join(';');
-    document.body.appendChild(ghost);
-    this._rowDrag!.ghost = ghost;
-  }
-
-  private _updateRowDrag(e: MouseEvent): void {
-    if (!this._rowDrag) return;
-    if (this._rowDrag.ghost) {
-      this._rowDrag.ghost.style.left = `${e.clientX + 12}px`;
-      this._rowDrag.ghost.style.top = `${e.clientY - 10}px`;
-    }
-
-    const rect = this.getBoundingClientRect();
-    const mouseY = this._rowSpaceY(e.clientY);
-    const rowH = this.rowHeight;
-
-    let targetIndex = Math.round(mouseY / rowH);
-    targetIndex = Math.max(0, Math.min(this._visibleRowCount, targetIndex));
-    if (this._rowDrag.rowIndex < targetIndex) targetIndex--;
-
-    this._rowDrag.targetIndex = targetIndex;
-    const indicatorY = this._rowBoundaryViewportY(targetIndex);
-    this._rowDragIndicatorY = Math.max(this.headerHeight, Math.min(indicatorY, rect.height));
-    this.requestUpdate();
-  }
-
-  private _finishRowDrag(): void {
-    if (!this._rowDrag) return;
-    const { rowIndex, targetIndex } = this._rowDrag;
-    if (targetIndex === rowIndex) return;
-
-    const fromDataIdx = this._toDataIndex(rowIndex);
-    const toDataIdx = this._toDataIndex(targetIndex);
-    const oldData = [...this.data];
-    const newData = [...this.data];
-    const [moved] = newData.splice(fromDataIdx, 1);
-    newData.splice(toDataIdx, 0, moved);
-    this.data = newData;
-
-    this._undo.push({
-      label: 'row-reorder',
-      undo: () => { this.data = [...oldData]; this.requestUpdate(); },
-      redo: () => { this.data = [...newData]; this.requestUpdate(); },
-    });
-    this._dispatchUndoStateEvent();
-    this._emit('row-reorder', { from: fromDataIdx, to: toDataIdx });
   }
 
   // --- Rendering ---
@@ -3882,10 +3786,10 @@ export class FlexTable extends LitElement {
     }
 
     const fillHandle = this._fillHandle.render();
-    const rowDropIndicator = this._rowDragIndicatorY != null
+    const rowDropIndicator = this._rowReorder.indicatorY != null
       // `tw` (_totalRowWidth) already starts at _prefixWidth — adding it again drew the
       // indicator past the last column by the width of the checkbox/row-number gutter.
-      ? html`<div class="ft-row-drop-indicator" style="top:${this._rowDragIndicatorY}px;width:${tw}px;"></div>`
+      ? html`<div class="ft-row-drop-indicator" style="top:${this._rowReorder.indicatorY}px;width:${tw}px;"></div>`
       : '';
 
     return html`
@@ -4052,11 +3956,11 @@ export class FlexTable extends LitElement {
     ` : '';
     if (this.selectable) prefixLeft += this._checkboxColWidth;
 
-    const isDraggingRow = this._rowDrag?.active && this._rowDrag.rowIndex === index;
+    const isDraggingRow = this._rowReorder.isDragging(index);
     const rowNumCell = this.showRowNumbers ? html`
       <div class="ft-row-num ${isDraggingRow ? 'ft-col-dragging' : ''}"
         style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2; cursor: grab;"
-        @mousedown=${(e: MouseEvent) => this._onRowNumMouseDown(e, index)}
+        @mousedown=${(e: MouseEvent) => this._rowReorder.onNumMouseDown(e, index)}
         @click=${() => this._onRowNumberClick(index)}>${dataIndex + 1}</div>
     ` : '';
 

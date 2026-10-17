@@ -1612,7 +1612,7 @@ describe('FlexTable', () => {
     el.data = [{ a: 'a', b: 'b' }, { a: 'c', b: 'd' }];
     await el.updateComplete;
 
-    (el as unknown as { _rowDragIndicatorY: number })._rowDragIndicatorY = 40;
+    (el as unknown as { _rowReorder: { indicatorY: number } })._rowReorder.indicatorY = 40;
     el.requestUpdate();
     await el.updateComplete;
 
@@ -2800,7 +2800,7 @@ describe('FlexTable', () => {
   });
 
   describe('row drag reorder', () => {
-    it('_finishRowDrag moves row in data array', async () => {
+    it('row reorder moves a row in the data array', async () => {
       const el = createElement();
       el.showRowNumbers = true;
       el.columns = [{ key: 'name', label: 'Name' }];
@@ -2808,8 +2808,8 @@ describe('FlexTable', () => {
       await el.updateComplete;
 
       // targetIndex 1 means: insert at data position 1 (after removing row 0)
-      (el as any)._rowDrag = { rowIndex: 0, startY: 0, ghost: null, active: true, targetIndex: 1 };
-      (el as any)._finishRowDrag();
+      (el as any)._rowReorder.drag = { rowIndex: 0, startY: 0, ghost: null, active: true, targetIndex: 1 };
+      (el as any)._rowReorder.finish();
       await el.updateComplete;
 
       expect(el.data[0]['name']).toBe('B');
@@ -2824,8 +2824,8 @@ describe('FlexTable', () => {
       el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
       await el.updateComplete;
 
-      (el as any)._rowDrag = { rowIndex: 2, startY: 0, ghost: null, active: true, targetIndex: 0 };
-      (el as any)._finishRowDrag();
+      (el as any)._rowReorder.drag = { rowIndex: 2, startY: 0, ghost: null, active: true, targetIndex: 0 };
+      (el as any)._rowReorder.finish();
       await el.updateComplete;
       expect(el.data[0]['name']).toBe('C');
 
@@ -2844,8 +2844,8 @@ describe('FlexTable', () => {
 
       const events: CustomEvent[] = [];
       el.addEventListener('row-reorder', e => events.push(e as CustomEvent));
-      (el as any)._rowDrag = { rowIndex: 0, startY: 0, ghost: null, active: true, targetIndex: 1 };
-      (el as any)._finishRowDrag();
+      (el as any)._rowReorder.drag = { rowIndex: 0, startY: 0, ghost: null, active: true, targetIndex: 1 };
+      (el as any)._rowReorder.finish();
       await el.updateComplete;
 
       expect(events).toHaveLength(1);
