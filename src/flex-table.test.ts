@@ -4674,21 +4674,32 @@ describe('FlexTable', () => {
       expect(el.shadowRoot!.querySelector('.ft-comment-popup')).toBeNull();
     });
 
-    it('popup renders when _openCommentPopup is called', async () => {
+    it('popup renders when the comment popup is opened', async () => {
       const el = makeEl();
       await el.updateComplete;
-      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      (el as any)._commentPopup.open(0, 'name', 100, 100);
       await el.updateComplete;
       expect(el.shadowRoot!.querySelector('.ft-comment-popup')).toBeTruthy();
       expect(el.shadowRoot!.querySelector('.ft-comment-popup textarea')).toBeTruthy();
     });
 
-    it('popup closes when _cancelCommentPopup is called', async () => {
+    it('opening on a commented cell shows that comment in the textarea and focuses it', async () => {
+      const el = makeEl();
+      el.setComment(0, 'name', 'existing note');
+      await el.updateComplete;
+      (el as any)._commentPopup.open(0, 'name', 100, 100);
+      await el.updateComplete;
+      const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
+      expect(ta.value).toBe('existing note');
+      expect(el.shadowRoot!.activeElement).toBe(ta);
+    });
+
+    it('popup closes when the comment popup is cancelled', async () => {
       const el = makeEl();
       await el.updateComplete;
-      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      (el as any)._commentPopup.open(0, 'name', 100, 100);
       await el.updateComplete;
-      (el as any)._cancelCommentPopup();
+      (el as any)._commentPopup.cancel();
       await el.updateComplete;
       expect(el.shadowRoot!.querySelector('.ft-comment-popup')).toBeNull();
     });
@@ -4696,24 +4707,24 @@ describe('FlexTable', () => {
     it('commit saves typed text as comment', async () => {
       const el = makeEl();
       await el.updateComplete;
-      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      (el as any)._commentPopup.open(0, 'name', 100, 100);
       await el.updateComplete;
       const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
       ta.value = 'My note';
-      (el as any)._commitCommentPopup();
+      (el as any)._commentPopup.commit();
       expect(el.getComment(0, 'name')).toBe('My note');
-      expect((el as any)._commentPopup).toBeNull();
+      expect((el as any)._commentPopup.current).toBeNull();
     });
 
     it('cancel does not change existing comment', async () => {
       const el = makeEl();
       el.setComment(0, 'name', 'original');
       await el.updateComplete;
-      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      (el as any)._commentPopup.open(0, 'name', 100, 100);
       await el.updateComplete;
       const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
       ta.value = 'discarded';
-      (el as any)._cancelCommentPopup();
+      (el as any)._commentPopup.cancel();
       expect(el.getComment(0, 'name')).toBe('original');
     });
 
@@ -4721,11 +4732,11 @@ describe('FlexTable', () => {
       const el = makeEl();
       el.setComment(0, 'name', 'to be deleted');
       await el.updateComplete;
-      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      (el as any)._commentPopup.open(0, 'name', 100, 100);
       await el.updateComplete;
       const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
       ta.value = '';
-      (el as any)._commitCommentPopup();
+      (el as any)._commentPopup.commit();
       expect(el.getComment(0, 'name')).toBeNull();
     });
 
@@ -4735,22 +4746,22 @@ describe('FlexTable', () => {
       el.clearUndoHistory();
       expect(el.canUndo).toBe(false);
       await el.updateComplete;
-      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      (el as any)._commentPopup.open(0, 'name', 100, 100);
       await el.updateComplete;
       const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
       ta.value = 'same';
-      (el as any)._commitCommentPopup();
+      (el as any)._commentPopup.commit();
       expect(el.canUndo).toBe(false);
     });
 
     it('commit is undoable via undo()', async () => {
       const el = makeEl();
       await el.updateComplete;
-      (el as any)._openCommentPopup(0, 'name', 100, 100);
+      (el as any)._commentPopup.open(0, 'name', 100, 100);
       await el.updateComplete;
       const ta = el.shadowRoot!.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement;
       ta.value = 'new comment';
-      (el as any)._commitCommentPopup();
+      (el as any)._commentPopup.commit();
       expect(el.getComment(0, 'name')).toBe('new comment');
       el.undo();
       expect(el.getComment(0, 'name')).toBeNull();

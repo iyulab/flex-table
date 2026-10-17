@@ -39,6 +39,7 @@ import { FindReplaceController } from './controllers/find-replace.js';
 import { ClipboardController } from './controllers/clipboard.js';
 import { FillHandleController } from './controllers/fill-handle.js';
 import { RangeEditController } from './controllers/range-edit.js';
+import { CommentPopupController } from './controllers/comment-popup.js';
 import { RowReorderController } from './controllers/row-reorder.js';
 import { FilterPopoverController } from './controllers/filter-popover.js';
 import { calendarOpen } from './core/calendar-state.js';
@@ -344,9 +345,6 @@ export class FlexTable extends LitElement {
 
   @state()
   private _bodyContextMenu: { rowIndex: number; colIndex: number; dataIndex: number; x: number; y: number } | null = null;
-
-  @state()
-  private _commentPopup: { dataIndex: number; colKey: string; x: number; y: number } | null = null;
 
   private _viewDirty = true;
   private _isDragging = false;
@@ -1418,7 +1416,7 @@ export class FlexTable extends LitElement {
     this.removeEventListener('dragleave', this._onDragleave as unknown as EventListener);
     this.removeEventListener('drop', this._onDrop as unknown as EventListener);
     document.removeEventListener('click', this._onDocumentClick);
-    document.removeEventListener('mousedown', this._onCommentPopupOutsideClick);
+    this._commentPopup.dispose();
     this._isDragging = false;
     this._wasDrag = false;
     // Clean up any in-progress resize listeners
@@ -1562,15 +1560,7 @@ export class FlexTable extends LitElement {
     } else if (this.hasAttribute('aria-busy')) {
       this.removeAttribute('aria-busy');
     }
-    // Initialize comment popup textarea when popup first opens
-    if (changedProps.has('_commentPopup') && this._commentPopup) {
-      const ta = this.shadowRoot?.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement | null;
-      if (ta) {
-        ta.value = this.getComment(this._commentPopup.dataIndex, this._commentPopup.colKey) ?? '';
-        ta.focus();
-        ta.select();
-      }
-    }
+    this._commentPopup.afterRender();
   }
 
   /** Recompute filter → sort pipeline. */
@@ -1765,7 +1755,7 @@ export class FlexTable extends LitElement {
     }, { cancelable: true });
 
     // Close any open comment popup (save its content) before showing new context menu
-    this._cancelCommentPopup();
+    this._commentPopup.cancel();
 
     if (this.showContextMenu && !ctxEvent.defaultPrevented) {
       this._bodyContextMenu = { rowIndex, colIndex, dataIndex, x: e.clientX, y: e.clientY };
@@ -2996,67 +2986,8 @@ export class FlexTable extends LitElement {
         ${item(t('filterByThisValue'), () => this.setFilter(col.key, value === null || ['string', 'number', 'boolean'].includes(typeof value) ? { type: 'equals', value: value as string | number | boolean | null } : (v) => v === value))}
         ${hasFilter ? item(t('clearFilter'), () => this.removeFilter(col.key)) : nothing}
         ${separator}
-        ${item(hasComment ? t('editComment') : t('addComment'), () => this._openCommentPopup(dataIndex, col.key, x, y))}
+        ${item(hasComment ? t('editComment') : t('addComment'), () => this._commentPopup.open(dataIndex, col.key, x, y))}
         ${hasComment ? item(t('deleteComment'), () => this.setComment(dataIndex, col.key, null), true) : nothing}
-      </div>
-    `;
-  }
-
-  private _openCommentPopup(dataIndex: number, colKey: string, x: number, y: number): void {
-    this._commentPopup = { dataIndex, colKey, x, y };
-    requestAnimationFrame(() => {
-      document.addEventListener('mousedown', this._onCommentPopupOutsideClick);
-    });
-  }
-
-  private _onCommentPopupOutsideClick = () => {
-    this._commitCommentPopup();
-  };
-
-  private _commitCommentPopup(): void {
-    if (!this._commentPopup) return;
-    document.removeEventListener('mousedown', this._onCommentPopupOutsideClick);
-    const ta = this.shadowRoot?.querySelector('.ft-comment-popup textarea') as HTMLTextAreaElement | null;
-    const newText = ta?.value?.trim() || null;
-    const existing = this.getComment(this._commentPopup.dataIndex, this._commentPopup.colKey);
-    if (newText !== existing) {
-      this.setComment(this._commentPopup.dataIndex, this._commentPopup.colKey, newText);
-    }
-    this._commentPopup = null;
-  }
-
-  private _cancelCommentPopup(): void {
-    if (!this._commentPopup) return;
-    document.removeEventListener('mousedown', this._onCommentPopupOutsideClick);
-    this._commentPopup = null;
-  }
-
-  private _renderCommentPopup() {
-    if (!this._commentPopup) return nothing;
-    const { x, y } = this._commentPopup;
-
-    const popupW = 240;
-    const popupH = 150;
-    const adjustedX = x + popupW > window.innerWidth ? x - popupW : x;
-    const adjustedY = y + popupH > window.innerHeight ? y - popupH : y;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); this._cancelCommentPopup(); }
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this._commitCommentPopup(); }
-    };
-
-    return html`
-      <div class="ft-comment-popup"
-        style="position: fixed; left: ${adjustedX}px; top: ${adjustedY}px; z-index: calc(var(--u-layer-floating, 1000) + 1);"
-        @mousedown=${(e: MouseEvent) => e.stopPropagation()}>
-        <textarea class="ft-comment-popup-textarea" aria-label=${t('addComment')}
-          rows="4"
-          placeholder=${t('addCommentPlaceholder')}
-          @keydown=${onKeyDown}></textarea>
-        <div class="ft-comment-popup-buttons">
-          <button class="ft-comment-popup-cancel" @click=${() => this._cancelCommentPopup()}>${t('cancel')}</button>
-          <button class="ft-comment-popup-save" @click=${() => this._commitCommentPopup()}>${t('save')}</button>
-        </div>
       </div>
     `;
   }
@@ -3191,6 +3122,13 @@ export class FlexTable extends LitElement {
     invalidate: () => this.requestUpdate(),
     focusInput: () => { this.shadowRoot?.querySelector<HTMLInputElement>('.ft-find-input')?.focus(); },
     ime: this._textEntryIme,
+  });
+  /** The cell comment's small editor. */
+  private readonly _commentPopup = new CommentPopupController({
+    root: () => this.shadowRoot,
+    getComment: (dataIndex, colKey) => this.getComment(dataIndex, colKey),
+    setComment: (dataIndex, colKey, text) => this.setComment(dataIndex, colKey, text),
+    invalidate: () => this.requestUpdate(),
   });
   /** Fill down / right and clear over the selection's blocks — the keys, and the clipboard's cut. */
   private readonly _rangeEdit = new RangeEditController({
@@ -3384,7 +3322,7 @@ export class FlexTable extends LitElement {
       ${fillHandle}
       ${this._renderHeaderContextMenu()}
       ${this._renderBodyContextMenu()}
-      ${this._renderCommentPopup()}
+      ${this._commentPopup.render()}
     `;
   }
 
