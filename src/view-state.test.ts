@@ -160,4 +160,19 @@ describe('view state on the table', () => {
     el.undo();
     expect(seen).toEqual([['name', 'qty', 'due', 'ok']]);
   });
+  it('★a resize drag reports the view once, when it ends — with the dragged width', async () => {
+    const el = await make();
+    const seen: Array<{ reason: string; width?: number }> = [];
+    el.addEventListener('view-state-change', (e) => {
+      const d = (e as CustomEvent).detail;
+      seen.push({ reason: d.reason, width: d.state.columns[0].width });
+    });
+    const handle = el.shadowRoot!.querySelector('.ft-resize-handle') as HTMLElement;
+    handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 100 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 120 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 150 }));
+    expect(seen).toEqual([]);
+    document.dispatchEvent(new MouseEvent('mouseup', { clientX: 150 }));
+    expect(seen).toEqual([{ reason: 'column-width', width: 230 }]);
+  });
 });

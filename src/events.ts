@@ -43,7 +43,7 @@ export interface FlexTableEventMap {
   'column-delete': CustomEvent<{ column: ColumnDefinition; key: string; index: number }>;
   'column-reorder': CustomEvent<{ key: string; oldIndex: number; newIndex: number }>;
   'column-visibility-change': CustomEvent<{ key: string; hidden: boolean }>;
-  /** A column was resized — during the drag and once more when it ends. `colIndex` is the visible index. */
+  /** A column was resized — a drag reports once, when it ends; auto-fit and the keyboard report each step. `colIndex` is the visible index. */
   'column-resize': CustomEvent<{ key: string; width: number; colIndex: number }>;
   /**
    * The view changed by an act — a column moved, resized, shown or hidden, the sort or a filter changed. `state` is
