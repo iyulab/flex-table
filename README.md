@@ -412,7 +412,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 | `column-resize` | `{ key, width, colIndex }` | Column resized (drag, auto-fit, or keyboard) |
 | `column-select` | `{ colIndex, key, rowCount }` | Entire column selected |
 | `column-visibility-change` | `{ key, hidden }` | Column hidden or shown |
-| `view-state-change` | `{ reason, state }` | The view changed by an act — column moved, resized (once, when it ends), shown/hidden, sort or filter. `state` is `getViewState()`; `reason` is `column-order`, `column-width`, `column-visibility`, `sort` or `filter` |
+| `view-state-change` | `{ reason, state }` | The view changed by an act — column moved, resized (a drag reports once, when it ends; the keyboard and auto-fit report each step — debounce before saving), shown/hidden, sort or filter. `state` is `getViewState()`; `reason` is `column-order`, `column-width`, `column-visibility`, `sort` or `filter` |
 | `header-context-menu` | `{ key, label, x, y }` | Right-click on a column header |
 
 ### Sort & Filter Events
