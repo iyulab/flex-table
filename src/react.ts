@@ -18,6 +18,7 @@ const FlexTableReactBase = createComponent({
     onRowAdd: 'row-add' as EventName<FlexTableEventMap['row-add']>,
     onRowDelete: 'row-delete' as EventName<FlexTableEventMap['row-delete']>,
     onRowActivate: 'row-activate' as EventName<FlexTableEventMap['row-activate']>,
+    onViewStateChange: 'view-state-change' as EventName<FlexTableEventMap['view-state-change']>,
     onColumnResize: 'column-resize' as EventName<FlexTableEventMap['column-resize']>,
     onColumnSelect: 'column-select' as EventName<FlexTableEventMap['column-select']>,
     onColumnAdd: 'column-add' as EventName<FlexTableEventMap['column-add']>,

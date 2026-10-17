@@ -48,7 +48,7 @@ function Orders({ orders }: { orders: Order[] }) {
 | `onRowReorder` | `row-reorder` | `onHeaderContextMenu` | `header-context-menu` |
 | `onColumnVisibilityChange` | `column-visibility-change` | `onCommentChange` | `comment-change` |
 | `onDataImport` | `data-import` | `onFillHandleApply` | `fill-handle-apply` |
-| `onFindReplace` | `find-replace` | | |
+| `onFindReplace` | `find-replace` | `onViewStateChange` | `view-state-change` |
 
 Every custom event of `<flex-table>` has a prop.
 

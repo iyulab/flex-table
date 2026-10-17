@@ -7,6 +7,7 @@ export type { CellPosition, CellRange } from './core/selection.js';
 export type { FlexTableEventMap, CellChange } from './events.js';
 export type { SortCriteria, SortDirection } from './core/sorting.js';
 export type { ColumnFilter, FilterPredicate, FilterErrorCallback } from './core/filtering.js';
+export type { ColumnViewState, TableViewState, ViewStateChangeReason } from './core/view-state.js';
 export type { FilterModel, FilterModels, NumberCondition, NumericOp, TextFilterMode } from './core/filter-model.js';
 export { filterModelPredicate, filterModelToOData, filterModelsToOData, isFilterModel } from './core/filter-model.js';
 export { RowSelectionState } from './core/row-selection.js';

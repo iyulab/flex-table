@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Saved view.** `getViewState()` returns what a user did to the table — column order, width, visibility and pinning, the
+  sort and the filters — as plain JSON, and `applyViewState(state)` puts it back (quiet like `data` and `filters`; every part
+  optional; columns the state does not name keep their order and follow the named ones; names the table no longer has are
+  skipped with a warning). New event `view-state-change` `{ reason, state }` fires on each act (column moved, resized — once,
+  when it ends — shown or hidden, sort, filter), React `onViewStateChange`. Where to keep it is the app's choice.
+
 ## [0.69.0] - 2026-10-17
 
 ### Added

@@ -302,6 +302,8 @@ Default is `false`, matching `clear-undo-on-data-change`.
 | `setFilter(key, filter)` | `void` | Set column filter. `filter` is a **`FilterModel`** (what the filter popover builds — it shows in the popover, travels in `filter-change` and `filters`, and a server source turns it into `$filter`) or a bare `predicate: (value, row) => boolean` (the escape hatch: no model). A model that filters nothing (empty text) removes the filter |
 | `removeFilter(key)` | `void` | Remove filter for a column |
 | `clearFilters()` | `void` | Remove all filters |
+| `getViewState()` | `TableViewState` | The view as plain JSON — `columns` (in display order: `key`, `width`, `hidden`, `pinned`), `sort`, `filters`. Keep it anywhere (profile, `localStorage`, URL); `view-state-change` says when. Filters set with a bare predicate have no model and are not in it |
+| `applyViewState(state)` | `void` | Puts a saved view back. Every part is optional; columns the state does not name keep their order and follow the named ones, names the table no longer has are skipped with a warning. Quiet (no events). In server mode the sort and filters are shown, not applied to rows — fetch with `getViewState()` |
 
 ### Export
 
@@ -410,6 +412,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 | `column-resize` | `{ key, width, colIndex }` | Column resized (drag, auto-fit, or keyboard) |
 | `column-select` | `{ colIndex, key, rowCount }` | Entire column selected |
 | `column-visibility-change` | `{ key, hidden }` | Column hidden or shown |
+| `view-state-change` | `{ reason, state }` | The view changed by an act — column moved, resized (once, when it ends), shown/hidden, sort or filter. `state` is `getViewState()`; `reason` is `column-order`, `column-width`, `column-visibility`, `sort` or `filter` |
 | `header-context-menu` | `{ key, label, x, y }` | Right-click on a column header |
 
 ### Sort & Filter Events

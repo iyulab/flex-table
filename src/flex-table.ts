@@ -8,6 +8,8 @@ import { SelectionState } from './core/selection.js';
 import { EditingState } from './core/editing.js';
 import { RowSelectionState } from './core/row-selection.js';
 import { computeSortedIndices, toggleSort } from './core/sorting.js';
+import { mergeColumnViewState, snapshotViewState } from './core/view-state.js';
+import type { TableViewState, ViewStateChangeReason } from './core/view-state.js';
 import { computeFilteredIndices } from './core/filtering.js';
 import { filterModelPredicate, isEmptyFilterModel, isFilterModel } from './core/filter-model.js';
 import type { FilterModel, FilterModels, NumericOp, TextFilterMode } from './core/filter-model.js';
@@ -683,6 +685,49 @@ export class FlexTable extends LitElement {
     return this._filters.map(f => f.key);
   }
 
+  // --- Public API: View State ---
+
+  /**
+   * The view as the user left it — column order, width, visibility and pinning, the sort and the filters — as
+   * plain JSON. Keep it wherever suits (a profile, `localStorage`, a URL) and give it back to `applyViewState`;
+   * `view-state-change` says when it is worth saving. Filters set with a bare predicate have no model and are
+   * not in it (`filter-change` lists them as `unmodeled`).
+   */
+  getViewState(): TableViewState {
+    return snapshotViewState(this.columns, this._columnWidths, this._sortCriteria, this.filters);
+  }
+
+  /**
+   * Puts a saved view back. Every part is optional and only the parts given change. Columns the state does not
+   * name keep their order and follow the named ones; names the table no longer has are skipped. Quiet like
+   * `data` and `filters`: no events — the caller already knows. In server mode the sort and filters are shown but
+   * not applied to rows; read them from `getViewState()` and fetch.
+   */
+  applyViewState(state: Partial<TableViewState>): void {
+    if (Array.isArray(state.columns)) {
+      const merged = mergeColumnViewState(this.columns, state.columns);
+      for (const entry of merged.skipped) {
+        // eslint-disable-next-line no-console -- the caller's stored state does not fit this table; say what
+        console.warn('[@iyulab/flex-table] ignored a column in the view state that this table cannot place:', entry);
+      }
+      this.columns = merged.columns;
+      for (const [key, width] of merged.widths) this._columnWidths.set(key, width);
+    }
+    if (Array.isArray(state.sort)) {
+      const known = new Set(this.columns.map(c => c.key));
+      this._sortCriteria = state.sort
+        .filter(s => s && known.has(s.key) && (s.direction === 'asc' || s.direction === 'desc'))
+        .map(s => ({ key: s.key, direction: s.direction }));
+    }
+    if (state.filters !== undefined) this.filters = state.filters;
+    else if (state.sort !== undefined && this.dataMode !== 'server') this._recomputeView();
+    this.requestUpdate();
+  }
+
+  private _emitViewState(reason: ViewStateChangeReason): void {
+    this._emit('view-state-change', { reason, state: this.getViewState() });
+  }
+
   /**
    * Explicitly request a re-render after external data mutations.
    * Useful when `data` array contents are mutated in-place without reassignment.
@@ -740,6 +785,7 @@ export class FlexTable extends LitElement {
       filters: this.filters,
       unmodeled: this._filters.filter(f => !f.model).map(f => f.key),
     });
+    this._emitViewState('filter');
   }
 
   // --- Public API: Column Operations ---
@@ -861,6 +907,7 @@ export class FlexTable extends LitElement {
         cols.splice(oldIndex, 0, col);
         this.columns = cols;
         this.requestUpdate();
+        this._emitViewState('column-order');
       },
       redo: () => {
         const cols = [...this.columns];
@@ -868,11 +915,13 @@ export class FlexTable extends LitElement {
         cols.splice(clampedNew, 0, col);
         this.columns = cols;
         this.requestUpdate();
+        this._emitViewState('column-order');
       },
     });
 
     this.requestUpdate();
     this._emit('column-reorder', { key, oldIndex, newIndex: clampedNew });
+    this._emitViewState('column-order');
     this._dispatchUndoStateEvent();
   }
 
@@ -907,6 +956,7 @@ export class FlexTable extends LitElement {
     if (idx === -1) return;
     this.columns = this.columns.map((c, i) => i === idx ? { ...c, hidden } : c);
     this._emit('column-visibility-change', { key, hidden });
+    this._emitViewState('column-visibility');
   }
 
   /** Returns all columns marked as hidden. */
@@ -2474,6 +2524,7 @@ export class FlexTable extends LitElement {
     this._columnWidths.set(col.key, newWidth);
     this.requestUpdate();
     this._emit('column-resize', { key: col.key, width: newWidth, colIndex });
+    this._emitViewState('column-width');
   }
 
   private _handleNavigation(e: KeyboardEvent): boolean {
@@ -2832,6 +2883,8 @@ export class FlexTable extends LitElement {
     this.requestUpdate();
 
     this._emit('sort-change', { criteria: [...this._sortCriteria] });
+
+    this._emitViewState('sort');
   }
 
   private _selectColumn(colIndex: number): void {
@@ -3296,6 +3349,7 @@ export class FlexTable extends LitElement {
     }
     this.requestUpdate();
     this._emit('sort-change', { criteria: [...this._sortCriteria] });
+    this._emitViewState('sort');
   }
 
   // --- Filter UI ---
@@ -3759,6 +3813,8 @@ export class FlexTable extends LitElement {
     this.requestUpdate();
 
     this._emit('column-resize', { key: col.key, width: newWidth, colIndex });
+
+    this._emitViewState('column-width');
   }
 
   private _onResizeStart(e: MouseEvent, colIndex: number): void {
@@ -3790,6 +3846,7 @@ export class FlexTable extends LitElement {
       if (this._resizing) {
         const finalWidth = this._columnWidths.get(col.key) ?? DEFAULT_COL_WIDTH;
         this._emit('column-resize', { key: col.key, width: finalWidth, colIndex });
+        this._emitViewState('column-width');
         this._resizing = null;
       }
     };

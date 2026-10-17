@@ -95,6 +95,8 @@ when `data` drops it. `clear-selection-on-data-change` starts a new selection on
 **Filter…** entry to each column's header menu (text, number range, boolean, date/datetime range).
 Both share one filter state.
 
+**Saved view.** `table.getViewState()` is the user's view as JSON (column order, width, hidden, pinned, sort, filters); store it where you like and give it back with `applyViewState(state)` (quiet, every part optional). `view-state-change` fires on each user act with the whole state — save from it.
+
 **Undo/redo** covers edits, row and column operations, paste and comments (`max-undo-size`, default 100).
 
 ## React

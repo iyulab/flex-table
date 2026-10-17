@@ -128,6 +128,7 @@ Enter/Escape and blur-to-commit behavior.
 | Method | Notes |
 |---|---|
 | `setFilter(key, filter)` / `removeFilter(key)` / `clearFilters()` | `filter`: a `FilterModel` (serializable — popover, `filters`, `$filter`) or a bare `predicate: (value, row) => boolean` (no model); filters combine with AND |
+| `getViewState()` / `applyViewState(state)` | the view as JSON: `{ columns: [{ key, width?, hidden, pinned }], sort, filters }` in display order; apply is quiet, every part optional, unknown columns skipped with a warning |
 | `undo()` / `redo()` / `clearUndoHistory()` | |
 | `setComment(dataIndex, colKey, text)` | `null` or `''` removes; undoable |
 | `getComment(dataIndex, colKey)` / `clearComments()` | |
@@ -168,6 +169,7 @@ cast, and the React `on*` props carry the same types.
 | `column-resize` | `{ key, width, colIndex }` |
 | `column-select` | `{ colIndex, key, rowCount }` |
 | `column-visibility-change` | `{ key, hidden }` |
+| `view-state-change` | `{ reason, state }` (`state` = `getViewState()`; reason: `column-order` `column-width` `column-visibility` `sort` `filter`) |
 | `sort-change` | `{ criteria }` |
 | `filter-change` | `{ keys, filteredCount, filters, unmodeled }` |
 | `filter-error` | `{ error, row, filterKey }` |

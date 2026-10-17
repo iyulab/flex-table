@@ -2,6 +2,7 @@ import type { FilterModels } from './core/filter-model.js';
 import type { ImportReport } from './export/import.js';
 import type { CellPosition, CellRange } from './core/selection.js';
 import type { SortCriteria } from './core/sorting.js';
+import type { TableViewState, ViewStateChangeReason } from './core/view-state.js';
 import type { ColumnDefinition, DataRow } from './models/types.js';
 
 /** One cell a bulk operation wrote: data row index, column key, value before and after. */
@@ -44,6 +45,11 @@ export interface FlexTableEventMap {
   'column-visibility-change': CustomEvent<{ key: string; hidden: boolean }>;
   /** A column was resized — during the drag and once more when it ends. `colIndex` is the visible index. */
   'column-resize': CustomEvent<{ key: string; width: number; colIndex: number }>;
+  /**
+   * The view changed by an act — a column moved, resized, shown or hidden, the sort or a filter changed. `state` is
+   * the whole view (`getViewState()`); save it to restore it with `applyViewState()`. A resize reports once, when it ends.
+   */
+  'view-state-change': CustomEvent<{ reason: ViewStateChangeReason; state: TableViewState }>;
   /** A whole column was selected. `colIndex` is the visible index. */
   'column-select': CustomEvent<{ colIndex: number; key: string | undefined; rowCount: number }>;
   'row-add': CustomEvent<{ row: DataRow; index: number }>;
