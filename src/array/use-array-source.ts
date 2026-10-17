@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useLayoutEffect, useRef } from 'react';
 import type { SortCriteria } from '../core/sorting.js';
+import type { FilterModels } from '../core/filter-model.js';
 import type { DataRow } from '../models/types.js';
 import type { HookArraySource, UseArraySourceOptions, UseArraySourceResult } from './types.js';
 import type { ODataSourceState } from '../odata/source.js';
@@ -43,6 +44,7 @@ export function useArraySource<T extends DataRow = DataRow>(
   const [page, setPage] = useState(initial.page);
   const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>(initial.sortCriteria);
   const [search, setSearchState] = useState(initial.search);
+  const [filters, setFiltersState] = useState<FilterModels>({});
   const [pageSize, setPageSizeState] = useState(pageSizeOption);
   /*
    * `pageSize` 옵션 «값이 바뀌면» 그 크기로(첫 장으로) — 렌더 중 조정(아래 페이지 클램프와 같은 근거). 같은 값이 다시 오면
@@ -72,16 +74,26 @@ export function useArraySource<T extends DataRow = DataRow>(
     }
   }, []);
 
+  const setFilters = useCallback((next: FilterModels) => {
+    setFiltersState((cur) => (JSON.stringify(cur) === JSON.stringify(next) ? cur : next));
+    setPage(0);
+  }, []);
+
+  const onFilterChange = useCallback((e: CustomEvent) => {
+    const next = e.detail?.filters as FilterModels | undefined;
+    if (next) setFilters(next);
+  }, [setFilters]);
+
   const refresh = useCallback(() => { /* no-op — 이 훅에는 다시 불러올 원격 상태가 없다 */ }, []);
 
   const fetchAll = useCallback(
-    (fetchOptions?: FetchAllOptions) => readAllArrayRows(data, { search, sortCriteria, columns, searchFields }, fetchOptions),
-    [data, search, sortCriteria, columns, searchFields],
+    (fetchOptions?: FetchAllOptions) => readAllArrayRows(data, { search, sortCriteria, columns, searchFields, filters }, fetchOptions),
+    [data, search, sortCriteria, columns, searchFields, filters],
   );
 
   const { data: pageData, totalCount } = useMemo(
-    () => computeArrayView(data, { search, sortCriteria, page, pageSize, columns, searchFields }),
-    [data, search, sortCriteria, page, pageSize, columns, searchFields]
+    () => computeArrayView(data, { search, sortCriteria, page, pageSize, columns, searchFields, filters }),
+    [data, search, sortCriteria, page, pageSize, columns, searchFields, filters]
   );
 
   /**
@@ -107,8 +119,8 @@ export function useArraySource<T extends DataRow = DataRow>(
    * 렌더 중에 동기로 하고(종전 계약), 바뀐 상태는 커밋 직후(`useLayoutEffect`, 그리기 전) 구독자에게 알린다. 객체는 늘 같다.
    */
   const snapshot = useMemo<ODataSourceState<T>>(
-    () => ({ data: pageData as T[], totalCount, loading: false, error: null, page, pageSize, sortCriteria, search }),
-    [pageData, totalCount, page, pageSize, sortCriteria, search],
+    () => ({ data: pageData as T[], totalCount, loading: false, error: null, page, pageSize, sortCriteria, search, filters, untranslatedFilters: [] }),
+    [pageData, totalCount, page, pageSize, sortCriteria, search, filters],
   );
   const snapshotRef = useRef(snapshot);
   const fetchAllRef = useRef(fetchAll);
@@ -129,6 +141,7 @@ export function useArraySource<T extends DataRow = DataRow>(
     setPageSize,
     setSort(criteria) { setSortCriteria(criteria); setPage(0); },
     setSearch,
+    setFilters,
     refresh,
     fetchAll: (o) => fetchAllRef.current(o),
   }));
@@ -145,6 +158,9 @@ export function useArraySource<T extends DataRow = DataRow>(
     setPageSize,
     sortCriteria,
     onSortChange,
+    filters,
+    onFilterChange,
+    setFilters,
     search,
     setSearch,
     refresh,

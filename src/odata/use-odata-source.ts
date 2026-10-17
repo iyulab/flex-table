@@ -1,6 +1,7 @@
 // src/odata/use-odata-source.ts
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import type { SortCriteria } from '../core/sorting.js';
+import type { FilterModels } from '../core/filter-model.js';
 import type { UseODataSourceOptions, UseODataSourceResult } from './types.js';
 import { createODataSource } from './source.js';
 
@@ -30,12 +31,19 @@ export function useODataSource<T = Record<string, unknown>>(
     if (criteria) source.setSort(criteria);
   }, [source]);
 
+  const onFilterChange = useCallback((e: CustomEvent) => {
+    const filters = e.detail?.filters as FilterModels | undefined;
+    if (filters) source.setFilters(filters);
+  }, [source]);
+
   return {
     ...state,
     source,
     setPage: source.setPage,
     setPageSize: source.setPageSize,
     onSortChange,
+    onFilterChange,
+    setFilters: source.setFilters,
     setSearch: source.setSearch,
     refresh: source.refresh,
     fetchAll: source.fetchAll,

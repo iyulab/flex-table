@@ -88,3 +88,45 @@ describe('createArraySource — 페이지 크기 · 기존 소스', () => {
     expect(new ArraySourceController(host, rows).source).not.toBe(source);
   });
 });
+
+describe('createArraySource — column filters', () => {
+  const data = [
+    { id: 1, name: 'Alice', qty: 5 },
+    { id: 2, name: 'Bob', qty: 12 },
+    { id: 3, name: 'alina', qty: 20 },
+  ];
+
+  it('★모델로 거르고, 검색은 그 결과 안에서 — 같은 계약이 OData 소스와 같은 모양이다', () => {
+    const source = createArraySource(data, { pageSize: 10 });
+    source.setFilters({ qty: { type: 'number', conditions: [{ op: 'gte', value: 12 }] } });
+    expect(source.getState().data.map((r) => r.id)).toEqual([2, 3]);
+    expect(source.getState().totalCount).toBe(2);
+    source.setSearch('ali');
+    expect(source.getState().data.map((r) => r.id)).toEqual([3]);
+    expect(source.getState().filters).toHaveProperty('qty');
+    expect(source.getState().untranslatedFilters).toEqual([]);
+  });
+
+  it('필터를 바꾸면 첫 장으로 · 같은 값이면 아무 일도 없다', () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({ id: i, name: i % 2 ? 'odd' : 'even' }));
+    const source = createArraySource(many, { pageSize: 5 });
+    source.setPage(2);
+    source.setFilters({ name: { type: 'equals', value: 'odd' } });
+    expect(source.getState()).toMatchObject({ page: 0, totalCount: 15 });
+    source.setPage(1);
+    source.setFilters({ name: { type: 'equals', value: 'odd' } });
+    expect(source.getState().page).toBe(1);
+  });
+
+  it('fetchAll 도 필터를 적용한다', async () => {
+    const source = createArraySource(data);
+    source.setFilters({ name: { type: 'text', mode: 'starts', value: 'a' } });
+    expect((await source.fetchAll()).map((r) => r.id)).toEqual([1, 3]);
+  });
+
+  it('NEGATIVE — 필터가 없으면 행은 그대로다', () => {
+    const source = createArraySource(data);
+    source.setFilters({});
+    expect(source.getState().totalCount).toBe(3);
+  });
+});

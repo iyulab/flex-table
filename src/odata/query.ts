@@ -96,6 +96,8 @@ export interface ODataQueryState {
   search?: string;
   /** odata-query 의 필터 객체(`{ IsActive: true }` 등). */
   fixedFilter?: Record<string, unknown>;
+  /** 열 필터(`filterModelsToOData` 의 식) — 고정 필터가 있으면 `and` 로 잇는다. */
+  columnFilter?: string;
   /** `$expand` — 문자열(`'Customer($select=Name)'`) 또는 배열(쉼표로 잇는다). */
   expand?: string | string[];
   /** `$select` — 받을 속성 이름. */
@@ -115,7 +117,7 @@ export function orderByPath(key: string): string {
  * 재구현하지 않게. 정렬 기준이 있으면 그것이, 없으면 `defaultOrderBy` 가 `$orderby` 가 된다.
  */
 export function buildODataQuery(state: ODataQueryState): string {
-  const { page = 0, pageSize, sortCriteria = [], defaultOrderBy, search, fixedFilter, expand, select } = state;
+  const { page = 0, pageSize, sortCriteria = [], defaultOrderBy, search, fixedFilter, columnFilter, expand, select } = state;
   const orderBy = sortCriteria.length > 0
     ? sortCriteria.map(s => `${orderByPath(s.key)} ${s.direction}`).join(', ')
     : defaultOrderBy;
@@ -124,7 +126,10 @@ export function buildODataQuery(state: ODataQueryState): string {
     ? { count: true }
     : { top: pageSize, skip: page * pageSize, count: true };
   if (orderBy) queryParams.orderBy = orderBy;
-  if (fixedFilter) queryParams.filter = fixedFilter;
+  // 고정 필터와 열 필터는 `and` — 열 필터 식은 괄호로 묶어 안쪽의 `or` 가 고정 필터와 섞이지 않게 한다.
+  if (fixedFilter && columnFilter) queryParams.filter = [fixedFilter, `(${columnFilter})`];
+  else if (fixedFilter) queryParams.filter = fixedFilter;
+  else if (columnFilter) queryParams.filter = columnFilter;
   if (expand && expand.length > 0) queryParams.expand = expand;
   if (select && select.length > 0) queryParams.select = select;
   if (search) {

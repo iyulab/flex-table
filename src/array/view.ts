@@ -1,6 +1,8 @@
 // src/array/view.ts
 // React 없이 쓰는 순수 함수 — `./array` 엔트리가 싣는 전부다(훅은 `./react`).
 import { computeSortedIndices } from '../core/sorting.js';
+import { computeFilteredIndices, type ColumnFilter } from '../core/filtering.js';
+import { filterModelPredicate, type FilterModels } from '../core/filter-model.js';
 import type { SortCriteria } from '../core/sorting.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { DEFAULT_MAX_ROWS, type FetchAllOptions } from '../core/fetch-all.js';
@@ -13,6 +15,8 @@ export interface ComputeArrayViewOptions<T> {
   pageSize: number;
   columns?: ColumnDefinition<T>[];
   searchFields?: (row: T) => Array<string | number | boolean | null | undefined>;
+  /** 열 필터(모델) — 표의 `filter-change.detail.filters`. 검색보다 먼저, 열마다 `and`. */
+  filters?: FilterModels;
 }
 
 /**
@@ -27,15 +31,19 @@ export interface ComputeArrayViewOptions<T> {
  */
 export function computeArrayView<T extends DataRow>(
   data: T[],
-  { search, sortCriteria, page, pageSize, columns, searchFields }: ComputeArrayViewOptions<T>
+  { search, sortCriteria, page, pageSize, columns, searchFields, filters }: ComputeArrayViewOptions<T>
 ): { data: T[]; totalCount: number } {
+  const columnFilters: ColumnFilter[] = Object.entries(filters ?? {}).map(([key, model]) => ({ key, predicate: filterModelPredicate(model), model }));
+  const columnFiltered = columnFilters.length > 0
+    ? computeFilteredIndices(data as DataRow[], columnFilters).map((i) => data[i])
+    : data;
   const term = search.trim().toLowerCase();
   const filtered = term
-    ? data.filter((row) => {
+    ? columnFiltered.filter((row) => {
         const values = searchFields ? searchFields(row) : Object.values(row as Record<string, unknown>);
         return values.some((v) => v != null && String(v).toLowerCase().includes(term));
       })
-    : data;
+    : columnFiltered;
 
   let sorted = filtered;
   if (sortCriteria.length > 0) {

@@ -1,6 +1,7 @@
 import type { SortCriteria } from '../core/sorting.js';
 import type { ODataSource, ODataSourceOptions, ODataSourceState } from './source.js';
 import type { FetchAllOptions } from '../core/fetch-all.js';
+import type { FilterModels } from '../core/filter-model.js';
 
 /** `useODataSource` 의 옵션 — 프레임워크 중립 소스(`createODataSource`)의 설정과 같다. `initial*` 은 첫 렌더에서만 읽힌다. */
 export type UseODataSourceOptions = ODataSourceOptions;
@@ -13,6 +14,10 @@ export interface UseODataSourceResult<T> extends ODataSourceState<T> {
   setPageSize: (size: number) => void;
   /** flex-table 의 `sort-change` 를 받는다(`detail.criteria`) — 정렬을 바꾸고 첫 장으로 간다. */
   onSortChange: (e: CustomEvent) => void;
+  /** flex-table 의 `filter-change` 를 받는다(`detail.filters`) — 열 필터를 바꾸고 첫 장으로 간다. */
+  onFilterChange: (e: CustomEvent) => void;
+  /** 열 필터를 직접 바꾼다(저장해 둔 필터를 되돌릴 때) — 첫 장으로 간다. */
+  setFilters: (filters: FilterModels) => void;
   /** 검색어를 바꾸고 첫 장으로 간다. */
   setSearch: (term: string) => void;
   refresh: () => void;

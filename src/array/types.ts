@@ -1,4 +1,5 @@
 import type { SortCriteria } from '../core/sorting.js';
+import type { FilterModels } from '../core/filter-model.js';
 import type { SourceError } from '../core/source-error.js';
 import type { FetchAllOptions } from '../core/fetch-all.js';
 import type { ArraySource } from './source.js';
@@ -55,6 +56,12 @@ export interface UseArraySourceResult<T> {
   setPageSize: (size: number) => void;
   sortCriteria: SortCriteria[];
   onSortChange: (e: CustomEvent) => void;
+  /** 열 필터 — 표의 `filter-change.detail.filters`(모델). 검색보다 먼저 거른다. */
+  filters: FilterModels;
+  /** flex-table 의 `filter-change` 를 받는다(`detail.filters`) — 열 필터를 바꾸고 첫 장으로 간다. */
+  onFilterChange: (e: CustomEvent) => void;
+  /** 열 필터를 직접 바꾼다(저장해 둔 필터를 되돌릴 때) — 첫 장으로 간다. */
+  setFilters: (filters: FilterModels) => void;
   setSearch: (term: string) => void;
   search: string;
   /** no-op — 로컬 배열에는 다시 불러올 원격 상태가 없다. 소비자가 `useODataSource`와

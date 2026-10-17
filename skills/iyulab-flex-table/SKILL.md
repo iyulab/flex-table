@@ -91,7 +91,7 @@ when `data` drops it. `clear-selection-on-data-change` starts a new selection on
 **Client vs server mode.** `data-mode="client"` (default) sorts and filters locally.
 `data-mode="server"` only emits `sort-change` / `filter-change`; you supply already-processed rows.
 
-**Filtering.** Programmatic `setFilter(key, (value, row) => boolean)`; `show-filters` adds a
+**Filtering.** Programmatic `setFilter(key, model | (value, row) => boolean)` — a `FilterModel` is serializable (`table.filters`, `filter-change.detail.filters`, OData `$filter`), a bare predicate is not; `show-filters` adds a
 **Filter…** entry to each column's header menu (text, number range, boolean, date/datetime range).
 Both share one filter state.
 

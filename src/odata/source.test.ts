@@ -218,3 +218,79 @@ describe('ODataSourceController — 기존 소스', () => {
     expect(b.updates).toBeGreaterThan(0);
   });
 });
+
+describe('createODataSource — column filters', () => {
+  const dec = (url: string) => decodeURIComponent(new URL(url).search.replace(/\+/g, ' '));
+
+  it('★열 필터 모델이 $filter 가 된다 — 열마다 and, 고정 필터와도 and(괄호로 묶어)', async () => {
+    const { calls, fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher, fixedFilter: { Site: 'A' }, columns: [{ key: 'Qty', type: 'number' }] });
+    source.subscribe(() => {});
+    await flush();
+    source.setFilters({
+      Name: { type: 'text', mode: 'contains', value: 'Ali' },
+      Qty: { type: 'number', conditions: [{ op: 'gt', value: 1 }, { op: 'lt', value: 9 }], join: 'or' },
+    });
+    await flush();
+    const q = dec(calls[calls.length - 1].url);
+    expect(q).toContain("$filter=Site eq 'A' and (contains(tolower(Name),'ali') and (Qty gt 1 or Qty lt 9))");
+    expect(source.getState().filters).toHaveProperty('Name');
+  });
+
+  it('필터를 바꾸면 첫 장으로 — 같은 값이면 아무 일도 없다', async () => {
+    const { calls, fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher, pageSize: 10, initialPage: 4 });
+    source.subscribe(() => {});
+    await flush();
+    const f = { Name: { type: 'text', mode: 'starts', value: 'a' } } as const;
+    source.setFilters({ ...f });
+    await flush();
+    expect(source.getState().page).toBe(0);
+    const n = calls.length;
+    source.setPage(2);
+    await flush();
+    source.setFilters({ ...f }); // 같은 값 — 페이지를 되돌리지 않는다
+    await flush();
+    expect(source.getState().page).toBe(2);
+    expect(calls.length).toBe(n + 1);
+  });
+
+  it('★번역하지 못한 필터는 요청에서 빠지고 상태에 이름이 남는다 — 조용히 무시하지 않는다', async () => {
+    const { calls, fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher });
+    source.subscribe(() => {});
+    await flush();
+    source.setFilters({
+      Code: { type: 'text', mode: 'wildcard', value: 'a*b' },
+      Name: { type: 'text', mode: 'contains', value: 'x' },
+    });
+    await flush();
+    expect(source.getState().untranslatedFilters).toEqual(['Code']);
+    const q = dec(calls[calls.length - 1].url);
+    expect(q).toContain("$filter=contains(tolower(Name),'x')");
+    expect(q).not.toContain('Code');
+  });
+
+  it('★fetchAll 도 같은 열 필터를 싣는다 — 내보내기가 화면과 다른 행을 내지 않게', async () => {
+    const { calls, fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher });
+    source.subscribe(() => {});
+    await flush();
+    source.setFilters({ Active: { type: 'boolean', value: true } });
+    await flush();
+    await source.fetchAll();
+    const q = dec(calls[calls.length - 1].url);
+    expect(q).toContain('$filter=Active eq true');
+    expect(q).not.toContain('$top');
+  });
+
+  it('NEGATIVE — 따옴표가 든 값이 리터럴을 닫지 못한다', async () => {
+    const { calls, fetcher } = makeFetcher();
+    const source = createODataSource('/api/orders', { fetcher });
+    source.subscribe(() => {});
+    await flush();
+    source.setFilters({ Name: { type: 'equals', value: "x' or 1 eq 1 or Name eq 'y" } });
+    await flush();
+    expect(dec(calls[calls.length - 1].url)).toContain("Name eq 'x'' or 1 eq 1 or Name eq ''y'");
+  });
+});

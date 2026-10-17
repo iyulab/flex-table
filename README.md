@@ -129,6 +129,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `editingCell` | `CellPosition \| null` | Currently editing cell `{ row, col }` |
 | `sortCriteria` | `SortCriteria[]` | Active sort criteria `[{ key, direction }]`. Also settable: shows that sort on the headers and re-sorts in client mode, without firing `sort-change` — give it a data source's `sortCriteria` (the initial or restored sort of a server-paged list) |
 | `filterKeys` | `string[]` | Column keys with active filters |
+| `filters` | `FilterModels` | The filters as plain models by column key (`{ name: { type: 'text', mode: 'contains', value: 'ali' } }`) — save them, send them to a server, set them back. Also settable (quiet: no `filter-change`; filters set with a bare predicate stay). A filter set with a bare predicate has no model and is not listed |
 
 ## Column Definition
 
@@ -298,7 +299,7 @@ Default is `false`, matching `clear-undo-on-data-change`.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `setFilter(key, predicate)` | `void` | Set column filter. `predicate: (value, row) => boolean` |
+| `setFilter(key, filter)` | `void` | Set column filter. `filter` is a **`FilterModel`** (what the filter popover builds — it shows in the popover, travels in `filter-change` and `filters`, and a server source turns it into `$filter`) or a bare `predicate: (value, row) => boolean` (the escape hatch: no model). A model that filters nothing (empty text) removes the filter |
 | `removeFilter(key)` | `void` | Remove filter for a column |
 | `clearFilters()` | `void` | Remove all filters |
 
@@ -416,7 +417,7 @@ type-checks without a cast. The React wrapper's `on*` props carry the same types
 | Event | Detail | Description |
 |-------|--------|-------------|
 | `sort-change` | `{ criteria: [{ key, direction }] }` | Sort criteria changed |
-| `filter-change` | `{ keys, filteredCount }` | Filter added/removed |
+| `filter-change` | `{ keys, filteredCount, filters, unmodeled }` | Filter added/removed. `filters` are the models by column key; `unmodeled` names keys filtered by a bare predicate (not in `filters`) |
 | `filter-error` | `{ error, row, filterKey }` | Filter predicate threw an error |
 
 ### Selection Events
@@ -822,7 +823,7 @@ button is highlighted while its column has an active filter.
 A bound applies when it is committed — Enter, leaving the box, or a day picked in its calendar. While a
 calendar is open, Escape closes the calendar; the next Escape closes the filter.
 
-Filters set via the UI and the programmatic API (`setFilter()`) share the same filter state. Filter dropdowns automatically flip upward when near the viewport bottom.
+Filters set via the UI and the programmatic API (`setFilter()`) share the same filter state — and the same **filter model**: text `{ mode, value }`, number `{ conditions: [{ op, value }], join }`, date `{ from, to }`, boolean, blank cells, and «this value» (`equals`). Filter dropdowns automatically flip upward when near the viewport bottom.
 
 ### Server-Side Mode
 
@@ -836,6 +837,18 @@ table.addEventListener('sort-change', (e) => {
   });
 });
 ```
+
+A server needs the filters, not the predicates. Hand them over as models:
+
+```typescript
+table.addEventListener('filter-change', (e) => {
+  fetchData({ filters: e.detail.filters }).then((data) => { table.data = data; });
+});
+// restoring a saved state: quiet, and the popovers show it
+table.filters = savedFilters;
+```
+
+`useODataSource` and the in-memory `useArraySource` take them for you — `onFilterChange={source.onFilterChange}` (or `source.setFilters(e.detail.filters)`) — and the OData source turns them into `$filter` (see below).
 
 ### OData Source Hook (React)
 

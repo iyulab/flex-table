@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Filter models.** A column filter is now a plain value — text `{ mode, value }`, number `{ conditions, join }`, date
+  `{ from, to }`, boolean, blank cells, «this value» — that the filter popover builds and the table holds:
+  `setFilter(key, model)`, `table.filters` (also settable, quiet like `data`), and `filter-change.detail` gains
+  `filters` and `unmodeled` (keys filtered by a bare predicate, which has no model). A bare predicate still works.
+  The client predicate and the server expression come from the same model (`filterModelPredicate`,
+  `filterModelToOData`).
+- Server sources take them: `ODataSource.setFilters` / `useODataSource().onFilterChange` turn the models into `$filter`
+  (one `and` per column, `and`-ed with `fixedFilter`; `fetchAll` carries the same filter). The in-memory source
+  (`useArraySource` · `createArraySource`) filters with them before search and sort. State gains `filters` and
+  `untranslatedFilters` (a wildcard with a `*` inside has no OData form — it is left out of the request and named there).
+  New option `columns` tells the translation which columns are dates.
+
+### Changed
+
+- The text filter «contains» on a server is `contains(tolower(…), …)`: case is folded on the server, the accent folding
+  and Korean initial-consonant matching of the client filter are not.
+
 ## [0.68.1] - 2026-10-17
 
 ### Fixed

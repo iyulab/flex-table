@@ -40,6 +40,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `visibleColumns` | `ColumnDefinition[]` (non-hidden) |
 | `filteredRowCount` | `number` |
 | `filterKeys` | `string[]` |
+| `filters` | `FilterModels` — the model filters by column key; settable, quiet |
 | `sortCriteria` | `SortCriteria[]` — `{ key, direction: 'asc' \| 'desc' }`. Settable too (no `sort-change`): a source's sort goes in as is |
 | `activeCell` / `editingCell` | `CellPosition \| null` — `{ row, col }` |
 | `canUndo` / `canRedo` | `boolean` |
@@ -126,7 +127,7 @@ Enter/Escape and blur-to-commit behavior.
 
 | Method | Notes |
 |---|---|
-| `setFilter(key, predicate)` / `removeFilter(key)` / `clearFilters()` | `predicate: (value, row) => boolean`; filters combine with AND |
+| `setFilter(key, filter)` / `removeFilter(key)` / `clearFilters()` | `filter`: a `FilterModel` (serializable — popover, `filters`, `$filter`) or a bare `predicate: (value, row) => boolean` (no model); filters combine with AND |
 | `undo()` / `redo()` / `clearUndoHistory()` | |
 | `setComment(dataIndex, colKey, text)` | `null` or `''` removes; undoable |
 | `getComment(dataIndex, colKey)` / `clearComments()` | |
@@ -168,7 +169,7 @@ cast, and the React `on*` props carry the same types.
 | `column-select` | `{ colIndex, key, rowCount }` |
 | `column-visibility-change` | `{ key, hidden }` |
 | `sort-change` | `{ criteria }` |
-| `filter-change` | `{ keys, filteredCount }` |
+| `filter-change` | `{ keys, filteredCount, filters, unmodeled }` |
 | `filter-error` | `{ error, row, filterKey }` |
 | `selection-change` | `{ selectedIds, selectedIndices, selectedRows }` |
 | `clipboard-copy` / `clipboard-cut` | `{ range, text }` (TSV) |

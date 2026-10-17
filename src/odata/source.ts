@@ -1,5 +1,7 @@
 // src/odata/source.ts
 import type { SortCriteria } from '../core/sorting.js';
+import type { ColumnDefinition } from '../models/types.js';
+import { filterModelsToOData, type FilterModels } from '../core/filter-model.js';
 import { buildODataQuery, resolveInitialState } from './query.js';
 import { networkFailure, readFailedResponse, RowLimitError, SourceRequestError, toSourceError, type SourceError } from '../core/source-error.js';
 import { DEFAULT_MAX_ROWS, type FetchAllOptions } from '../core/fetch-all.js';
@@ -29,6 +31,11 @@ export interface ODataSourceOptions {
   expand?: string | string[];
   /** `$select` — 받을 속성 이름. 생략하면 `$select` 없이 전부. */
   select?: string[];
+  /**
+   * 표의 열 — 열 필터를 `$filter` 로 옮길 때 날짜 열(`date` 는 날짜 리터럴 · `datetime` 은 순간)과 빈 셀 판정이 열 종류를
+   * 읽는다. 생략하면 모든 열을 글자 열로 본다. `table.columns` 를 그대로 넘긴다.
+   */
+  columns?: readonly Pick<ColumnDefinition, 'key' | 'type'>[];
   /** 기본값: `window.location.origin`. 프록시/BFF 등 다른 origin 으로 요청해야 할 때 지정. */
   baseUrl?: string;
   /** 커스텀 fetch transport(예: 인증 헤더를 주입하는 `HttpClient` 래퍼). 기본값: 전역 `fetch`. */
@@ -66,6 +73,13 @@ export interface ODataSourceState<T> {
   pageSize: number;
   sortCriteria: SortCriteria[];
   search: string;
+  /** 열 필터 — 표의 `filter-change.detail.filters`. `table.filters = state.filters` 로 표에 되돌린다. */
+  filters: FilterModels;
+  /**
+   * 서버 식으로 옮기지 못해 **요청에서 빠진** 필터의 열 키(안쪽에 `*` 가 든 와일드카드 등). 비어 있지 않으면 서버가 그 열을
+   * 거르지 않은 행을 보낸다 — 화면에서 알리거나 그 필터를 떼야 한다.
+   */
+  untranslatedFilters: string[];
 }
 
 /**
@@ -87,6 +101,8 @@ export interface ODataSource<T> {
   setSort(criteria: SortCriteria[]): void;
   /** 검색어를 바꾸고 첫 장으로 간다. */
   setSearch(term: string): void;
+  /** 열 필터를 바꾸고(표의 `filter-change.detail.filters` 그대로) 첫 장으로 간다. 값이 같으면 아무 일도 없다. */
+  setFilters(filters: FilterModels): void;
   /** 같은 조건으로 다시 읽는다. */
   refresh(): void;
   /** 설정을 바꾼다 — 요청 조건이 바뀌면 다시 읽고(`fixedFilter` 값이 바뀌면 첫 장으로), `fetcher`·`onUnauthorized` 는 다음 요청부터. */
@@ -116,6 +132,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
   let inner: Omit<ODataSourceState<T>, 'loading'> & { loading: boolean } = {
     data: [], totalCount: 0, loading: true, error: null,
     page: initial.page, pageSize: options.pageSize ?? 20, sortCriteria: initial.sortCriteria, search: initial.search,
+    filters: {}, untranslatedFilters: [],
   };
   let snapshot = view();
   const listeners = new Set<() => void>();
@@ -123,6 +140,11 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
   let scheduled = false;
   /** 마지막으로 요청을 낸 조건 — 같으면 다시 내지 않는다(`refresh` 는 이것을 지운다). */
   let lastRequest: string | null = null;
+
+  /** 열 필터의 서버 식 — 번역하지 못한 열은 식에서 빠지고 `untranslated` 로 남는다. */
+  function columnFilter() {
+    return filterModelsToOData(inner.filters, opts.columns);
+  }
 
   function enabled() { return opts.enabled ?? true; }
   function pageSize() { return inner.pageSize; }
@@ -146,7 +168,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
   }
 
   function requestKey() {
-    return JSON.stringify([currentUrl, opts.baseUrl, pageSize(), opts.defaultOrderBy, filterKey, opts.expand, opts.select, inner.page, inner.sortCriteria, inner.search]);
+    return JSON.stringify([currentUrl, opts.baseUrl, pageSize(), opts.defaultOrderBy, filterKey, columnFilter().expression, opts.expand, opts.select, inner.page, inner.sortCriteria, inner.search]);
   }
 
   /** 같은 틱의 조작을 한 요청으로 모은다. */
@@ -184,7 +206,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
     const onUnauthorized = opts.onUnauthorized;
     set({ loading: true, error: null });
 
-    const queryString = buildODataQuery({ page, pageSize: size, sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter, expand: opts.expand, select: opts.select });
+    const queryString = buildODataQuery({ page, pageSize: size, sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter, columnFilter: columnFilter().expression, expand: opts.expand, select: opts.select });
     const fullUrl = `${opts.baseUrl ?? window.location.origin}${currentUrl}${queryString}`;
 
     // 서버 주도 페이징이면 한 표 페이지를 채울 때까지 링크를 따라간다(`readPages`).
@@ -248,6 +270,12 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
       set({ search: term, page: 0 });
       schedule();
     },
+    setFilters(filters) {
+      if (JSON.stringify(filters) === JSON.stringify(inner.filters)) return;
+      inner = { ...inner, filters };
+      set({ untranslatedFilters: columnFilter().untranslated, page: 0 });
+      schedule();
+    },
     refresh() {
       if (!enabled()) return;
       lastRequest = null;
@@ -255,7 +283,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
     },
     async fetchAll({ maxRows = DEFAULT_MAX_ROWS, signal, onProgress, headers } = {}) {
       const { sortCriteria, search } = inner;
-      const queryString = buildODataQuery({ sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter, expand: opts.expand, select: opts.select });
+      const queryString = buildODataQuery({ sortCriteria, defaultOrderBy: opts.defaultOrderBy, search, fixedFilter: opts.fixedFilter, columnFilter: columnFilter().expression, expand: opts.expand, select: opts.select });
       const fullUrl = `${opts.baseUrl ?? window.location.origin}${currentUrl}${queryString}`;
       const { rows } = await readPages<T>(
         fullUrl,
@@ -272,16 +300,20 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
     },
     update(nextUrl, nextOptions = {}) {
       const nextKey = keyOf(nextOptions.fixedFilter);
+      const before = columnFilter().expression;
       const filterChanged = nextKey !== filterKey;
       const sizeOptionChanged = nextOptions.pageSize !== undefined && nextOptions.pageSize !== opts.pageSize;
       currentUrl = nextUrl;
       opts = nextOptions;
       filterKey = nextKey;
+      const after = columnFilter();
+      const columnsChanged = after.expression !== before;
+      if (JSON.stringify(after.untranslated) !== JSON.stringify(inner.untranslatedFilters)) inner = { ...inner, untranslatedFilters: after.untranslated };
       /*
        * 🔴필터 값이 바뀌면 첫 장으로 — 5페이지를 보던 중 필터를 좁히면 `$skip` 이 새 결과 집합의 범위를 넘는다.
        * 검색·정렬이 같은 이유로 이미 첫 장으로 돌아간다. 필터와 페이지가 한 번에 바뀌므로 낡은 페이지로 요청하지 않는다.
        */
-      if (filterChanged) inner = { ...inner, page: 0 };
+      if (filterChanged || columnsChanged) inner = { ...inner, page: 0 };
       // `pageSize` 옵션 «값이 바뀐» `update` 만 크기를 바꾼다(첫 장으로). 같은 값을 다시 넘기는 것(`useODataSource` 는 렌더마다
       // 넘긴다)이나 생략은 `setPageSize` 로 바꾼 크기를 되돌리지 않는다.
       if (sizeOptionChanged && nextOptions.pageSize !== inner.pageSize) {

@@ -1,6 +1,7 @@
 // src/array/source.ts
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import type { SortCriteria } from '../core/sorting.js';
+import type { FilterModels } from '../core/filter-model.js';
 import type { DataRow } from '../models/types.js';
 import type { ODataSourceState } from '../odata/source.js';
 import { resolveInitialState } from '../odata/query.js';
@@ -25,6 +26,8 @@ export interface ArraySource<T> {
   setSort(criteria: SortCriteria[]): void;
   /** 검색어를 바꾸고 첫 장으로 간다. */
   setSearch(term: string): void;
+  /** 열 필터를 바꾸고(표의 `filter-change.detail.filters` 그대로) 첫 장으로 간다. 값이 같으면 아무 일도 없다. */
+  setFilters(filters: FilterModels): void;
   /** 아무 일도 하지 않는다 — 다시 불러올 원격 상태가 없다(OData 소스와 같은 자리에 이어도 안전하다). */
   refresh(): void;
   /** 행이나 설정이 바뀌었다 — 다시 계산한다. 결과가 줄어 지금 페이지가 없어지면 마지막 페이지로 내려온다. */
@@ -49,16 +52,17 @@ export function createArraySource<T extends DataRow = DataRow>(data: T[], option
   let page = initial.page;
   let sortCriteria = initial.sortCriteria;
   let search = initial.search;
+  let filters: FilterModels = {};
   let pageSize = options.pageSize ?? 20;
   let state = derive();
   const listeners = new Set<() => void>();
 
   function derive(): ODataSourceState<T> {
-    const view = computeArrayView(rows, { search, sortCriteria, page, pageSize, columns: opts.columns, searchFields: opts.searchFields });
+    const view = computeArrayView(rows, { search, sortCriteria, page, pageSize, columns: opts.columns, searchFields: opts.searchFields, filters });
     // 표시와 상태가 같은 페이지를 말하게 — 결과가 줄면 페이지 상태도 마지막 유효 페이지로 내려온다(낮추기만 한다).
     const lastPage = view.totalCount === 0 ? 0 : Math.ceil(view.totalCount / pageSize) - 1;
     if (page > lastPage) page = lastPage;
-    return { data: view.data as T[], totalCount: view.totalCount, loading: false, error: null, page, pageSize, sortCriteria, search };
+    return { data: view.data as T[], totalCount: view.totalCount, loading: false, error: null, page, pageSize, sortCriteria, search, filters, untranslatedFilters: [] };
   }
 
   function recompute() {
@@ -76,9 +80,15 @@ export function createArraySource<T extends DataRow = DataRow>(data: T[], option
     setPageSize(size) { if (size === pageSize) return; pageSize = size; page = 0; recompute(); },
     setSort(criteria) { sortCriteria = criteria; page = 0; recompute(); },
     setSearch(term) { search = term; page = 0; recompute(); },
+    setFilters(next) {
+      if (JSON.stringify(next) === JSON.stringify(filters)) return;
+      filters = next;
+      page = 0;
+      recompute();
+    },
     refresh() {},
     fetchAll(options) {
-      return readAllArrayRows(rows, { search, sortCriteria, columns: opts.columns, searchFields: opts.searchFields }, options);
+      return readAllArrayRows(rows, { search, sortCriteria, columns: opts.columns, searchFields: opts.searchFields, filters }, options);
     },
     update(nextData, nextOptions = {}) {
       // `pageSize` 옵션 «값이 바뀐» update 만 크기를 바꾼다(첫 장으로) — `createODataSource` 와 같은 규칙.
