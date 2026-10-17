@@ -2552,6 +2552,60 @@ describe('FlexTable', () => {
     });
   });
 
+  describe('Clear (Delete) — range edit controller', () => {
+    it('clears each column type to its empty value and undo restores all of them', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [
+        { key: 'n', label: 'N', type: 'number' },
+        { key: 't', label: 'T' },
+        { key: 'b', label: 'B', type: 'boolean' },
+      ];
+      el.data = [{ n: 5, t: 'x', b: true }, { n: 7, t: 'y', b: true }];
+      await el.updateComplete;
+
+      (el as any)._rangeEdit.clear([{ startRow: 0, startCol: 0, endRow: 1, endCol: 2 }]);
+      expect(el.data.map(r => [r['n'], r['t'], r['b']])).toEqual([[0, '', false], [0, '', false]]);
+
+      el.undo();
+      expect(el.data.map(r => [r['n'], r['t'], r['b']])).toEqual([[5, 'x', true], [7, 'y', true]]);
+    });
+
+    it('skips read-only columns and counts an overlapping cell once', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [
+        { key: 'a', label: 'A', type: 'number' },
+        { key: 'b', label: 'B', type: 'number', editable: false },
+      ];
+      el.data = [{ a: 1, b: 2 }];
+      await el.updateComplete;
+
+      (el as any)._rangeEdit.clear([
+        { startRow: 0, startCol: 0, endRow: 0, endCol: 1 },
+        { startRow: 0, startCol: 0, endRow: 0, endCol: 0 },
+      ]);
+      expect(el.data[0]).toMatchObject({ a: 0, b: 2 });
+
+      el.undo(); // one step — the overlapping cell was not saved twice
+      expect(el.data[0]).toMatchObject({ a: 1, b: 2 });
+    });
+
+    it('extra ranges of the selection are cleared with the active one', async () => {
+      const el = createElement();
+      el.editable = true;
+      el.columns = [{ key: 'a', label: 'A', type: 'number' }];
+      el.data = [{ a: 1 }, { a: 2 }, { a: 3 }];
+      await el.updateComplete;
+
+      (el as any)._selection.setActive(0, 0);
+      (el as any)._selection.extraRanges.push({ startRow: 2, startCol: 0, endRow: 2, endCol: 0 });
+      (el as any)._rangeEdit.clearSelection();
+
+      expect(el.data.map(r => r['a'])).toEqual([0, 2, 0]);
+    });
+  });
+
   describe('Fill Down / Fill Right (Ctrl+D / Ctrl+R)', () => {
     function makeEl() {
       const el = createElement();

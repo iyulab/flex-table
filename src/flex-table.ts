@@ -38,6 +38,7 @@ import { DEFAULT_COL_WIDTH, MIN_COL_WIDTH } from './core/column-width.js';
 import { FindReplaceController } from './controllers/find-replace.js';
 import { ClipboardController } from './controllers/clipboard.js';
 import { FillHandleController } from './controllers/fill-handle.js';
+import { RangeEditController } from './controllers/range-edit.js';
 import { RowReorderController } from './controllers/row-reorder.js';
 import { FilterPopoverController } from './controllers/filter-popover.js';
 import { calendarOpen } from './core/calendar-state.js';
@@ -2448,11 +2449,11 @@ export class FlexTable extends LitElement {
         return true;
       case 'd':
         e.preventDefault();
-        if (this.editable) this._handleFillDown();
+        if (this.editable) this._rangeEdit.fillDown();
         return true;
       case 'r':
         e.preventDefault();
-        if (this.editable) this._handleFillRight();
+        if (this.editable) this._rangeEdit.fillRight();
         return true;
       case 'f':
         e.preventDefault();
@@ -2530,121 +2531,11 @@ export class FlexTable extends LitElement {
         return true;
       case 'Delete':
       case 'Backspace':
-        if (this.editable) this._handleDelete();
+        if (this.editable) this._rangeEdit.clearSelection();
         return true;
       default:
         return false;
     }
-  }
-
-  private _handleFillDown(): void {
-    const range = this._selection.getEffectiveRange();
-    if (!range) return;
-    const cols = this.visibleColumns;
-
-    // Single cell: fill from the cell above
-    if (range.startRow === range.endRow && range.startCol === range.endCol) {
-      if (range.startRow === 0) return;
-      const col = cols[range.startCol];
-      const sourceRow = this._toDataIndex(range.startRow - 1);
-      const destRow = this._toDataIndex(range.startRow);
-      if (!col || !this._isCellEditable(col, this.data[destRow])) return;
-      this.updateRows([{ row: destRow, key: col.key, value: getCellValue(this.data[sourceRow], col.key) }]);
-      return;
-    }
-
-    const changes: Array<{ row: number; key: string; value: unknown }> = [];
-    for (let c = range.startCol; c <= range.endCol; c++) {
-      const col = cols[c];
-      if (!col) continue;
-      const sourceValue = getCellValue(this.data[this._toDataIndex(range.startRow)], col.key);
-      for (let r = range.startRow + 1; r <= range.endRow; r++) {
-        const dataRow = this._toDataIndex(r);
-        if (!this._isCellEditable(col, this.data[dataRow])) continue;
-        changes.push({ row: dataRow, key: col.key, value: sourceValue });
-      }
-    }
-    if (changes.length > 0) this.updateRows(changes);
-  }
-
-  private _handleFillRight(): void {
-    const range = this._selection.getEffectiveRange();
-    if (!range) return;
-    const cols = this.visibleColumns;
-
-    // Single cell: fill from the cell to the left
-    if (range.startRow === range.endRow && range.startCol === range.endCol) {
-      if (range.startCol === 0) return;
-      const col = cols[range.startCol];
-      const srcCol = cols[range.startCol - 1];
-      const dataRow = this._toDataIndex(range.startRow);
-      if (!col || !srcCol || !this._isCellEditable(col, this.data[dataRow])) return;
-      this.updateRows([{ row: dataRow, key: col.key, value: getCellValue(this.data[dataRow], srcCol.key) }]);
-      return;
-    }
-
-    const changes: Array<{ row: number; key: string; value: unknown }> = [];
-    for (let r = range.startRow; r <= range.endRow; r++) {
-      const dataRow = this._toDataIndex(r);
-      const srcCol = cols[range.startCol];
-      if (!srcCol) continue;
-      const rawValue = getCellValue(this.data[dataRow], srcCol.key);
-      for (let c = range.startCol + 1; c <= range.endCol; c++) {
-        const col = cols[c];
-        if (!col || !this._isCellEditable(col, this.data[dataRow])) continue;
-        const value = parseValueForColumn(rawValue == null ? '' : String(rawValue), col);
-        changes.push({ row: dataRow, key: col.key, value });
-      }
-    }
-    if (changes.length > 0) this.updateRows(changes);
-  }
-
-  private _handleDelete(): void {
-    const range = this._selection.getEffectiveRange();
-    const extras = this._selection.extraRanges;
-    if (!range && extras.length === 0) return;
-    const rangesToClear = range ? [range, ...extras] : [...extras];
-    this._clearRanges(rangesToClear);
-  }
-
-  private _clearRanges(ranges: Array<{ startRow: number; startCol: number; endRow: number; endCol: number }>): void {
-    const cols = this.visibleColumns;
-    const saved: Array<{ target: DataRow; key: string; oldValue: unknown; clearValue: unknown }> = [];
-    const visited = new Set<string>();
-
-    for (const range of ranges) {
-      for (let r = range.startRow; r <= range.endRow; r++) {
-        const dataRow = this._toDataIndex(r);
-        for (let c = range.startCol; c <= range.endCol; c++) {
-          const key = `${dataRow}:${c}`;
-          if (visited.has(key)) continue;
-          visited.add(key);
-          const col = cols[c];
-          if (!col || !this._isCellEditable(col, this.data[dataRow])) continue;
-          const oldValue = getCellValue(this.data[dataRow], col.key);
-          const clearValue = col.type === 'boolean' ? false : col.type === 'number' ? 0 : '';
-          setCellValue(this.data[dataRow], col.key, clearValue);
-          saved.push({ target: this.data[dataRow], key: col.key, oldValue, clearValue });
-        }
-      }
-    }
-
-    if (saved.length > 0) {
-      this._undo.push({
-        label: 'clear',
-        undo: () => {
-          for (const s of saved) { setCellValue(s.target, s.key, s.oldValue); }
-          this.requestUpdate();
-        },
-        redo: () => {
-          for (const s of saved) { setCellValue(s.target, s.key, s.clearValue); }
-          this.requestUpdate();
-        },
-      });
-      this._dispatchUndoStateEvent();
-    }
-
-    this.requestUpdate();
   }
 
   private _scrollToActiveCell(): void {
@@ -3301,6 +3192,17 @@ export class FlexTable extends LitElement {
     focusInput: () => { this.shadowRoot?.querySelector<HTMLInputElement>('.ft-find-input')?.focus(); },
     ime: this._textEntryIme,
   });
+  /** Fill down / right and clear over the selection's blocks — the keys, and the clipboard's cut. */
+  private readonly _rangeEdit = new RangeEditController({
+    columns: () => this.visibleColumns,
+    data: () => this.data,
+    dataIndex: (row) => this._toDataIndex(row),
+    isEditable: (col, row) => this._isCellEditable(col, row),
+    selection: this._selection,
+    updateRows: (changes) => this.updateRows(changes),
+    pushUndo: (step) => { this._undo.push(step); this._dispatchUndoStateEvent(); },
+    invalidate: () => this.requestUpdate(),
+  });
   /** Copy, cut and paste of the selection as TSV — the keys, the context menu's Copy, and their events. */
   private readonly _clipboard = new ClipboardController({
     columns: () => this.visibleColumns,
@@ -3316,7 +3218,7 @@ export class FlexTable extends LitElement {
     selection: this._selection,
     activeCell: () => this._activeCell,
     setActiveCell: (position) => { this._activeCell = position; },
-    clearRanges: (ranges) => this._clearRanges(ranges),
+    clearRanges: (ranges) => this._rangeEdit.clear(ranges),
     pushUndo: (step) => { this._undo.push(step); this._dispatchUndoStateEvent(); },
     emit: (name, detail) => { this._emit(name, detail); },
     invalidate: () => this.requestUpdate(),
