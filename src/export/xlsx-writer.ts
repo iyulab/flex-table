@@ -228,10 +228,13 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
   const rows: string[] = [];
 
+  // html-sink: xml attr — worksheet XML, not HTML; `ref` is a generated A1 reference and `attrs` is a fixed literal, never user text
+  const cell = (ref: string, attrs: string, inner: string) => `<c r="${ref}"${attrs}>${inner}</c>`;
+
   // Header row (style 2 = bold)
   const headerCells = columns.map((col, ci) => {
     const ref = cellRef(0, ci);
-    return `<c r="${ref}" t="str" s="2"><v>${xmlEscape(col.label)}</v></c>`;
+    return cell(ref, ' t="str" s="2"', `<v>${xmlEscape(col.label)}</v>`);
   });
   rows.push(`<row r="1">${headerCells.join('')}</row>`);
 
@@ -241,28 +244,29 @@ function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
       const ref = cellRef(ri + 1, ci);
       const value = exportCellValue(row, col);
 
-      if (value == null) return `<c r="${ref}" t="str"><v></v></c>`;
+      if (value == null) return cell(ref, ' t="str"', '<v></v>');
 
       const type = col.type ?? 'text';
 
       if (type === 'number' && typeof value === 'number') {
-        return `<c r="${ref}"><v>${value}</v></c>`;
+        return cell(ref, '', `<v>${value}</v>`);
       }
 
       // 날짜 열의 ISO 문자열도 날짜 셀이다(표가 그것을 날짜로 보이듯) · `exportValue` 가 돌려준 `Date` 도.
       const date = exportDate(value, col);
       if (date) {
         const serial = excelSerial(date).toFixed(6);
-        return `<c r="${ref}" s="1"><v>${serial}</v></c>`;
+        return cell(ref, ' s="1"', `<v>${serial}</v>`);
       }
 
       if (type === 'boolean') {
-        return `<c r="${ref}" t="b"><v>${value ? 1 : 0}</v></c>`;
+        return cell(ref, ' t="b"', `<v>${value ? 1 : 0}</v>`);
       }
 
       // Default: string
-      return `<c r="${ref}" t="str"><v>${xmlEscape(String(value))}</v></c>`;
+      return cell(ref, ' t="str"', `<v>${xmlEscape(String(value))}</v>`);
     });
+    // html-sink: xml attr — the row number is generated from the loop index
     rows.push(`<row r="${ri + 2}">${cells.join('')}</row>`);
   });
 
