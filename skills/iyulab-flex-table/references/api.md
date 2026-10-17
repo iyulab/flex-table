@@ -20,7 +20,7 @@ All names below are members of the `FlexTable` class (`<flex-table>`).
 | `selectable` | `selectable` | `boolean` | `false` | Row checkbox selection |
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Server mode only emits sort/filter events |
-| `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Summary row keyed by column key — an entry wins over the column's `aggregate` |
+| `footerData` | `footer-data` | `Record<string, string \| number \| TemplateResult> \| null` | `null` | Summary row keyed by column key — a number is written with the column `format` (a server total); an entry wins over the column's `aggregate` |
 | `emptyMessage` | `empty-message` | `string` | `''` | Empty: locale `noData` |
 | `noMatchingMessage` | `no-matching-message` | `string` | `''` | All rows hidden by filters. Empty: locale `noMatchingData` |
 | `error` | — | `{ message: string } \| null` | `null` | Load failure shown as an alert instead of rows / empty state (a source's `error` as is) |

@@ -111,7 +111,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `rowKey` | `row-key` | `string \| (row) => unknown` | `'_id'` | What names a row — selection is kept by this id (see [Row Selection](#row-selection)) |
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | Row selection mode |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Client-side or server-side data processing |
-| `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Footer/summary row data (keys match column keys). An entry wins over the column's `aggregate` (see [Footer totals](#footer-totals)) |
+| `footerData` | `footer-data` | `Record<string, string \| number \| TemplateResult> \| null` | `null` | Footer/summary row data (keys match column keys). A string or template shows as given; a number is written with the column's `format`. An entry wins over the column's `aggregate` (see [Footer totals](#footer-totals)) |
 | `emptyMessage` | `empty-message` | `string` | `''` | Shown when `data` is empty. Empty uses the locale string `noData` ('No data') |
 | `noMatchingMessage` | `no-matching-message` | `string` | `''` | Shown when `data` has rows but every one is hidden by an active column filter. Empty uses the locale string `noMatchingData` |
 | `error` | — | `{ message: string } \| null` | `null` | The last load failure. While set, `error.message` is shown as an alert where the rows or the empty state would be, so a failed query does not look like "no data". Pass a data source's `error` as is |
@@ -201,7 +201,8 @@ const columns: ColumnDefinition<Line>[] = [
 `'sum'` · `'avg'` · `'min'` · `'max'` read numbers (a numeric string counts; empty cells do not); `'count'` counts
 non-empty cells; a function gets the column's values and the rows. A `footerData` entry for the column wins — use it for
 a label (`{ account: 'Total' }`) or a value the table cannot compute. **A server-paged table holds one page**, so it
-computes no aggregates — give the totals the server computed as `footerData`. `getFilteredRows()` returns the rows the
+computes no aggregates — give the totals the server computed as `footerData` numbers (`{ amount: 1234567 }`), which are
+written with the column's `format` like the cells. `getFilteredRows()` returns the rows the
 aggregates read.
 
 ### `format` vs `render`

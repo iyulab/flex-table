@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 import './flex-table.js';
 import type { FlexTable } from './flex-table.js';
@@ -81,6 +81,11 @@ describe('footer aggregates on the table', () => {
     expect(footer(el)).toEqual(['Total', 'n/a', '2']);
   });
 
+  it('🔴a number in footerData is written with the column format — a server total reads like the cells', async () => {
+    const el = await make({ dataMode: 'server', footerData: { acct: 'Total', amt: -123456 } });
+    expect(footer(el)).toEqual(['Total', '(123,456)', '']);
+  });
+
   it('⚪NEGATIVE — server mode computes nothing (the table holds one page)', async () => {
     const el = await make({ dataMode: 'server' });
     expect(el.shadowRoot!.querySelector('.ft-footer')).toBeNull();
@@ -90,6 +95,21 @@ describe('footer aggregates on the table', () => {
   it('the footer counts as a grid row', async () => {
     const el = await make();
     expect(el.getAttribute('aria-rowcount')).toBe('5');
+  });
+
+  it('a throwing aggregate function leaves its cell empty and warns; the table still renders', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const el = document.createElement('flex-table') as FlexTable;
+    el.columns = [
+      { key: 'acct', label: 'Acct', aggregate: () => { throw new Error('boom'); } },
+      { key: 'amt', label: 'Amt', type: 'number', aggregate: 'sum' },
+    ];
+    el.data = rows;
+    document.body.appendChild(el);
+    await el.updateComplete;
+    expect(footer(el)).toEqual(['', '67']);
+    expect(String(warn.mock.calls[0]?.[0])).toContain('[@iyulab/flex-table]');
+    warn.mockRestore();
   });
 
   it('getFilteredRows returns the shown rows in view order', async () => {

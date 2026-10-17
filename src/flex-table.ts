@@ -259,9 +259,13 @@ export class FlexTable extends LitElement {
   @property({ type: String, attribute: 'data-mode' })
   dataMode: DataMode = 'client';
 
-  /** Footer/summary row data. Keys match column keys; values are display strings. */
+  /**
+   * Footer/summary row data, keyed by column key. A string or template shows as given; a **number** is written with the
+   * column's `format`, like an `aggregate` — so a total the server computed reads like the cells. An entry wins over
+   * the column's `aggregate`.
+   */
   @property({ type: Object, attribute: 'footer-data' })
-  footerData: Record<string, string | TemplateResult> | null = null;
+  footerData: Record<string, string | number | TemplateResult> | null = null;
 
   /**
    * Constructable stylesheets adopted into this element's shadow root, in addition to the
@@ -3411,7 +3415,14 @@ export class FlexTable extends LitElement {
     const rows = this._sortedIndices.map(i => this.data[i]);
     const out: Record<string, unknown> = {};
     for (const col of cols) {
-      out[col.key] = computeAggregate(col.aggregate!, rows.map(r => getCellValue(r, col.key)), rows);
+      try {
+        out[col.key] = computeAggregate(col.aggregate!, rows.map(r => getCellValue(r, col.key)), rows);
+      } catch (e) {
+        // 소비자 함수의 예외가 표 렌더를 깨지 않게 — 필터 술어(`filter-error`)와 같은 대우: 그 칸만 비운다.
+        // eslint-disable-next-line no-console -- the column's aggregate function threw; say which column
+        console.warn('[@iyulab/flex-table] the aggregate for column "%s" threw:', col.key, e);
+        out[col.key] = undefined;
+      }
     }
     this._aggregates = out;
   }
@@ -3419,11 +3430,11 @@ export class FlexTable extends LitElement {
   /** A footer cell: the `footerData` entry, else the column's aggregate written like its cells. */
   private _footerContent(col: ColumnDefinition): unknown {
     const given = this.footerData?.[col.key];
-    if (given !== undefined) return given;
-    const value = this._aggregates?.[col.key];
+    if (given !== undefined && typeof given !== 'number') return given;
+    const value = given ?? this._aggregates?.[col.key];
     if (value == null) return '';
     // 개수는 열의 서식(날짜 패턴 등)과 무관한 수 — 기본 숫자 표기로.
-    if (col.aggregate === 'count') return renderCell(value, {}, { ...col, render: undefined, format: undefined, type: 'number' });
+    if (given === undefined && col.aggregate === 'count') return renderCell(value, {}, { ...col, render: undefined, format: undefined, type: 'number' });
     return renderCell(value, {}, { ...col, render: undefined, conditionalRules: undefined });
   }
 

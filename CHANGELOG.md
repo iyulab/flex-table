@@ -8,7 +8,10 @@
   `(values, rows) => value` — summarizes the rows the table shows in the footer row, written with the column's `format`,
   and recomputes when a filter, the data or an edit changes them. `footerData` still works and its entry wins for that
   column (a label, a server total). Not computed in `data-mode="server"`, where the table holds one page.
-  `getFilteredRows()` returns the shown rows in view order.
+  `getFilteredRows()` returns the shown rows in view order. A function `aggregate` that throws leaves its cell empty and
+  warns.
+- **`footerData` takes numbers.** A number is written with the column's `format`, so a total the server computed reads
+  like the cells (`{ amount: -1234 }` → `(1,234)` under `'#,##0;(#,##0)'`). Strings and templates show as before.
 - **XLSX export carries the column format.** A column's string `format` is written as the cell's number format, so the
   file shows what the list shows — the same sections, colors, units and scaling, with the raw value still in the cell (date
   patterns are translated: `MM` → `mm`, `HH` → `hh`).
