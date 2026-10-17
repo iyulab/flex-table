@@ -11,6 +11,8 @@ export type { ColumnViewState, TableViewState, ViewStateChangeReason } from './c
 export type { FilterModel, FilterModels, NumberCondition, NumericOp, TextFilterMode } from './core/filter-model.js';
 export { filterModelPredicate, filterModelToOData, filterModelsToOData, isFilterModel } from './core/filter-model.js';
 export { RowSelectionState } from './core/row-selection.js';
+export type { ColumnAggregate } from './core/aggregate.js';
+export { computeAggregate } from './core/aggregate.js';
 export { UndoStack } from './core/undo.js';
 export type { UndoAction } from './core/undo.js';
 export type { ExportFormat, ExportOptions } from './export/export.js';

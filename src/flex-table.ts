@@ -24,6 +24,7 @@ import { readXlsx } from './export/xlsx-reader.js';
 import type { ImportedSheet } from './export/xlsx-reader.js';
 import { readDelimited } from './export/delimited-reader.js';
 import { getCellValue, setCellValue } from './core/cell-value.js';
+import { computeAggregate } from './core/aggregate.js';
 import { buildImport } from './export/import.js';
 import type { ImportReport } from './export/import.js';
 import type { CellPosition } from './core/selection.js';
@@ -347,6 +348,8 @@ export class FlexTable extends LitElement {
   private _bodyContextMenu: { rowIndex: number; colIndex: number; dataIndex: number; x: number; y: number } | null = null;
 
   private _viewDirty = true;
+  /** Column key → its `aggregate` over the shown rows; recomputed with the view (not on scroll-only updates). */
+  private _aggregates: Record<string, unknown> | null = null;
   private _isDragging = false;
   private _wasDrag = false;
   /** Set by a resize or a real column-drag reorder; consumed once by the next header `click` to
@@ -434,6 +437,14 @@ export class FlexTable extends LitElement {
   /** Number of rows after filtering (before pagination). */
   get filteredRowCount(): number {
     return this._filteredIndices.length;
+  }
+
+  /**
+   * The rows the table shows, in view order — `data` after the filters and the sort. What a column `aggregate`
+   * summarizes; read it to compute a total the table does not. In `data-mode="server"` it is `data` (one page).
+   */
+  getFilteredRows(): DataRow[] {
+    return this._sortedIndices.map(i => this.data[i]);
   }
 
   // --- Public API: Row Selection ---
@@ -578,6 +589,12 @@ export class FlexTable extends LitElement {
   setFilter(key: string, filter: FilterPredicate | FilterModel): void {
     if (typeof filter === 'function') {
       this._commitFilter(key, filter);
+      return;
+    }
+    // `filters` 세터와 같은 규칙 — 모양이 틀린 모델(저장된 상태 · 타입 없는 호출자)은 적용하지 않고 말한다.
+    if (!isFilterModel(filter)) {
+      // eslint-disable-next-line no-console -- the caller's model is wrong; say which column
+      console.warn('[@iyulab/flex-table] ignored a filter model that is not valid for "%s":', key, filter);
       return;
     }
     if (isEmptyFilterModel(filter)) {
@@ -1529,6 +1546,7 @@ export class FlexTable extends LitElement {
       this._recomputeView();
       this._viewDirty = false;
       this._followEditingRow();
+      this._computeAggregates();
     }
     this._updateColOffsets();
     this._selection.setDimensions(this._visibleRowCount, this.visibleColumns.length);
@@ -1551,7 +1569,7 @@ export class FlexTable extends LitElement {
     // Update ARIA live attributes — guard against no-op setAttribute calls that
     // can trigger MutationObserver → requestUpdate() in Lit dev mode.
     // 행 수는 머리글(1)·푸터 행을 포함한다(APG Data Grid) — 인덱스 1 이 머리글, 2 부터 데이터다.
-    const rowCount = String(1 + this._visibleRowCount + (this.footerData ? 1 : 0));
+    const rowCount = String(1 + this._visibleRowCount + (this._hasFooter ? 1 : 0));
     const colCount = String(this.visibleColumns.length);
     if (this.getAttribute('aria-rowcount') !== rowCount) this.setAttribute('aria-rowcount', rowCount);
     if (this.getAttribute('aria-colcount') !== colCount) this.setAttribute('aria-colcount', colCount);
@@ -3317,7 +3335,7 @@ export class FlexTable extends LitElement {
       <div class="ft-body" style="height: ${this.totalBodyHeight}px; width: ${tw}px;">
         ${rows}
       </div>
-      ${this.footerData ? this._renderFooter(colStart, colEnd, pinnedIndices) : ''}
+      ${this._hasFooter ? this._renderFooter(colStart, colEnd, pinnedIndices) : ''}
       ${rowDropIndicator}
       ${fillHandle}
       ${this._renderHeaderContextMenu()}
@@ -3379,8 +3397,38 @@ export class FlexTable extends LitElement {
     `;
   }
 
+  /** A footer row shows when `footerData` is set or a shown column has an `aggregate` (client mode). */
+  private get _hasFooter(): boolean {
+    return !!this.footerData || (this.dataMode !== 'server' && this.visibleColumns.some(c => c.aggregate));
+  }
+
+  private _computeAggregates(): void {
+    const cols = this.dataMode === 'server' ? [] : this.visibleColumns.filter(c => c.aggregate);
+    if (cols.length === 0) {
+      this._aggregates = null;
+      return;
+    }
+    const rows = this._sortedIndices.map(i => this.data[i]);
+    const out: Record<string, unknown> = {};
+    for (const col of cols) {
+      out[col.key] = computeAggregate(col.aggregate!, rows.map(r => getCellValue(r, col.key)), rows);
+    }
+    this._aggregates = out;
+  }
+
+  /** A footer cell: the `footerData` entry, else the column's aggregate written like its cells. */
+  private _footerContent(col: ColumnDefinition): unknown {
+    const given = this.footerData?.[col.key];
+    if (given !== undefined) return given;
+    const value = this._aggregates?.[col.key];
+    if (value == null) return '';
+    // 개수는 열의 서식(날짜 패턴 등)과 무관한 수 — 기본 숫자 표기로.
+    if (col.aggregate === 'count') return renderCell(value, {}, { ...col, render: undefined, format: undefined, type: 'number' });
+    return renderCell(value, {}, { ...col, render: undefined, conditionalRules: undefined });
+  }
+
   private _renderFooter(colStart: number, colEnd: number, pinnedIndices: number[]) {
-    if (!this.footerData) return '';
+    if (!this._hasFooter) return '';
     const cols = this.visibleColumns;
     const rowH = this.rowHeight;
     const tw = this._totalRowWidth;
@@ -3409,7 +3457,7 @@ export class FlexTable extends LitElement {
         : `position: absolute; top: 0; left: ${sl + this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
       footerCells.push(html`
         <div class="ft-footer-cell ft-pinned" role="gridcell" aria-colindex=${pi + 1} style=${pStyle}>
-          ${this.footerData![col.key] ?? ''}</div>
+          ${this._footerContent(col)}</div>
       `);
     }
     for (let i = colStart; i < colEnd; i++) {
@@ -3429,7 +3477,7 @@ export class FlexTable extends LitElement {
       }
       footerCells.push(html`
         <div class="ft-footer-cell ${isPinned ? 'ft-pinned' : ''}" role="gridcell" aria-colindex=${i + 1} style=${cellStyle}>
-          ${this.footerData![col.key] ?? ''}</div>
+          ${this._footerContent(col)}</div>
       `);
     }
 

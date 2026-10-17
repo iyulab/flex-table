@@ -4,12 +4,20 @@
 
 ### Added
 
+- **Footer totals that follow the filter.** A column's `aggregate` — `'sum'` · `'avg'` · `'count'` · `'min'` · `'max'` or
+  `(values, rows) => value` — summarizes the rows the table shows in the footer row, written with the column's `format`,
+  and recomputes when a filter, the data or an edit changes them. `footerData` still works and its entry wins for that
+  column (a label, a server total). Not computed in `data-mode="server"`, where the table holds one page.
+  `getFilteredRows()` returns the shown rows in view order.
 - **XLSX export carries the column format.** A column's string `format` is written as the cell's number format, so the
   file shows what the list shows — the same sections, colors, units and scaling, with the raw value still in the cell (date
   patterns are translated: `MM` → `mm`, `HH` → `hh`).
 
 ### Fixed
 
+- **`setFilter` checks a model the way `filters` does.** A model of the wrong shape (a stored state from another
+  version, an untyped caller — e.g. a text model with an unknown `mode`) was applied as a «contains» filter and then
+  published in `filters` and `filter-change` as if valid; it is now ignored with a warning naming the column.
 - **A `datetime` column's time shows in the XLSX file.** Date and date-time cells shared one `yyyy-mm-dd` style, so the
   time was in the cell but hidden; `datetime` cells now use `yyyy-mm-dd hh:mm:ss`.
 

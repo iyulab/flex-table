@@ -111,7 +111,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `rowKey` | `row-key` | `string \| (row) => unknown` | `'_id'` | What names a row — selection is kept by this id (see [Row Selection](#row-selection)) |
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | Row selection mode |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Client-side or server-side data processing |
-| `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Footer/summary row data (keys match column keys) |
+| `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Footer/summary row data (keys match column keys). An entry wins over the column's `aggregate` (see [Footer totals](#footer-totals)) |
 | `emptyMessage` | `empty-message` | `string` | `''` | Shown when `data` is empty. Empty uses the locale string `noData` ('No data') |
 | `noMatchingMessage` | `no-matching-message` | `string` | `''` | Shown when `data` has rows but every one is hidden by an active column filter. Empty uses the locale string `noMatchingData` |
 | `error` | — | `{ message: string } \| null` | `null` | The last load failure. While set, `error.message` is shown as an alert where the rows or the empty state would be, so a failed query does not look like "no data". Pass a data source's `error` as is |
@@ -150,6 +150,7 @@ interface ColumnDefinition {
   autocomplete?: boolean | 'strict'; // Suggest existing column values while editing; 'strict' rejects values not in the list
   format?: string | ((value, row, col) => string); // Display format, see "format vs render" below
   exportValue?: (value, row) => string | number | boolean | Date | null; // What export writes for this column (default: the raw value)
+  aggregate?: 'sum' | 'avg' | 'count' | 'min' | 'max' | ((values, rows) => unknown); // Footer summary of the shown rows (see "Footer totals")
   render?: CellRenderer;   // Custom cell render: (value, row, col) => TemplateResult | string
   editor?: CellEditor;     // Custom cell editor: (value, row, col) => TemplateResult
   validator?: CellValidator; // Validate before commit: (value, row, col) => string | null
@@ -183,6 +184,25 @@ const columns: ColumnDefinition[] = [
   { key: 'Customer.Name', label: 'Customer' }, // sortable on the server, exported as shown
 ];
 ```
+
+### Footer totals
+
+A column's `aggregate` summarizes **the rows the table shows** — after the filters — in a footer row, written with the
+column's `format` (`count` is a plain number). It recomputes when a filter, the data or an edit changes what is shown:
+
+```typescript
+const columns: ColumnDefinition<Line>[] = [
+  { key: 'account', label: 'Account', aggregate: 'count' },                                      // "12"
+  { key: 'amount', label: 'Amount', type: 'number', format: '#,##0;(#,##0)', aggregate: 'sum' }, // "(1,234)"
+  { key: 'qty', label: 'Qty', type: 'number', aggregate: (values) => values.filter((v) => Number(v) > 0).length },
+];
+```
+
+`'sum'` · `'avg'` · `'min'` · `'max'` read numbers (a numeric string counts; empty cells do not); `'count'` counts
+non-empty cells; a function gets the column's values and the rows. A `footerData` entry for the column wins — use it for
+a label (`{ account: 'Total' }`) or a value the table cannot compute. **A server-paged table holds one page**, so it
+computes no aggregates — give the totals the server computed as `footerData`. `getFilteredRows()` returns the rows the
+aggregates read.
 
 ### `format` vs `render`
 
@@ -295,6 +315,7 @@ Every row keeps its own value. Sorting, filtering, copying, CSV/XLSX export and 
 | `deselectAll()` | `void` | Deselect every row, on every page |
 | `selectWhere(predicate)` | `void` | Add the rows in view for which `predicate(row, dataIndex)` is true |
 | `setSelection(ids)` | `void` | Replace the selection with these row ids. The same set again does nothing and fires nothing |
+| `getFilteredRows()` | `DataRow[]` | The rows the table shows, in view order — `data` after the filters and the sort (what a column `aggregate` summarizes). In server mode, `data` |
 | `getSelectedRows()` | `DataRow[]` | The selected rows `data` holds, in `data` order — the same shape as `u-rich-table`'s. Every selected id (all pages) is `selectedRowIds`; positions come with `selection-change` (`selectedIndices`) |
 | `getRowId(row)` | `string` | The id selection keeps for a row |
 | `selectedRowIds` (getter) | `ReadonlySet<string>` | Ids of the selected rows, all pages (a copy) |

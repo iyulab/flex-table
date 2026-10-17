@@ -20,7 +20,7 @@ All names below are members of the `FlexTable` class (`<flex-table>`).
 | `selectable` | `selectable` | `boolean` | `false` | Row checkbox selection |
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Server mode only emits sort/filter events |
-| `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Summary row keyed by column key |
+| `footerData` | `footer-data` | `Record<string, string \| TemplateResult> \| null` | `null` | Summary row keyed by column key — an entry wins over the column's `aggregate` |
 | `emptyMessage` | `empty-message` | `string` | `''` | Empty: locale `noData` |
 | `noMatchingMessage` | `no-matching-message` | `string` | `''` | All rows hidden by filters. Empty: locale `noMatchingData` |
 | `error` | — | `{ message: string } \| null` | `null` | Load failure shown as an alert instead of rows / empty state (a source's `error` as is) |
@@ -67,6 +67,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `render` | `CellRenderer<T>` | `(value, row, col) => TemplateResult \| string` |
 | `editor` | `CellEditor<T>` | `(value, row, col) => TemplateResult` with an `.ft-editor` element |
 | `validator` | `CellValidator<T>` | `(value, row, col) => string \| null \| undefined` |
+| `aggregate` | `'sum' \| 'avg' \| 'count' \| 'min' \| 'max' \| (values, rows) => unknown` | Footer summary of the shown rows (after filters), written with the column `format`; not computed in server mode (use `footerData`) |
 | `conditionalRules` | `ConditionalRule<T>[]` | `{ when(value, row, col): boolean, style: CellStyle }` |
 | `mergeRepeated` | `boolean \| (row, previousRow, col) => boolean` | Draw a run of repeated values as one merged cell; values, sort, filter and export are unchanged |
 | `reveal` | `'always' \| 'hover'` | `'hover'`: content shows only while the row is hovered, focused or selected — for a row-actions column; stays focusable, always shown without hover, not printed |
@@ -120,6 +121,7 @@ Enter/Escape and blur-to-commit behavior.
 | `selectAll()` / `deselectAll()` | `selectAll`: the rows in view (multi mode only) · `deselectAll`: every page |
 | `selectWhere(predicate)` | `(row, dataIndex) => boolean` over the visible rows |
 | `setSelection(ids)` | Replace with these row ids; the same set again fires nothing |
+| `getFilteredRows()` | `DataRow[]` — the shown rows in view order (filters + sort); server mode: `data` |
 | `getSelectedRows()` | `DataRow[]` — the selected rows `data` holds (as `u-rich-table`) · ids of every page: `selectedRowIds` |
 | `getRowId(row)` · `selectedRowIds` | A row's id · the selected ids (all pages) |
 

@@ -1,4 +1,5 @@
 import type { TemplateResult } from 'lit';
+import type { ColumnAggregate } from '../core/aggregate.js';
 
 /**
  * Built-in column data types for rendering and editing.
@@ -131,7 +132,8 @@ export interface ColumnDefinition<T = DataRow> {
   autocomplete?: boolean | 'strict';
   /**
    * Display format for cell values. Applied during rendering; raw value is preserved.
-   * - String: number format pattern (e.g. '#,##0.00', '0.00%', '$#,##0') or date pattern (e.g. 'yyyy-MM-dd')
+   * - String: spreadsheet number format code (e.g. '#,##0.00', '0.00%', '#,##0;[Red](#,##0)', '#,##0원') or date
+   *   pattern (e.g. 'yyyy-MM-dd'). XLSX export writes the same code as the cell's number format.
    * - Function: custom formatter receiving (value, row, col)
    */
   format?: string | ((value: unknown, row: T, col: ColumnDefinition<T>) => string);
@@ -146,6 +148,13 @@ export interface ColumnDefinition<T = DataRow> {
    * «관리 번호» where the label is «관리번호». Matched like the label: exactly, then ignoring case and surrounding spaces.
    */
   importAliases?: string[];
+  /**
+   * Summarizes the rows the table shows — after filtering — in the footer row, written with the column's `format`:
+   * `'sum'` · `'avg'` · `'count'` · `'min'` · `'max'`, or `(values, rows) => value`. A `footerData` entry for
+   * the column wins. In `data-mode="server"` the table holds one page, so it does not compute these — give the
+   * totals the server computed as `footerData`.
+   */
+  aggregate?: ColumnAggregate<T>;
   /** Per-column conditional formatting rules applied during cell rendering */
   conditionalRules?: ConditionalRule<T>[];
   /**

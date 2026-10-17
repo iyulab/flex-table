@@ -111,6 +111,17 @@ describe('filter models on the table', () => {
     warn.mockRestore();
   });
 
+  it('NEGATIVE — setFilter with a model of the wrong shape changes nothing and says so (same rule as `filters`)', async () => {
+    const el = await make();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    el.setFilter('name', { type: 'text', mode: 'equals', value: 'Bob' } as never);
+    expect(el.filteredRowCount).toBe(4);
+    expect(el.filters).toEqual({});
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain('[@iyulab/flex-table]');
+    warn.mockRestore();
+  });
+
   it('boolean and equals models filter the table', async () => {
     const el = await make();
     el.setFilter('ok', { type: 'boolean', value: false });
