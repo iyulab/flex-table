@@ -34,6 +34,8 @@ import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './model
 import { effectiveAlign } from './models/types.js';
 import type { FlexTableEventMap } from './events.js';
 import type { TemplateResult } from 'lit';
+import { ColumnGestures } from './controllers/column-gestures.js';
+import { DEFAULT_COL_WIDTH, MIN_COL_WIDTH } from './core/column-width.js';
 import { FindReplaceController } from './controllers/find-replace.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
@@ -65,8 +67,6 @@ export type TableExportOptions = (
   bom?: boolean;
 };
 
-const DEFAULT_COL_WIDTH = 120;
-const MIN_COL_WIDTH = 40;
 /** One keyboard (Alt+Arrow) or column-menu (Wider / Narrower) resize step, in px. */
 const COLUMN_RESIZE_STEP = 20;
 const DEFAULT_ROW_HEIGHT = 32;
@@ -355,8 +355,6 @@ export class FlexTable extends LitElement {
   private _viewDirty = true;
   private _isDragging = false;
   private _wasDrag = false;
-  private _resizing: { colIndex: number; startX: number; startWidth: number } | null = null;
-  private _resizeCleanup: (() => void) | null = null;
   /** Set by a resize or a real column-drag reorder; consumed once by the next header `click` to
    * suppress the browser's synthetic click that follows mouseup (same pattern as `_wasDrag` for
    * cell-selection drags below). */
@@ -364,15 +362,6 @@ export class FlexTable extends LitElement {
   /** Same as `_wasHeaderDrag`, for the row-number gutter's real row-drag reorder vs. its own
    * `click`-to-select-row listener. */
   private _wasRowDrag = false;
-  private _colDrag: {
-    col: ColumnDefinition;
-    colIndex: number;
-    startX: number;
-    ghost: HTMLElement | null;
-    active: boolean;
-    targetIndex: number;
-  } | null = null;
-  private _colDragIndicatorLeft: number | null = null;
   private _fillDrag: {
     sourceRange: CellRange;
     targetRange: CellRange | null;
@@ -387,6 +376,21 @@ export class FlexTable extends LitElement {
   } | null = null;
   private _rowDragIndicatorY: number | null = null;
   private _columnWidths: Map<string, number> = new Map();
+  /** Column resize and drag-reorder — the gestures on the header. */
+  private readonly _columnGestures = new ColumnGestures({
+    host: this,
+    root: () => this.shadowRoot,
+    columns: () => this.visibleColumns,
+    widths: this._columnWidths,
+    colWidth: (col) => this._getColWidth(col),
+    colLeftOffsets: () => this._colLeftOffsets,
+    scrollLeft: () => this._scrollLeft,
+    prefixWidth: () => this._prefixWidth,
+    emitResize: (detail) => { this._emit('column-resize', detail); this._emitViewState('column-width'); },
+    moveColumn: (key, newIndex) => this.moveColumn(key, newIndex),
+    markHeaderDrag: () => { this._wasHeaderDrag = true; },
+    invalidate: () => this.requestUpdate(),
+  });
   private _hostResizeObserver: ResizeObserver | null = null;
   /** Keyed by dataIndex → colKey → comment text */
   /** Cell comments by row id (`getRowId`) and column key — they stay on their rows when rows move. */
@@ -1435,9 +1439,9 @@ export class FlexTable extends LitElement {
     this._isDragging = false;
     this._wasDrag = false;
     // Clean up any in-progress resize listeners
-    if (this._resizeCleanup) {
-      this._resizeCleanup();
-      this._resizeCleanup = null;
+    if (this._columnGestures.resizeCleanup) {
+      this._columnGestures.resizeCleanup();
+      this._columnGestures.resizeCleanup = null;
     }
     if (this._hostResizeObserver) {
       this._hostResizeObserver.disconnect();
@@ -2991,7 +2995,7 @@ export class FlexTable extends LitElement {
       cellStyle = `left: ${left}px; width: ${width}px; height: ${hdrH}px;`;
     }
 
-    const isDraggingThis = this._colDrag?.active && this._colDrag.colIndex === colIndex;
+    const isDraggingThis = this._columnGestures.colDrag?.active && this._columnGestures.colDrag.colIndex === colIndex;
     const dragClasses = [
       ...classes.split(' '),
       isDraggingThis ? 'ft-col-dragging' : '',
@@ -3018,7 +3022,7 @@ export class FlexTable extends LitElement {
         style=${cellStyle}
         aria-sort=${ariaSortValue ?? nothing}
         @contextmenu=${(e: MouseEvent) => this._onHeaderContextMenu(e, col)}
-        @mousedown=${(e: MouseEvent) => this._onHeaderMouseDown(e, col, colIndex)}
+        @mousedown=${(e: MouseEvent) => this._columnGestures.headerMouseDown(e, col, colIndex)}
         @click=${sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined}>
         ${showHiddenIndicator ? html`
           <button class="ft-hidden-col-indicator" tabindex="-1"
@@ -3041,8 +3045,8 @@ export class FlexTable extends LitElement {
           \u22EE
         </button>
         <div class="ft-resize-handle"
-          @mousedown=${(e: MouseEvent) => { e.stopPropagation(); this._wasHeaderDrag = true; this._onResizeStart(e, colIndex); }}
-          @dblclick=${(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); this._autoFitColumn(col.key); }}></div>
+          @mousedown=${(e: MouseEvent) => { e.stopPropagation(); this._wasHeaderDrag = true; this._columnGestures.startResize(e, colIndex); }}
+          @dblclick=${(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); this._columnGestures.autoFit(col.key); }}></div>
       </div>
       ${this._openFilterKey === col.key ? this._renderFilterDropdown(col) : ''}
     `;
@@ -3216,7 +3220,7 @@ export class FlexTable extends LitElement {
         ${item('hide', t('hideColumn'), () => this._setColumnHidden(key, true))}
         ${hiddenNeighbors.map(h => item('show', t('showColumn', { header: h.label }), () => this._setColumnHidden(h.key, false)))}
         <div class="ft-header-menu-separator" role="separator"></div>
-        ${item('autofit', t('autoFitWidth'), () => this._autoFitColumn(key))}
+        ${item('autofit', t('autoFitWidth'), () => this._columnGestures.autoFit(key))}
         ${item('wider', t('wider'), () => this._resizeColumnBy(key, COLUMN_RESIZE_STEP), true)}
         ${item('narrower', t('narrower'), () => this._resizeColumnBy(key, -COLUMN_RESIZE_STEP), true)}
       </div>
@@ -3790,182 +3794,6 @@ export class FlexTable extends LitElement {
     this._openFilterKey = null;
   }
 
-  // --- Column Resize ---
-
-  /** Size a column to its widest rendered content — the resize handle's double-click and the column menu. */
-  private _autoFitColumn(key: string): void {
-    const colIndex = this.visibleColumns.findIndex(c => c.key === key);
-    const col = this.visibleColumns[colIndex];
-    if (!col) return;
-
-    // Measure content widths by scanning visible cells using data-col-index attribute
-    const cells = this.shadowRoot?.querySelectorAll(`.ft-cell[data-col-index="${colIndex}"]`);
-    let maxWidth = 0;
-
-    // Measure header text width using data-col-index attribute
-    const headerCell = this.shadowRoot?.querySelector(`.ft-header-cell[data-col-index="${colIndex}"]`) as HTMLElement | null;
-    if (headerCell) {
-      maxWidth = Math.max(maxWidth, headerCell.scrollWidth);
-    }
-
-    // Measure data cell widths
-    if (cells) {
-      for (const cell of cells) {
-        const el = cell as HTMLElement;
-        maxWidth = Math.max(maxWidth, el.scrollWidth);
-      }
-    }
-
-    // Apply with padding and minimum
-    const minW = col.minWidth ?? MIN_COL_WIDTH;
-    const newWidth = Math.max(minW, maxWidth + 8); // 8px buffer
-    this._columnWidths.set(col.key, newWidth);
-    this.requestUpdate();
-
-    this._emit('column-resize', { key: col.key, width: newWidth, colIndex });
-
-    this._emitViewState('column-width');
-  }
-
-  private _onResizeStart(e: MouseEvent, colIndex: number): void {
-    e.preventDefault();
-    e.stopPropagation(); // Prevent sort toggle
-
-    const col = this.visibleColumns[colIndex];
-    const startWidth = this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
-    this._resizing = { colIndex, startX: e.clientX, startWidth };
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!this._resizing) return;
-      const delta = ev.clientX - this._resizing.startX;
-      const minW = col.minWidth ?? MIN_COL_WIDTH;
-      const newWidth = Math.max(minW, this._resizing.startWidth + delta);
-      this._columnWidths.set(col.key, newWidth);
-      this.requestUpdate();
-    };
-
-    const cleanup = () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      this._resizeCleanup = null;
-    };
-
-    const onMouseUp = () => {
-      cleanup();
-
-      if (this._resizing) {
-        const finalWidth = this._columnWidths.get(col.key) ?? DEFAULT_COL_WIDTH;
-        this._emit('column-resize', { key: col.key, width: finalWidth, colIndex });
-        this._emitViewState('column-width');
-        this._resizing = null;
-      }
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    this._resizeCleanup = cleanup;
-  }
-
-  // --- Column drag reorder ---
-
-  private _onHeaderMouseDown(e: MouseEvent, col: ColumnDefinition, colIndex: number): void {
-    if (e.button !== 0) return;
-    e.preventDefault();
-
-    this._colDrag = { col, colIndex, startX: e.clientX, ghost: null, active: false, targetIndex: colIndex };
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!this._colDrag) return;
-      const dx = Math.abs(ev.clientX - this._colDrag.startX);
-      if (!this._colDrag.active && dx > 5) {
-        this._colDrag.active = true;
-        this._startColumnGhost(ev);
-        this.requestUpdate();
-      }
-      if (this._colDrag.active) {
-        this._updateColumnDrag(ev);
-      }
-    };
-
-    const onMouseUp = (_ev: MouseEvent) => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      if (this._colDrag?.active) {
-        this._wasHeaderDrag = true;
-        this._finishColumnDrag();
-      }
-      if (this._colDrag?.ghost) {
-        this._colDrag.ghost.remove();
-      }
-      this._colDrag = null;
-      this._colDragIndicatorLeft = null;
-      this.requestUpdate();
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }
-
-  private _startColumnGhost(e: MouseEvent): void {
-    const ghost = document.createElement('div');
-    ghost.textContent = this._colDrag!.col.label ?? this._colDrag!.col.key;
-    ghost.style.cssText = [
-      'position:fixed',
-      'pointer-events:none',
-      'z-index:var(--u-layer-overlay, 9999)',
-      'opacity:0.85',
-      `background:${getComputedStyle(this).getPropertyValue('--ft-header-bg') || '#f0f0f0'}`,
-      `border:2px solid ${getComputedStyle(this).getPropertyValue('--ft-active-color') || '#3b82f6'}`,
-      'padding:4px 10px',
-      'border-radius:4px',
-      'font-size:13px',
-      'font-weight:600',
-      'white-space:nowrap',
-      `left:${e.clientX + 12}px`,
-      `top:${e.clientY - 14}px`,
-    ].join(';');
-    document.body.appendChild(ghost);
-    this._colDrag!.ghost = ghost;
-  }
-
-  private _updateColumnDrag(e: MouseEvent): void {
-    if (!this._colDrag) return;
-
-    if (this._colDrag.ghost) {
-      this._colDrag.ghost.style.left = `${e.clientX + 12}px`;
-      this._colDrag.ghost.style.top = `${e.clientY - 14}px`;
-    }
-
-    const rect = this.getBoundingClientRect();
-    const scrollLeft = this._scrollLeft;
-    const cols = this.visibleColumns;
-    const mouseX = e.clientX - rect.left + scrollLeft;
-
-    let targetIndex = cols.length;
-    for (let i = 0; i < cols.length; i++) {
-      const midpoint = (this._colLeftOffsets[i] ?? 0) + this._getColWidth(cols[i]) / 2;
-      if (mouseX < midpoint) { targetIndex = i; break; }
-    }
-
-    if (this._colDrag.colIndex < targetIndex) targetIndex--;
-
-    this._colDrag.targetIndex = targetIndex;
-    const indicatorColIndex = targetIndex < cols.length ? targetIndex : cols.length - 1;
-    const indicatorOffset = targetIndex < cols.length
-      ? (this._colLeftOffsets[indicatorColIndex] ?? 0)
-      : (this._colLeftOffsets[indicatorColIndex] ?? 0) + this._getColWidth(cols[indicatorColIndex]);
-    this._colDragIndicatorLeft = indicatorOffset - scrollLeft + this._prefixWidth;
-    this.requestUpdate();
-  }
-
-  private _finishColumnDrag(): void {
-    if (!this._colDrag) return;
-    const { col, colIndex, targetIndex } = this._colDrag;
-    if (targetIndex !== colIndex) {
-      this.moveColumn(col.key, targetIndex);
-    }
-  }
-
   // --- Fill Handle ---
 
   private _onFillHandleMouseDown(e: MouseEvent): void {
@@ -4292,8 +4120,8 @@ export class FlexTable extends LitElement {
       headerCells.push(this._renderHeaderCell(cols[i], i));
     }
 
-    const dropIndicator = this._colDragIndicatorLeft != null
-      ? html`<div class="ft-drop-indicator" style="left:${this._colDragIndicatorLeft}px"></div>`
+    const dropIndicator = this._columnGestures.dragIndicatorLeft != null
+      ? html`<div class="ft-drop-indicator" style="left:${this._columnGestures.dragIndicatorLeft}px"></div>`
       : '';
 
     if (this.error || this.data.length === 0 || this._visibleRowCount === 0) {
