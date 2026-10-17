@@ -405,8 +405,8 @@ const FIXTURES: Record<string, Fixture | Fixture[]> = {
       html: grid,
       prepare: async (host) => {
         await prepareGrid(host);
-        const t = host as Table & { _openFindPanel(mode: 'find' | 'replace'): void };
-        t._openFindPanel('replace');
+        const t = host as Table & { _find: { open(mode: 'find' | 'replace'): void } };
+        t._find.open('replace');
         await settle(t);
         if (inShadow(t, '.ft-find-replace-input').length !== 1) throw new Error('바꾸기 줄이 열리지 않았다');
       },

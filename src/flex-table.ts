@@ -34,6 +34,7 @@ import type { ColumnDefinition, DataRow, SelectionMode, DataMode } from './model
 import { effectiveAlign } from './models/types.js';
 import type { FlexTableEventMap } from './events.js';
 import type { TemplateResult } from 'lit';
+import { FindReplaceController } from './controllers/find-replace.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
 import { copyFromKey, isTextEntry, pasteFromKey } from '@iyulab/components/dist/utilities/clipboard.js';
@@ -385,15 +386,6 @@ export class FlexTable extends LitElement {
     targetIndex: number;
   } | null = null;
   private _rowDragIndicatorY: number | null = null;
-  private _findState: {
-    mode: 'find' | 'replace';
-    query: string;
-    replaceWith: string;
-    matchCase: boolean;
-    wholeCell: boolean;
-    results: Array<{ row: number; col: number }>;
-    currentIndex: number;
-  } | null = null;
   private _columnWidths: Map<string, number> = new Map();
   private _hostResizeObserver: ResizeObserver | null = null;
   /** Keyed by dataIndex → colKey → comment text */
@@ -2242,8 +2234,8 @@ export class FlexTable extends LitElement {
         return;
       }
       // Allow Escape to close find panel even without active cell
-      if (e.key === 'Escape' && this._findState) {
-        this._closeFindPanel();
+      if (e.key === 'Escape' && this._find.state) {
+        this._find.close();
         e.preventDefault();
         return;
       }
@@ -2489,12 +2481,12 @@ export class FlexTable extends LitElement {
         return true;
       case 'f':
         e.preventDefault();
-        this._toggleFindPanel('find');
+        this._find.toggle('find');
         return true;
       case 'h':
         e.preventDefault();
         // A table that cannot change offers find only — a replace field there would do nothing.
-        this._toggleFindPanel(this.editable ? 'replace' : 'find');
+        this._find.toggle(this.editable ? 'replace' : 'find');
         return true;
       default:
         return false;
@@ -2555,8 +2547,8 @@ export class FlexTable extends LitElement {
         e.ctrlKey ? this._selection.moveToEnd() : this._selection.moveToRowEnd();
         return true;
       case 'Escape':
-        if (this._findState) {
-          this._closeFindPanel();
+        if (this._find.state) {
+          this._find.close();
           return true;
         }
         this._selection.clear();
@@ -3698,6 +3690,24 @@ export class FlexTable extends LitElement {
    * 칸의 값이 상태에 묶여 있어(`.value=`) 상태에는 늘 상자의 글자 전체를 둔다.
    */
   private readonly _textEntryIme = new CompositionTracker(replayInput);
+  /** The find / replace panel — its state, search and replace steps. */
+  private readonly _find = new FindReplaceController({
+    columns: () => this.visibleColumns,
+    rowCount: () => this._visibleRowCount,
+    dataIndex: (row) => this._toDataIndex(row),
+    data: () => this.data,
+    isEditable: (col, row) => this._isCellEditable(col, row),
+    pushUndo: (step) => { this._undo.push(step); this._dispatchUndoStateEvent(); },
+    emitReplace: (detail) => { this._emit('find-replace', detail); },
+    reveal: (row, col) => {
+      this._selection.setActive(row, col);
+      this._activeCell = { row, col };
+      this._scrollToActiveCell();
+    },
+    invalidate: () => this.requestUpdate(),
+    focusInput: () => { this.shadowRoot?.querySelector<HTMLInputElement>('.ft-find-input')?.focus(); },
+    ime: this._textEntryIme,
+  });
   /** 자동완성 편집기의 IME 조합 — 후보는 검색 질의(`searchQuery` — 글 끝 한글 조합은 자모 앞부분으로)로 고른다. */
   private readonly _editorIme = new CompositionTracker(replayInput);
   private _numberFilterState: Map<string, NumberAdvState> = new Map();
@@ -4221,194 +4231,6 @@ export class FlexTable extends LitElement {
     this._emit('row-reorder', { from: fromDataIdx, to: toDataIdx });
   }
 
-  // --- Find / Replace ---
-
-  private _toggleFindPanel(mode: 'find' | 'replace'): void {
-    if (this._findState?.mode === mode) {
-      this._closeFindPanel();
-      return;
-    }
-    this._openFindPanel(mode);
-  }
-
-  _openFindPanel(mode: 'find' | 'replace'): void {
-    this._findState = {
-      mode,
-      query: this._findState?.query ?? '',
-      replaceWith: this._findState?.replaceWith ?? '',
-      matchCase: false,
-      wholeCell: false,
-      results: [],
-      currentIndex: 0,
-    };
-    if (this._findState.query) this._findSearch();
-    this.requestUpdate();
-    requestAnimationFrame(() => {
-      this.shadowRoot?.querySelector<HTMLInputElement>('.ft-find-input')?.focus();
-    });
-  }
-
-  private _closeFindPanel(): void {
-    this._findState = null;
-    this.requestUpdate();
-  }
-
-  _findSearch(): void {
-    if (!this._findState) return;
-    const { query, matchCase, wholeCell } = this._findState;
-    if (!query) {
-      this._findState.results = [];
-      this._findState.currentIndex = 0;
-      this.requestUpdate();
-      return;
-    }
-
-    const needle = matchCase ? query : query.toLowerCase();
-    const cols = this.visibleColumns;
-    const results: Array<{ row: number; col: number }> = [];
-
-    for (let r = 0; r < this._visibleRowCount; r++) {
-      const dataRow = this._toDataIndex(r);
-      for (let c = 0; c < cols.length; c++) {
-        const cellVal = String(this.data[dataRow][cols[c].key] ?? '');
-        const haystack = matchCase ? cellVal : cellVal.toLowerCase();
-        const hit = wholeCell ? haystack === needle : haystack.includes(needle);
-        if (hit) results.push({ row: r, col: c });
-      }
-    }
-
-    this._findState.results = results;
-    this._findState.currentIndex = 0;
-    this.requestUpdate();
-  }
-
-  private _findGoTo(index: number): void {
-    if (!this._findState || this._findState.results.length === 0) return;
-    const count = this._findState.results.length;
-    this._findState.currentIndex = ((index % count) + count) % count;
-    const { row, col } = this._findState.results[this._findState.currentIndex];
-    this._selection.setActive(row, col);
-    this._activeCell = { row, col };
-    this._scrollToActiveCell();
-    this.requestUpdate();
-  }
-
-  private _findNext(): void {
-    if (!this._findState) return;
-    this._findGoTo(this._findState.currentIndex + 1);
-  }
-
-  private _findPrev(): void {
-    if (!this._findState) return;
-    this._findGoTo(this._findState.currentIndex - 1);
-  }
-
-  _replaceAll(): void {
-    if (!this._findState || this._findState.results.length === 0) return;
-    const { results, replaceWith } = this._findState;
-    const cols = this.visibleColumns;
-    const saved: Array<{ dataRow: number; key: string; oldValue: unknown; newValue: unknown }> = [];
-    const targets: DataRow[] = [];
-
-    for (const { row, col } of results) {
-      const dataRow = this._toDataIndex(row);
-      if (!this._isCellEditable(cols[col], this.data[dataRow])) continue;
-      const key = cols[col].key;
-      const oldValue = getCellValue(this.data[dataRow], key);
-      setCellValue(this.data[dataRow], key, replaceWith);
-      saved.push({ dataRow, key, oldValue, newValue: replaceWith });
-      targets.push(this.data[dataRow]);
-    }
-
-    if (saved.length > 0) {
-      this._undo.push({
-        label: 'replace-all',
-        undo: () => { saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.oldValue); }); this.requestUpdate(); },
-        redo: () => { saved.forEach((s, i) => { setCellValue(targets[i], s.key, s.newValue); }); this.requestUpdate(); },
-      });
-      this._dispatchUndoStateEvent();
-      this._emit('find-replace', { type: 'replace-all', cells: saved.map(s => ({ row: s.dataRow, col: s.key, oldValue: s.oldValue, newValue: s.newValue })) });
-    }
-
-    this._findState.results = [];
-    this._findState.currentIndex = 0;
-    this.requestUpdate();
-  }
-
-  private _replaceOne(): void {
-    if (!this._findState || this._findState.results.length === 0) return;
-    const { currentIndex, results, replaceWith } = this._findState;
-    const { row, col } = results[currentIndex];
-    const dataRow = this._toDataIndex(row);
-    const key = this.visibleColumns[col].key;
-    const target = this.data[dataRow];
-    // A match in a cell that may not change is found, not replaced — move on to the next one.
-    if (!this._isCellEditable(this.visibleColumns[col], target)) {
-      this._findNext();
-      return;
-    }
-    const oldValue = getCellValue(target, key);
-    setCellValue(target, key, replaceWith);
-
-    this._undo.push({
-      label: 'replace',
-      undo: () => { setCellValue(target, key, oldValue); this.requestUpdate(); },
-      redo: () => { setCellValue(target, key, replaceWith); this.requestUpdate(); },
-    });
-    this._dispatchUndoStateEvent();
-    this._emit('find-replace', { type: 'replace', cells: [{ row: dataRow, col: key, oldValue, newValue: replaceWith }] });
-
-    this._findSearch();
-    this._findGoTo(Math.min(currentIndex, this._findState.results.length - 1));
-  }
-
-  private _renderFindPanel() {
-    if (!this._findState) return '';
-    const { mode, query, replaceWith, matchCase, wholeCell, results, currentIndex } = this._findState;
-    const count = results.length;
-    const current = count > 0 ? currentIndex + 1 : 0;
-
-    return html`
-      <div class="ft-find-panel"
-        @keydown=${(e: KeyboardEvent) => {
-          e.stopPropagation();
-          if (e.key === 'Escape') { this._closeFindPanel(); return; }
-          if (e.key === 'Enter' && !isImeComposing(e) && e.target instanceof HTMLInputElement && e.target.classList.contains('ft-find-input')) {
-            e.shiftKey ? this._findPrev() : this._findNext();
-          }
-        }}>
-        <div class="ft-find-row">
-          <input class="ft-find-input" type="text" placeholder=${t('findPlaceholder')} aria-label=${t('findInput')}
-            .value=${query}
-            @compositionstart=${this._textEntryIme}
-            @compositionupdate=${this._textEntryIme}
-            @compositionend=${this._textEntryIme}
-            @input=${(e: Event) => {
-              this._findState!.query = (e.target as HTMLInputElement).value;
-              if (this._textEntryIme.composing) return;
-              this._findSearch();
-            }}>
-          <span class="ft-find-count">${count > 0 ? `${current}/${count}` : query ? t('findNoResults') : ''}</span>
-          <!-- 글리프는 이름이 아니다(«◀» 는 «black left-pointing triangle» 로 읽힌다) — 이름은 aria-label, 키는 aria-keyshortcuts -->
-          <button @click=${() => this._findPrev()} aria-label=${t('findPrevious')} aria-keyshortcuts="Shift+Enter" title=${`${t('findPrevious')} (Shift+Enter)`}>◀</button>
-          <button @click=${() => this._findNext()} aria-label=${t('findNext')} aria-keyshortcuts="Enter" title=${`${t('findNext')} (Enter)`}>▶</button>
-          <label title=${t('matchCase')}><input type="checkbox" aria-label=${t('matchCase')} ?checked=${matchCase} @change=${(e: Event) => { this._findState!.matchCase = (e.target as HTMLInputElement).checked; this._findSearch(); }}> Aa</label>
-          <label title=${t('wholeCell')}><input type="checkbox" aria-label=${t('wholeCell')} ?checked=${wholeCell} @change=${(e: Event) => { this._findState!.wholeCell = (e.target as HTMLInputElement).checked; this._findSearch(); }}> [ ]</label>
-          <button @click=${() => this._closeFindPanel()} aria-label=${t('closeFind')} aria-keyshortcuts="Escape" title=${`${t('closeFind')} (Escape)`}>✕</button>
-        </div>
-        ${mode === 'replace' ? html`
-          <div class="ft-find-row">
-            <input class="ft-find-replace-input" type="text" placeholder=${t('replaceWithPlaceholder')} aria-label=${t('replaceInput')}
-              .value=${replaceWith}
-              @input=${(e: Event) => { this._findState!.replaceWith = (e.target as HTMLInputElement).value; }}>
-            <button @click=${() => this._replaceOne()} ?disabled=${count === 0}>${t('replace')}</button>
-            <button @click=${() => this._replaceAll()} ?disabled=${count === 0}>${t('replaceAll')}</button>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  }
-
   // --- Rendering ---
 
   render() {
@@ -4506,7 +4328,7 @@ export class FlexTable extends LitElement {
     return html`
       ${importOverlay}
       ${loadingOverlay}
-      ${this._renderFindPanel()}
+      ${this._find.render()}
       <div class="ft-header" role="row" aria-rowindex="1" style="width: ${tw}px; height: ${hdrH}px;">
         ${selectAllHeader}${rowNumHeader}
         ${headerCells}
@@ -4790,10 +4612,10 @@ export class FlexTable extends LitElement {
 
     const selected = isActive || isSelected;
     const validationError = this._isCellInvalid(row, col);
-    const findResults = this._findState?.results ?? [];
+    const findResults = this._find.state?.results ?? [];
     const findMatchIdx = findResults.findIndex(r => r.row === rowIndex && r.col === colIndex);
     const isFindMatch = findMatchIdx >= 0;
-    const isFindCurrent = isFindMatch && findMatchIdx === this._findState!.currentIndex;
+    const isFindCurrent = isFindMatch && findMatchIdx === this._find.state!.currentIndex;
     const classes = [
       'ft-cell',
       `ft-type-${col.type ?? 'text'}`,

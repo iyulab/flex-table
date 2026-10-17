@@ -58,7 +58,7 @@ describe('flex-table — 조합 중 거르기', () => {
 
   it('찾기: 조합 중에는 «결과 없음» 을 보이지 않는다', async () => {
     const any = await mount([{ key: 'city', label: 'City', type: 'text', width: 160 }]);
-    any._openFindPanel('find');
+    any._find.open('find');
     await table.updateComplete;
     await sleep(100);
     const input = table.shadowRoot!.querySelector('.ft-find-input') as HTMLInputElement;

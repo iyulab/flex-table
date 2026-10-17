@@ -2971,9 +2971,9 @@ describe('FlexTable', () => {
     it('find panel controls carry names, not glyphs — and the no-match count is localized', async () => {
       const el = makeTable(['Alice']);
       await el.updateComplete;
-      (el as any)._openFindPanel('find');
-      (el as any)._findState.query = 'zzz';
-      (el as any)._findSearch();
+      (el as any)._find.open('find');
+      (el as any)._find.state.query = 'zzz';
+      (el as any)._find.search();
       await el.updateComplete;
       const panel = el.shadowRoot!.querySelector('.ft-find-panel')!;
       const buttons = [...panel.querySelectorAll('.ft-find-row:first-child button')];
@@ -3000,21 +3000,21 @@ describe('FlexTable', () => {
     it('finds matching cells and highlights current match', async () => {
       const el = makeTable(['Apple', 'Apricot', 'Banana']);
       await el.updateComplete;
-      (el as any)._openFindPanel('find');
-      (el as any)._findState.query = 'ap';
-      (el as any)._findSearch();
+      (el as any)._find.open('find');
+      (el as any)._find.state.query = 'ap';
+      (el as any)._find.search();
       await el.updateComplete;
-      expect((el as any)._findState.results).toHaveLength(2);
+      expect((el as any)._find.state.results).toHaveLength(2);
     });
 
     it('replace all replaces every match with single undo', async () => {
       const el = makeTable(['foo', 'bar', 'foo']);
       await el.updateComplete;
-      (el as any)._openFindPanel('replace');
-      (el as any)._findState.query = 'foo';
-      (el as any)._findState.replaceWith = 'baz';
-      (el as any)._findSearch();
-      (el as any)._replaceAll();
+      (el as any)._find.open('replace');
+      (el as any)._find.state.query = 'foo';
+      (el as any)._find.state.replaceWith = 'baz';
+      (el as any)._find.search();
+      (el as any)._find.replaceAll();
       await el.updateComplete;
       expect(el.data[0]['name']).toBe('baz');
       expect(el.data[2]['name']).toBe('baz');
