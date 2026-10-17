@@ -18,6 +18,13 @@ function sheetXml(bytes: Uint8Array): string {
   return text.slice(start, text.indexOf('</worksheet>', start));
 }
 
+/** STORE XLSX 의 스타일 XML(서식 코드에 한글이 있으므로 UTF-8 로 읽는다). */
+function stylesXml(bytes: Uint8Array): string {
+  const text = new TextDecoder().decode(bytes);
+  const start = text.indexOf('<styleSheet');
+  return text.slice(start, text.indexOf('</styleSheet>', start));
+}
+
 /** A2 셀의 XML. */
 const cellA2 = (xml: string) => /<c r="A2"[^>]*>(?:<v>[^<]*<\/v>)?<\/c>/.exec(xml)?.[0] ?? '';
 
@@ -36,9 +43,10 @@ describe('export file shape', () => {
   });
 
   it('⑵ an ISO string in a date/datetime column is a date cell in XLSX', () => {
-    for (const [type, value] of [['date', '2026-09-09'], ['datetime', '2026-09-09T08:16:01.123+09:00']] as const) {
+    // 날짜는 스타일 1(yyyy-mm-dd) · 날짜-시각은 스타일 3(yyyy-mm-dd hh:mm:ss) — 종전에는 둘 다 1 이라 시각이 파일에서 보이지 않았다.
+    for (const [type, value, style] of [['date', '2026-09-09', 1], ['datetime', '2026-09-09T08:16:01.123+09:00', 3]] as const) {
       const xml = sheetXml(exportData([{ d: value }], [{ key: 'd', label: 'D', type }], 'xlsx') as Uint8Array);
-      expect(cellA2(xml), type).toMatch(/s="1"/);
+      expect(cellA2(xml), type).toMatch(new RegExp(`s="${style}"`));
     }
   });
 
@@ -75,5 +83,41 @@ describe('export file shape', () => {
     const c: ColumnDefinition[] = [{ key: 'at', label: 'At', exportValue: (v) => new Date(Number(v)) }];
     const xml = sheetXml(exportData([{ at: Date.UTC(2026, 0, 2) }], c, 'xlsx') as Uint8Array);
     expect(cellA2(xml)).toMatch(/s="1"/);
+  });
+
+  it('⑸ a column format travels into the file as its number format — the file shows what the list shows', () => {
+    const cols5: ColumnDefinition[] = [
+      { key: 'amt', label: 'Amt', type: 'number', format: '#,##0;[Red](#,##0)' },
+      { key: 'won', label: 'Won', type: 'number', format: '#,##0원' },
+      { key: 'again', label: 'Again', type: 'number', format: '#,##0;[Red](#,##0)' },
+      { key: 'at', label: 'At', type: 'date', format: 'yyyy/MM/dd' },
+      { key: 'fn', label: 'Fn', type: 'number', format: (v) => String(v) },
+      { key: 'plain', label: 'Plain', type: 'number' },
+    ];
+    const bytes = exportData([{ amt: -1234, won: 5, again: 7, at: '2026-09-09', fn: 1, plain: 2 }], cols5, 'xlsx') as Uint8Array;
+    const styles = stylesXml(bytes);
+    expect(styles).toContain('formatCode="#,##0;[Red](#,##0)"');
+    expect(styles).toContain('formatCode="#,##0원"');
+    expect(styles).toContain('formatCode="yyyy/mm/dd"');
+    expect(styles.split('formatCode="#,##0;[Red](#,##0)"')).toHaveLength(2); // 같은 코드는 한 번만 등록
+    const xml = sheetXml(bytes);
+    const styleOf = (ref: string) => new RegExp(`<c r="${ref}"(?: s="(\\d+)")?`).exec(xml)?.[1];
+    expect(styleOf('A2')).toBe(styleOf('C2'));
+    expect(Number(styleOf('A2'))).toBeGreaterThanOrEqual(4);
+    expect(Number(styleOf('B2'))).toBeGreaterThanOrEqual(4);
+    expect(Number(styleOf('D2'))).toBeGreaterThanOrEqual(4);
+    // NEGATIVE — 함수 서식과 서식 없는 숫자 열은 General
+    expect(styleOf('E2')).toBeUndefined();
+    expect(styleOf('F2')).toBeUndefined();
+  });
+
+  it('⑸ a styled file reads back the raw values — a [Red] number is not taken for a date', async () => {
+    const { readXlsx } = await import('./xlsx-reader.js');
+    const bytes = exportData([{ amt: -1234, at: '2026-09-09' }], [
+      { key: 'amt', label: 'Amt', type: 'number', format: '#,##0;[Red](#,##0)' },
+      { key: 'at', label: 'At', type: 'date', format: 'yyyy/MM/dd' },
+    ], 'xlsx') as Uint8Array;
+    const sheet = await readXlsx(bytes.slice().buffer);
+    expect(sheet.rows[0]).toEqual(['-1234', '2026-09-09']);
   });
 });

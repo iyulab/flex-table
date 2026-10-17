@@ -340,6 +340,11 @@ What goes into the file:
   cell holds the wall-clock time the table shows. In CSV/TSV (and a copied range) the same date is wall-clock text —
   `YYYY-MM-DD` in a `date` column, `YYYY-MM-DD HH:mm:ss` otherwise — which spreadsheets read as a date. JSON keeps
   `Date` values as ISO instants. A string that does not read as a date stays text.
+- **Formats**: in XLSX a column's string `format` becomes the cell's number format, so the file shows what the list shows
+  (`'#,##0;[Red](#,##0)'` stays a red parenthesised negative, `'#,##0원'` keeps its unit, a date pattern such as
+  `'yyyy/MM/dd'` is translated to the spreadsheet's tokens). The cell still holds the raw number or date — sums and
+  sorting in the spreadsheet work. Without a `format`, a `date` column is `yyyy-mm-dd` and a `datetime` column
+  `yyyy-mm-dd hh:mm:ss`. A function `format` has no spreadsheet equivalent — use `exportValue` for text.
 - **BOM**: `{ bom: true }` starts CSV/TSV with a UTF-8 byte order mark so Excel on a non-UTF-8 system code page reads
   non-ASCII text correctly — the default for `exportToFile`, off for `exportToString`/`exportToBlob`.
 

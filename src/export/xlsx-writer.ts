@@ -6,6 +6,7 @@
 
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { exportCellValue, exportDate, excelSerial } from './values.js';
+import { isDateFormat } from '../renderers/number-format.js';
 
 // ---------------------------------------------------------------------------
 // CRC32
@@ -204,10 +205,64 @@ const WORKBOOK_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>`;
 
-// Style 1 = date format (numFmtId 14 = mm-dd-yy, but we use 164 custom yyyy-mm-dd)
-const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+/** The workbook's cell formats: the fixed ones, then one per distinct column `format` code. */
+interface StyleTable {
+  xml: string;
+  /** Column index → `s` attribute for its numeric/date cells (absent = the fixed date or General). */
+  byColumn: Map<number, number>;
+}
+
+// 고정 스타일: 0 General · 1 날짜 · 2 머리글 굵게 · 3 날짜-시각. 열 서식은 4 부터.
+const STYLE_DATE = 1;
+const STYLE_HEADER = 2;
+const STYLE_DATETIME = 3;
+const FIXED_FORMATS = [
+  { id: 164, code: 'yyyy-mm-dd' },
+  { id: 165, code: 'yyyy-mm-dd hh:mm:ss' },
+];
+
+/**
+ * The column's display `format` as a spreadsheet format code — number patterns are already one (the table reads them
+ * the way a spreadsheet does), date patterns use the table's tokens (`MM` month · `HH` 24-hour) and are translated.
+ * A function format has no code.
+ */
+function spreadsheetCode(col: ColumnDefinition): string | null {
+  if (typeof col.format !== 'string' || col.format === '') return null;
+  if (!isDateFormat(col.format)) return col.format;
+  // 표의 날짜 토큰 → 스프레드시트: 달은 문맥으로 갈리는 `mm`, 24시는 AM/PM 없는 `hh`.
+  return col.format.replace(/MM/g, 'mm').replace(/HH/g, 'hh');
+}
+
+function buildStyles(columns: ColumnDefinition[]): StyleTable {
+  const formats = [...FIXED_FORMATS];
+  const xfs = [
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>',
+    '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+  ];
+  const byCode = new Map<string, number>();
+  const byColumn = new Map<number, number>();
+  columns.forEach((col, ci) => {
+    const code = spreadsheetCode(col);
+    if (code === null) return;
+    let xf = byCode.get(code);
+    if (xf === undefined) {
+      const id = 164 + formats.length;
+      formats.push({ id, code });
+      xf = xfs.length;
+      // html-sink: xml attr — numFmtId is generated from a counter
+      xfs.push(`<xf numFmtId="${id}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`);
+      byCode.set(code, xf);
+    }
+    byColumn.set(ci, xf);
+  });
+  // html-sink: xml attr — formatCode is attribute-escaped (xmlEscape covers the quote) and ids are generated
+  const numFmts = formats.map(f => `<numFmt numFmtId="${f.id}" formatCode="${xmlEscape(f.code)}"/>`).join('');
+  // html-sink: xml attr — the counts are generated
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/></numFmts>
+  <numFmts count="${formats.length}">${numFmts}</numFmts>
   <fonts count="2">
     <font><sz val="11"/><name val="Calibri"/></font>
     <font><sz val="11"/><b/><name val="Calibri"/></font>
@@ -218,14 +273,12 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   </fills>
   <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="3">
-    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-    <xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-  </cellXfs>
+  <cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs>
 </styleSheet>`;
+  return { xml, byColumn };
+}
 
-function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
+function buildWorksheet(data: DataRow[], columns: ColumnDefinition[], styles: StyleTable): string {
   const rows: string[] = [];
 
   // html-sink: xml attr — worksheet XML, not HTML; `ref` is a generated A1 reference and `attrs` is a fixed literal, never user text
@@ -234,7 +287,7 @@ function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
   // Header row (style 2 = bold)
   const headerCells = columns.map((col, ci) => {
     const ref = cellRef(0, ci);
-    return cell(ref, ' t="str" s="2"', `<v>${xmlEscape(col.label)}</v>`);
+    return cell(ref, ` t="str" s="${STYLE_HEADER}"`, `<v>${xmlEscape(col.label)}</v>`);
   });
   rows.push(`<row r="1">${headerCells.join('')}</row>`);
 
@@ -248,15 +301,22 @@ function buildWorksheet(data: DataRow[], columns: ColumnDefinition[]): string {
 
       const type = col.type ?? 'text';
 
+      // 열 서식이 있으면 그 셀 스타일 — 파일도 표와 같은 글자를 보인다.
+      const styled = styles.byColumn.get(ci);
+      const s = (fallback?: number) => {
+        const id = styled ?? fallback;
+        return id === undefined ? '' : ` s="${id}"`;
+      };
+
       if (type === 'number' && typeof value === 'number') {
-        return cell(ref, '', `<v>${value}</v>`);
+        return cell(ref, s(), `<v>${value}</v>`);
       }
 
       // 날짜 열의 ISO 문자열도 날짜 셀이다(표가 그것을 날짜로 보이듯) · `exportValue` 가 돌려준 `Date` 도.
       const date = exportDate(value, col);
       if (date) {
         const serial = excelSerial(date).toFixed(6);
-        return cell(ref, ' s="1"', `<v>${serial}</v>`);
+        return cell(ref, s(col.type === 'datetime' ? STYLE_DATETIME : STYLE_DATE), `<v>${serial}</v>`);
       }
 
       if (type === 'boolean') {
@@ -293,13 +353,14 @@ export function buildXlsxDeflated(data: DataRow[], columns: ColumnDefinition[]):
 }
 
 function xlsxParts(data: DataRow[], columns: ColumnDefinition[]): ZipFile[] {
-  const sheet = buildWorksheet(data, columns);
+  const styles = buildStyles(columns);
+  const sheet = buildWorksheet(data, columns, styles);
   return [
     { name: '[Content_Types].xml', data: ENC.encode(CONTENT_TYPES) },
     { name: '_rels/.rels', data: ENC.encode(RELS) },
     { name: 'xl/workbook.xml', data: ENC.encode(WORKBOOK) },
     { name: 'xl/_rels/workbook.xml.rels', data: ENC.encode(WORKBOOK_RELS) },
     { name: 'xl/worksheets/sheet1.xml', data: ENC.encode(sheet) },
-    { name: 'xl/styles.xml', data: ENC.encode(STYLES) },
+    { name: 'xl/styles.xml', data: ENC.encode(styles.xml) },
   ];
 }

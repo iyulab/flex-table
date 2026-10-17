@@ -2,7 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- **XLSX export carries the column format.** A column's string `format` is written as the cell's number format, so the
+  file shows what the list shows — the same sections, colors, units and scaling, with the raw value still in the cell (date
+  patterns are translated: `MM` → `mm`, `HH` → `hh`).
+
 ### Fixed
+
+- **A `datetime` column's time shows in the XLSX file.** Date and date-time cells shared one `yyyy-mm-dd` style, so the
+  time was in the cell but hidden; `datetime` cells now use `yyyy-mm-dd hh:mm:ss`.
 
 - **Spreadsheet number formats are read as spreadsheets read them.** A `format` string such as `'#,##0;[Red](#,##0)'` drew
   the format code itself in the cell (the `d` in `[Red]` was taken for a day), a trailing unit (`'#,##0원'`) was dropped, a
