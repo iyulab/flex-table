@@ -345,6 +345,15 @@ export class FlexTable extends LitElement {
   @state()
   private _autocompleteState: { candidates: string[]; activeIndex: number } | null = null;
 
+  /**
+   * The header description tooltip (`ColumnDefinition.description`). `by` says who opened it — the
+   * pointer (hover / tap of the icon) or the keyboard sitting on the header cell — because the two
+   * close differently: a scroll closes the pointer's, the keyboard's follows its cell.
+   * `left` / `top` / `bottom` are the anchor cell's viewport rectangle at the time it opened.
+   */
+  @state()
+  private _hint: { key: string; by: 'pointer' | 'keyboard'; left: number; top: number; bottom: number } | null = null;
+
   @state()
   private _headerMenu: { key: string; x: number; y: number; hiddenNeighbors: ColumnDefinition[] } | null = null;
 
@@ -1565,6 +1574,8 @@ export class FlexTable extends LitElement {
     this._syncGridFocus();
     this._adjustFilterDropdown();
     if (changedProps.has('_headerMenu')) this._keepMenuInView('.ft-header-menu');
+    if (changedProps.has('_hint') && this._hint) this._placeHint();
+    if (changedProps.has('_headerCol')) this._syncKeyboardHint();
     if (changedProps.has('_bodyContextMenu') && this._bodyContextMenu) {
       this._keepMenuInView('.ft-body-context-menu');
       this.shadowRoot?.querySelector<HTMLElement>('.ft-body-context-menu [role="menuitem"]')?.focus();
@@ -1717,9 +1728,12 @@ export class FlexTable extends LitElement {
   private _onScroll(): void {
     this._scrollTop = this.scrollTop;
     this._scrollLeft = this.scrollLeft;
+    if (this._hint?.by === 'pointer') this._hint = null;
+    else if (this._hint) this._syncKeyboardHint();
   }
 
   private _onDocumentClick(): void {
+    if (this._hint?.by === 'pointer') this._hint = null;
     if (this._openFilterKey) {
       this._openFilterKey = null;
     }
@@ -2304,6 +2318,13 @@ export class FlexTable extends LitElement {
         break;
       case 'Home': next = 0; break;
       case 'End': next = cols.length - 1; break;
+      case 'Escape':
+        // Closes the description tooltip only — with none open the key is not ours.
+        if (!this._hint) return;
+        e.preventDefault();
+        this._hintDismissedKey = this._hint.key;
+        this._hint = null;
+        return;
       case 'ArrowDown':
         e.preventDefault();
         if (e.altKey) this._openColumnMenu(col);
@@ -2430,6 +2451,8 @@ export class FlexTable extends LitElement {
       }
       if (document.activeElement === this) return;
       this._focusedCellEl = null;
+      if (this._hint?.by === 'keyboard') this._hint = null;
+      this._hintDismissedKey = null;
       if (this._hostTabIndexLowered) {
         this._hostTabIndexLowered = false;
         this.tabIndex = 0;
@@ -2763,6 +2786,7 @@ export class FlexTable extends LitElement {
         data-col-index=${colIndex}
         style=${cellStyle}
         aria-sort=${ariaSortValue ?? nothing}
+        aria-description=${col.description ?? nothing}
         @contextmenu=${(e: MouseEvent) => this._onHeaderContextMenu(e, col)}
         @mousedown=${(e: MouseEvent) => this._columnGestures.headerMouseDown(e, col, colIndex)}
         @click=${sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined}>
@@ -2772,6 +2796,7 @@ export class FlexTable extends LitElement {
             @click=${(e: MouseEvent) => { e.stopPropagation(); this._showHiddenBefore(col); }}>&#x276F;</button>
         ` : ''}
         <span>${col.label}</span>
+        ${this._renderHeaderHintIcon(col)}
         ${criterion ? html`<span class="ft-sort-indicator">${criterion.direction === 'asc' ? '\u25B2' : '\u25BC'}</span>` : ''}
         ${sortIndex >= 0 ? html`<span class="ft-sort-order">${sortIndex + 1}</span>` : ''}
         <button class="ft-column-menu-btn ${hasFilter ? 'ft-filter-active' : ''}"
@@ -2791,6 +2816,101 @@ export class FlexTable extends LitElement {
           @dblclick=${(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); this._columnGestures.autoFit(col.key); }}></div>
       </div>
       ${this._openFilterKey === col.key ? this._filterPopover.renderDropdown(col) : ''}
+    `;
+  }
+
+  /** The icon beside a header label that carries `ColumnDefinition.description` — a glyph, the text is the cell's `aria-description`. */
+  private _renderHeaderHintIcon(col: ColumnDefinition) {
+    if (!col.description) return nothing;
+    return html`
+      <span class="ft-header-hint" aria-hidden="true"
+        @mousedown=${(e: MouseEvent) => e.stopPropagation()}
+        @pointerenter=${(e: PointerEvent) => { if (e.pointerType === 'mouse') this._openHint(col, 'pointer', e.currentTarget as HTMLElement); }}
+        @pointerleave=${() => { if (this._hint?.by === 'pointer') this._hint = null; }}
+        @click=${(e: MouseEvent) => this._onHintIconClick(e, col)}>
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" focusable="false">
+          <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm.9 10.5H7.1V7h1.8v4.5ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/>
+        </svg>
+      </span>
+    `;
+  }
+
+  /**
+   * A tap has no hover, so the click opens the tooltip — and a second tap closes it. A mouse click
+   * arrives with the tooltip already open from the hover and must not close it. The click never
+   * reaches the header's sort.
+   */
+  private _onHintIconClick(e: MouseEvent, col: ColumnDefinition): void {
+    e.stopPropagation();
+    if (this._hint?.key === col.key && this._hint.by === 'pointer') {
+      if ((e as PointerEvent).pointerType === 'touch') this._hint = null;
+      return;
+    }
+    this._openHint(col, 'pointer', e.currentTarget as HTMLElement);
+    // The document click that would close it is this very click.
+    requestAnimationFrame(() => document.addEventListener('click', this._onDocumentClick, { once: true }));
+  }
+
+  private _openHint(col: ColumnDefinition, by: 'pointer' | 'keyboard', from: HTMLElement): void {
+    const cell = from.closest<HTMLElement>('.ft-header-cell') ?? from;
+    const rect = cell.getBoundingClientRect();
+    this._hint = { key: col.key, by, left: rect.left, top: rect.top, bottom: rect.bottom };
+  }
+
+  /**
+   * The keyboard on a header cell opens that column's tooltip, and leaving the header (or the grid)
+   * closes it. `_headerCol` is only ever set by keyboard paths, so a click that lands on a header
+   * does not pop one up.
+   * Runs a frame late: the cell may not exist until the scroll that brings it into view has rendered.
+   */
+  private _syncKeyboardHint(): void {
+    requestAnimationFrame(() => {
+      const col = this._headerCol !== null && this.matches(':focus-within') ? this.visibleColumns[this._headerCol] : undefined;
+      const cell = col?.description
+        ? this.shadowRoot?.querySelector<HTMLElement>(`.ft-header-cell[data-col-index="${this._headerCol}"]`)
+        : null;
+      if (col && cell) {
+        // Escape closed this column's tooltip — it stays closed until the keyboard moves to another column.
+        if (this._hint?.key === col.key && this._hint.by === 'keyboard') {
+          const r = cell.getBoundingClientRect();
+          if (r.left !== this._hint.left || r.top !== this._hint.top) this._hint = { ...this._hint, left: r.left, top: r.top, bottom: r.bottom };
+          return;
+        }
+        if (this._hintDismissedKey === col.key) return;
+        this._openHint(col, 'keyboard', cell);
+      } else if (this._hint?.by === 'keyboard') {
+        this._hint = null;
+      }
+      if (col?.key !== this._hintDismissedKey) this._hintDismissedKey = null;
+    });
+  }
+
+  /** The column whose keyboard tooltip Escape closed. */
+  private _hintDismissedKey: string | null = null;
+
+  /** Above the cell (the tooltip must not cover the header the reader is on), below when the grid is at the top of the page; kept inside the viewport. */
+  private _placeHint(): void {
+    const tip = this.shadowRoot?.querySelector<HTMLElement>('.ft-header-tooltip');
+    const hint = this._hint;
+    if (!tip || !hint) return;
+    const margin = 4;
+    const rect = tip.getBoundingClientRect();
+    const viewWidth = document.documentElement.clientWidth;
+    const above = hint.top - rect.height - margin;
+    tip.style.top = `${above >= margin ? above : hint.bottom + margin}px`;
+    tip.style.left = `${Math.max(margin, Math.min(hint.left, viewWidth - rect.width - margin))}px`;
+    tip.style.visibility = 'visible';
+  }
+
+  private _renderHeaderHint() {
+    const hint = this._hint;
+    if (!hint) return nothing;
+    const col = this.columns.find(c => c.key === hint.key);
+    if (!col?.description) return nothing;
+    // Invisible until `_placeHint` has measured it — a first frame at the unplaced spot would flash.
+    return html`
+      <div class="ft-header-tooltip" aria-hidden="true"
+        style="position: fixed; left: ${hint.left}px; top: ${hint.bottom}px; visibility: hidden; z-index: var(--u-layer-floating, 1000);">${col.description}</div>
     `;
   }
 
@@ -3309,6 +3429,7 @@ export class FlexTable extends LitElement {
           ${dropIndicator}
         </div>
         ${msg}
+        ${this._renderHeaderHint()}
       `;
     }
 
@@ -3344,6 +3465,7 @@ export class FlexTable extends LitElement {
       ${fillHandle}
       ${this._renderHeaderContextMenu()}
       ${this._renderBodyContextMenu()}
+      ${this._renderHeaderHint()}
       ${this._commentPopup.render()}
     `;
   }

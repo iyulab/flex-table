@@ -144,6 +144,7 @@ interface ColumnDefinition {
   sortable?: boolean;      // Enable sorting (default: true)
   align?: 'start' | 'center' | 'end';       // Cell alignment (default from type: number → end, boolean → center, else start)
   headerAlign?: 'start' | 'center' | 'end'; // Header alignment (default: the cell alignment above)
+  description?: string;      // What the values mean — an info icon beside the label opens it as a tooltip
   editable?: boolean | ((row, col) => boolean); // Per-column edit control, or per row (follows global editable) — see below
   pinned?: 'left' | 'right'; // Freeze column during horizontal scroll
   options?: string[] | SelectOption[]; // Allowed values for type: 'select' (SelectOption = { label, value })

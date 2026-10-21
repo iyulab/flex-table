@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Column header descriptions.** `ColumnDefinition.description` says what a column's values mean — the basis a label
+  cannot carry. An info icon beside the header label opens it as a tooltip (pointer hover, a tap of the icon, or the
+  keyboard on the header cell; Escape closes it), and the header cell carries it as `aria-description`. The icon sits
+  inside the column's width and counts in auto-fit. Not part of CSV or XLSX export.
+
 ## [0.71.0] - 2026-10-17
 
 ### Added

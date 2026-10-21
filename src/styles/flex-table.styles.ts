@@ -535,6 +535,39 @@ export const flexTableStyles = css`
     background: var(--ft-header-hover-bg);
   }
 
+  /* 열 설명(description) 아이콘 — 라벨 옆. 모양은 폼의 힌트(u-field)와 같은 «원 안의 i». 눌러 열 수 있어야(탭) 하므로 메뉴 버튼과 같은 24px 하한. */
+  .ft-header-hint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: max(24px, var(--u-target-size, 0px));
+    block-size: max(24px, var(--u-target-size, 0px));
+    flex-shrink: 0;
+    margin-inline-start: -4px;
+    color: var(--ft-sort-indicator-color);
+    opacity: 0.7;
+    cursor: help;
+  }
+
+  .ft-header-hint:hover { opacity: 1; }
+
+  /* 설명 툴팁 — 표 밖(fixed)에 띄운다. 머리 칸의 overflow 에 잘리지 않고, 포인터를 받지 않아 아래 칸의 클릭을 가리지 않는다. */
+  .ft-header-tooltip {
+    box-sizing: border-box;
+    max-inline-size: min(320px, calc(100vw - 8px));
+    padding: 6px 10px;
+    border-radius: var(--u-radius-md, 4px);
+    background: var(--u-tooltip-bg-color, rgba(0, 0, 0, 0.75));
+    color: var(--u-tooltip-txt-color, #FFFFFF);
+    font-size: var(--ft-header-font-size);
+    font-weight: normal;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    box-shadow: var(--u-shadow-xl, 0 6px 18px rgba(0, 0, 0, 0.24), 0 2px 6px rgba(0, 0, 0, 0.08));
+    pointer-events: none;
+  }
+
   .ft-column-menu-btn:focus-visible {
     opacity: 1;
     outline: 2px solid var(--ft-active-color);

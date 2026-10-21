@@ -59,6 +59,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `sortable` | `boolean` | default `true` |
 | `align` | `'start' \| 'center' \| 'end'` | Default from type: number → end, boolean → center, else start |
 | `headerAlign` | `'start' \| 'center' \| 'end'` | Defaults to the cell alignment |
+| `description` | `string` | What the column's values mean (the basis a label cannot carry). An info icon beside the header label opens it as a tooltip on hover, on a tap of the icon, and while the keyboard is on the header cell (Escape closes); it is also the header's `aria-description`. Not part of any export |
 | `editable` | `boolean \| ((row, col) => boolean)` | Per-column, or per row with a function (a cell locked by its row's state); the global `editable` still applies. A non-editable cell opens no editor, takes no paste / fill / Delete / cut / replace, and is `aria-readonly` |
 | `pinned` | `'left' \| 'right'` | |
 | `options` | `string[] \| SelectOption[]` | For `select`; `SelectOption` = `{ label, value }` |

@@ -103,6 +103,14 @@ export interface ColumnDefinition<T = DataRow> {
    * differ from its values.
    */
   headerAlign?: ColumnAlign;
+  /**
+   * What the column's values mean — the basis a header label cannot carry («billed amount — by the
+   * billing party's unit price»). Shown as an info icon beside the label with a tooltip, and passed to
+   * assistive technology as the header's `aria-description`. The tooltip opens on pointer hover, on a
+   * tap of the icon, and whenever the keyboard is on the header cell; Escape or leaving closes it.
+   * Plain text. Not part of any export.
+   */
+  description?: string;
   /** Custom cell renderer — overrides built-in type rendering */
   render?: CellRenderer<T>;
   /**
