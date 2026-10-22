@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **Sorting a column without a declared `type` compares its values by kind.** Numbers sort numerically, booleans as
+  booleans and `Date` objects as dates; anything else, and mixed kinds, still compare as text. Before, an undeclared
+  column always compared as text, so `1076000000` sorted before `22000000`. This applies to the grid and to
+  `createArraySource` / `useArraySource`, whose `columns` option is now needed only to compare date or number *strings*
+  by value, or to force text order (`type: 'text'`).
+
 ## [0.72.0] - 2026-10-21
 
 ### Added

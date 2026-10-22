@@ -95,6 +95,19 @@ describe('computeSortedIndices', () => {
     expect(result).toEqual([2, 1, 0]);
   });
 
+  it('compares an undeclared column by its values — numbers numerically, not as text', () => {
+    // Text order would put 1076000000 before 22000000.
+    const rows: DataRow[] = [{ amount: 1076000000 }, { amount: 22000000 }, { amount: 481000000 }];
+    expect(computeSortedIndices(rows, [{ key: 'amount', direction: 'asc' }], [])).toEqual([1, 2, 0]);
+  });
+
+  it('keeps text order for an undeclared column of strings and for a declared text column of numbers', () => {
+    const rows: DataRow[] = [{ code: '10' }, { code: '9' }];
+    expect(computeSortedIndices(rows, [{ key: 'code', direction: 'asc' }], [])).toEqual([0, 1]);
+    const typed: ColumnDefinition[] = [{ key: 'n', label: 'N', type: 'text' }];
+    expect(computeSortedIndices([{ n: 10 }, { n: 9 }], [{ key: 'n', direction: 'asc' }], typed)).toEqual([0, 1]);
+  });
+
   it('should handle empty data', () => {
     expect(computeSortedIndices([], [{ key: 'name', direction: 'asc' }], cols)).toEqual([]);
   });

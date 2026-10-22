@@ -30,10 +30,11 @@ export function computeSortedIndices(
   const indices = Array.from({ length: data.length }, (_, i) => i);
   if (criteria.length === 0) return indices;
 
-  // Build column type map for comparison
+  // Build column type map for comparison — only declared types. An undeclared column is compared by
+  // its values' own kind (see `compareValues`), so a column of numbers sorts numerically without a definition.
   const colTypeMap = new Map<string, string>();
   for (const col of columns) {
-    colTypeMap.set(col.key, col.type ?? 'text');
+    if (col.type) colTypeMap.set(col.key, col.type);
   }
 
   indices.sort((a, b) => {
@@ -46,7 +47,7 @@ export function computeSortedIndices(
       if (aNull && bNull) continue;
       if (aNull) return 1;
       if (bNull) return -1;
-      const cmp = compareValues(va, vb, colTypeMap.get(key) ?? 'text');
+      const cmp = compareValues(va, vb, colTypeMap.get(key) ?? inferType(va, vb));
       if (cmp !== 0) {
         return direction === 'asc' ? cmp : -cmp;
       }
@@ -56,6 +57,18 @@ export function computeSortedIndices(
   });
 
   return indices;
+}
+
+/**
+ * The comparison for a column whose type is not declared: numbers as numbers, booleans as booleans,
+ * `Date`s as dates — when both values are that kind. Anything else (strings, mixed kinds) compares as text.
+ * Without it, `1076000000` sorted before `22000000` (text order) in any column the caller did not type.
+ */
+function inferType(a: unknown, b: unknown): string {
+  if ((typeof a === 'number' || typeof a === 'bigint') && (typeof b === 'number' || typeof b === 'bigint')) return 'number';
+  if (typeof a === 'boolean' && typeof b === 'boolean') return 'boolean';
+  if (a instanceof Date && b instanceof Date) return 'date';
+  return 'text';
 }
 
 /**

@@ -59,10 +59,7 @@ describe('computeArrayView — 정렬', () => {
     expect(result.data.map((r) => r.id)).toEqual([1, 2, 3]);
   });
 
-  it('columns 없이(텍스트 비교로 낮아짐) 숫자 컬럼을 정렬하면 문자열 순서가 된다', () => {
-    // 10 < 20 < 30 이지만 텍스트로는 "10" < "20" < "30" 이라 결과가 같다 —
-    // 이 케이스는 숫자 비교와 텍스트 비교가 우연히 같은 순서를 내므로,
-    // 아래 "columns 있을 때" 테스트와 대비되는 자리에서 값을 다르게 잡는다.
+  it('columns 없이도 숫자 값은 숫자로 정렬한다', () => {
     const result = computeArrayView(ROWS, {
       ...BASE,
       sortCriteria: [{ key: 'price', direction: 'asc' }],
@@ -70,7 +67,7 @@ describe('computeArrayView — 정렬', () => {
     expect(result.data.map((r) => r.id)).toEqual([2, 3, 1]);
   });
 
-  it('columns를 넘기면 숫자 컬럼을 값 기준으로 비교한다(텍스트 정렬과 다른 결과를 만드는 케이스로 재현)', () => {
+  it('숫자 값은 columns 가 있든 없든 값 기준으로 비교하고, 타입을 text 로 정하면 텍스트로 비교한다', () => {
     const rows: Row[] = [
       { id: 1, name: 'A', price: 9, category: 'x' },
       { id: 2, name: 'B', price: 10, category: 'x' },
@@ -89,7 +86,14 @@ describe('computeArrayView — 정렬', () => {
       ...BASE,
       sortCriteria: [{ key: 'price', direction: 'asc' }],
     });
-    expect(withoutColumns.data.map((r) => r.id)).toEqual([2, 3, 1]); // "10" < "2" < "9" (텍스트 비교)
+    expect(withoutColumns.data.map((r) => r.id)).toEqual([3, 1, 2]); // 타입 미지정 — 값의 형(숫자)으로 비교
+
+    const asText = computeArrayView(rows, {
+      ...BASE,
+      sortCriteria: [{ key: 'price', direction: 'asc' }],
+      columns: [{ key: 'price', label: 'Price', type: 'text' }],
+    });
+    expect(asText.data.map((r) => r.id)).toEqual([2, 3, 1]); // "10" < "2" < "9" — 정한 타입이 이긴다
   });
 
   it('검색 후 정렬한다(순서: 검색 → 정렬 → 페이지)', () => {

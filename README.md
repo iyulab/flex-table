@@ -1106,7 +1106,7 @@ const source = useArraySource(joined, {
 | `pageSize` | `20` | Rows per page |
 | `defaultOrderBy` | — | Initial sort (e.g. `'name asc'`), same syntax as `useODataSource` |
 | `initialPage` / `initialSearch` / `initialSort` | `0` / `''` / — | Same names, same meanings, same first-render-only contract as `useODataSource` — the shared shape covers initial state too, so swapping sources needs no other change |
-| `columns` | — | `ColumnDefinition[]` — enables value-aware sort (numbers/dates/booleans compared by value, not as text). Omit and every column sorts as text. |
+| `columns` | — | `ColumnDefinition[]` — sets each column's comparison by its `type`. A column without a declared type compares by its values' kind: numbers numerically, booleans as booleans, `Date` objects as dates, anything else as text. Declare `type` to compare date or number *strings* by value. |
 | `searchFields` | all values | `(row) => value[]` — narrows or widens what free-text search matches; the default searches every property on the row, including client-joined ones |
 
 The returned fields mean the same thing as `useODataSource`'s, except `totalCount` is the

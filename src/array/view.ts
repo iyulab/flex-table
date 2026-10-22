@@ -26,8 +26,8 @@ export interface ComputeArrayViewOptions<T> {
  * 테스트하기 위해 분리했다.
  *
  * 정렬은 그리드 자신의 클라이언트 정렬 파이프라인이 쓰는 `computeSortedIndices`를
- * 그대로 재사용한다 — `columns`를 넘기면 숫자/날짜/불리언도 값 기준으로 비교되고,
- * 생략하면 전부 텍스트 비교로 낮아진다.
+ * 그대로 재사용한다 — `columns`가 타입을 정한 컬럼은 그 타입으로, 정하지 않은 컬럼은
+ * 값의 형(숫자 · 불리언 · `Date` · 그 밖은 텍스트)으로 비교한다.
  */
 export function computeArrayView<T extends DataRow>(
   data: T[],

@@ -20,9 +20,9 @@ export interface UseArraySourceOptions<T> {
   /** 초기 정렬. 주면 `defaultOrderBy` 파싱보다 **우선**한다(`useODataSource`와 동일). */
   initialSort?: SortCriteria[];
   /**
-   * 타입 인지 정렬 비교(숫자/불리언/날짜/텍스트)에 쓸 컬럼 정의. 생략하면 전부
-   * 텍스트로 비교한다(숫자 컬럼도 문자열 정렬 순서를 따름) — 그리드에 이미 넘기는
-   * `columns`를 그대로 전달하면 된다.
+   * 정렬 비교 타입(숫자/불리언/날짜/텍스트)을 정하는 컬럼 정의. 생략한 컬럼은 값의 형으로
+   * 비교한다 — 숫자는 숫자로, 불리언은 불리언으로, `Date` 는 날짜로, 그 밖은 텍스트로.
+   * 값이 문자열인 날짜(`'2026-10-22'`)나 숫자 문자열을 값 기준으로 비교하려면 `type` 을 준다.
    */
   columns?: import('../models/types.js').ColumnDefinition<T>[];
   /**
