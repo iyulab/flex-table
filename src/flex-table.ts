@@ -243,7 +243,7 @@ export class FlexTable extends LitElement {
 
   /** Enable row-level checkbox selection. */
   @property({ type: Boolean })
-  selectable: boolean = false;
+  selectable: boolean | ((row: DataRow) => boolean) = false;
 
   /** Row selection mode: 'single' or 'multi' (default: 'multi'). */
   @property({ type: String, attribute: 'selection-mode' })
@@ -519,7 +519,7 @@ export class FlexTable extends LitElement {
   /** Selects every row in view — after filtering (multi mode only). Rows on other pages stay as they are. */
   selectAll(): void {
     if (!this.selectable) return;
-    this._rowSelection.selectAll(this._visibleRowIds());
+    this._rowSelection.selectAll(this._selectableVisibleRowIds());
     this._rowSelectionVersion++;
     this._dispatchRowSelectionEvent();
   }
@@ -556,6 +556,23 @@ export class FlexTable extends LitElement {
 
   private _dispatchRowSelectionEvent(): void {
     this._emit('selection-change', this._selectionSnapshot());
+  }
+
+  /** Whether the user may select `row` — `selectable` as a function of the row decides it (a column's `editable` shape). */
+  private _canSelectRow(row: DataRow | undefined): boolean {
+    if (!row) return false;
+    return typeof this.selectable === 'function' ? !!this.selectable(row) : true;
+  }
+
+  /** The rows in view the user may select — what select-all and a Shift-range act on. */
+  private _selectableVisibleRowIds(): string[] {
+    if (typeof this.selectable !== 'function') return this._visibleRowIds();
+    const ids: string[] = [];
+    for (let v = 0; v < this._visibleRowCount; v++) {
+      const row = this.data[this._toDataIndex(v)];
+      if (row !== undefined && this._canSelectRow(row)) ids.push(this.getRowId(row));
+    }
+    return ids;
   }
 
   /** Ids of the rows in view, top to bottom (after filter and sort). Cached per view and `rowKey`. */
@@ -2263,7 +2280,7 @@ export class FlexTable extends LitElement {
     if (e.key === ' ' && e.shiftKey && this.selectable && this._activeCell && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
       const row = this.data[this._toDataIndex(this._activeCell.row)];
-      if (!row) return;
+      if (!row || !this._canSelectRow(row)) return;
       const id = this.getRowId(row);
       this._rowSelection.toggle(id);
       this._lastCheckboxRowId = id;
@@ -3390,8 +3407,9 @@ export class FlexTable extends LitElement {
           ${this._rowSelection.mode === 'multi' ? html`
             <!-- 칸 전체가 누르는 자리다(라벨) — 체크 상자는 16px 그대로. -->
             <label class="ft-checkbox-hit"><input type="checkbox" tabindex="-1" aria-label=${t('selectAllRows')}
-              .checked=${this._rowSelection.isAllSelected(this._visibleRowIds())}
-              .indeterminate=${this._rowSelection.isSomeSelected(this._visibleRowIds())}
+              .checked=${this._rowSelection.isAllSelected(this._selectableVisibleRowIds())}
+              .indeterminate=${this._rowSelection.isSomeSelected(this._selectableVisibleRowIds())}
+              ?disabled=${this._selectableVisibleRowIds().length === 0}
               @change=${this._onSelectAllChange}></label>
           ` : ''}
         </div>`
@@ -3474,9 +3492,9 @@ export class FlexTable extends LitElement {
     const checked = (e.target as HTMLInputElement).checked;
     // The rows in view — rows selected on another page are not in view and stay as they are.
     if (checked) {
-      this._rowSelection.selectAll(this._visibleRowIds());
+      this._rowSelection.selectAll(this._selectableVisibleRowIds());
     } else {
-      this._rowSelection.deselectMany(this._visibleRowIds());
+      this._rowSelection.deselectMany(this._selectableVisibleRowIds());
     }
     this._rowSelectionVersion++;
     this._dispatchRowSelectionEvent();
@@ -3485,10 +3503,10 @@ export class FlexTable extends LitElement {
   private _onRowCheckboxChange(e: Event, rowIndex: number): void {
     e.stopPropagation();
     const row = this.data[this._toDataIndex(rowIndex)];
-    if (!row) return;
+    if (!row || !this._canSelectRow(row)) return;
     const id = this.getRowId(row);
     if (this._checkboxShiftPending && this._lastCheckboxRowId !== null) {
-      this._rowSelection.selectRange(this._visibleRowIds(), this._lastCheckboxRowId, id);
+      this._rowSelection.selectRange(this._visibleRowIds(), this._lastCheckboxRowId, id, this._selectableVisibleRowIds());
     } else {
       this._rowSelection.toggle(id);
     }
@@ -3643,6 +3661,7 @@ export class FlexTable extends LitElement {
              렌더된 행마다 정지점이면 표 하나를 지나는 데 Tab 이 행 수만큼 든다. -->
         <label class="ft-checkbox-hit"><input type="checkbox" tabindex="-1" aria-label=${t('selectRow')}
           .checked=${isRowSelected}
+          ?disabled=${!this._canSelectRow(row)}
           @click=${(e: MouseEvent) => this._onRowCheckboxClick(e)}
           @change=${(e: Event) => this._onRowCheckboxChange(e, index)}></label>
       </div>

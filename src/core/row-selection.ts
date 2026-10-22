@@ -107,14 +107,18 @@ export class RowSelectionState {
    * Selects `ids` between the positions of `from` and `to` in `ordered` (the rows in view, top to bottom), inclusive,
    * in either direction — shift-click range selection anchored at the last toggled row. Single mode selects only
    * `to`, matching `toggle()`'s one-slot semantics. An anchor that is no longer in view selects only `to`.
+   * `allowed`, when given, is the subset that may be selected — a row between the ends that is not in it is skipped.
    */
-  selectRange(ordered: readonly string[], from: string, to: string): void {
+  selectRange(ordered: readonly string[], from: string, to: string, allowed?: readonly string[]): void {
     const a = ordered.indexOf(from);
     const b = ordered.indexOf(to);
     if (this._mode === 'single' || a < 0 || b < 0) {
       this.select(to);
       return;
     }
-    for (let i = Math.min(a, b); i <= Math.max(a, b); i++) this._selected.add(ordered[i]);
+    const ok = allowed ? new Set(allowed) : null;
+    for (let i = Math.min(a, b); i <= Math.max(a, b); i++) {
+      if (!ok || ok.has(ordered[i])) this._selected.add(ordered[i]);
+    }
   }
 }

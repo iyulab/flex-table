@@ -107,7 +107,7 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `showFilters` | `show-filters` | `boolean` | `false` | Offer the built-in filter dropdowns through each column menu («Filter…») |
 | `maxRows` | `max-rows` | `number` | `0` | Max row count (0 = unlimited); blocks `addRow()` and paste expansion |
 | `maxUndoSize` | `max-undo-size` | `number` | `100` | Max undo history stack size |
-| `selectable` | `selectable` | `boolean` | `false` | Enable row-level checkbox selection |
+| `selectable` | `selectable` | `boolean \| (row) => boolean` | `false` | Enable row-level checkbox selection. A function of the row decides per row (the shape a column's `editable` takes): a rejected row draws a disabled checkbox and is left out of select-all, Shift-range and Shift+Space. `setSelection()` / `selectWhere()` are not filtered |
 | `rowKey` | `row-key` | `string \| (row) => unknown` | `'_id'` | What names a row — selection is kept by this id (see [Row Selection](#row-selection)) |
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | Row selection mode |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Client-side or server-side data processing |

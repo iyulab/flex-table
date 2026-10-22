@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- `selectable` also takes a function of the row — the shape a column's `editable` takes, and the same property as
+  `u-rich-table`'s. A row it rejects (already shipped, locked) draws a disabled checkbox and is left out of
+  `selectAll()`, the header checkbox, a Shift-range and Shift+Space; the header's checked state counts only the rows that
+  can be selected. `setSelection()` and `selectWhere()` stay the app's to call.
+
 ### Changed
 
 - **Sorting a column without a declared `type` compares its values by kind.** Numbers sort numerically, booleans as

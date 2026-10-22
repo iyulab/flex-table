@@ -17,7 +17,7 @@ All names below are members of the `FlexTable` class (`<flex-table>`).
 | `frozenRows` | `frozen-rows` | `number` | `0` | Rows kept visible at the top |
 | `maxRows` | `max-rows` | `number` | `0` | 0 = unlimited; blocks `addRow()` and paste expansion |
 | `maxUndoSize` | `max-undo-size` | `number` | `100` | Undo stack size |
-| `selectable` | `selectable` | `boolean` | `false` | Row checkbox selection |
+| `selectable` | `selectable` | `boolean \| (row) => boolean` | `false` | Row checkbox selection; a function of the row decides per row (rejected rows: disabled checkbox, skipped by select-all, Shift-range, Shift+Space) |
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Server mode only emits sort/filter events |
 | `footerData` | `footer-data` | `Record<string, string \| number \| TemplateResult> \| null` | `null` | Summary row keyed by column key — a number is written with the column `format` (a server total); an entry wins over the column's `aggregate` |

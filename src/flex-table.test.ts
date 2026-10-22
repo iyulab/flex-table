@@ -4924,6 +4924,63 @@ describe('FlexTable', () => {
     });
   });
 
+  /**
+   * `selectable` as a function of the row — rows the user may not pick (already shipped, locked), the shape a column's
+   * `editable` takes. The same property, with the same meaning, as `u-rich-table`'s.
+   */
+  describe('selectable per row', () => {
+    const ROWS: DataRow[] = [
+      { _id: 'a', name: 'Alpha', status: 'stored' },
+      { _id: 'b', name: 'Bravo', status: 'shipped' },
+      { _id: 'c', name: 'Charlie', status: 'stored' },
+    ];
+    async function makeEl() {
+      const el = createElement();
+      el.columns = [{ key: 'name', label: 'Name' }];
+      el.selectable = (row) => row.status !== 'shipped';
+      el.data = ROWS;
+      await el.updateComplete;
+      return el;
+    }
+    const boxes = (el: FlexTable) => [...el.shadowRoot!.querySelectorAll<HTMLInputElement>('.ft-checkbox-cell input')];
+    const ids = (el: FlexTable) => [...el.selectedRowIds].sort();
+
+    it('a rejected row draws a disabled checkbox, and its change selects nothing', async () => {
+      const el = await makeEl();
+      expect(boxes(el).map((b) => b.disabled)).toEqual([false, true, false]);
+      boxes(el)[1].dispatchEvent(new Event('change')); // what a click would fire if the checkbox were enabled
+      expect(ids(el)).toEqual([]);
+    });
+
+    it('selectAll() and the header checkbox take only the rows that may be selected', async () => {
+      const el = await makeEl();
+      el.selectAll();
+      await el.updateComplete;
+      expect(ids(el)).toEqual(['a', 'c']);
+      const head = el.shadowRoot!.querySelector<HTMLInputElement>('.ft-checkbox-header input')!;
+      expect(head.checked).toBe(true);
+      expect(head.indeterminate).toBe(false);
+    });
+
+    it('a Shift-range skips the rejected rows between its ends', async () => {
+      const el = await makeEl();
+      // A click toggles the checkbox and fires its change (the checkbox's own activation) — the anchor, then the Shift end.
+      boxes(el)[0].click();
+      await el.updateComplete;
+      boxes(el)[2].dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true, cancelable: true }));
+      expect(ids(el)).toEqual(['a', 'c']);
+    });
+
+    it('NEGATIVE a boolean selectable still selects every row', async () => {
+      const el = await makeEl();
+      el.selectable = true;
+      await el.updateComplete;
+      expect(boxes(el).every((b) => !b.disabled)).toBe(true);
+      el.selectAll();
+      expect(ids(el)).toEqual(['a', 'b', 'c']);
+    });
+  });
+
   // The date and datetime editors (u-date-picker) are measured in tests/browser/date-editor.browser.test.ts —
   // focus inside the picker and its calendar needs a real browser.
 
