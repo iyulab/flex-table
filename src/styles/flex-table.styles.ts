@@ -394,7 +394,11 @@ export const flexTableStyles = css`
   .ft-format-tone[data-tone='info'] { color: var(--u-info-color, #1976D2); }
   .ft-format-tone[data-tone='warning'] { color: var(--u-warning-color-strong, #8A4A00); }
 
+  /* 빈 상태 · 오류 문구는 표(호스트)의 보이는 폭에 서서 가로로 굴려도 그 자리에 머문다 — 머리글이 넓은 표에서 오른쪽으로 굴린 채
+     결과가 비면 문구가 화면 밖에 있었다. 블록이라 폭은 이미 보이는 폭이다. */
   .ft-empty {
+    position: sticky;
+    inset-inline-start: 0;
     padding: 24px;
     text-align: center;
     color: var(--ft-empty-color);

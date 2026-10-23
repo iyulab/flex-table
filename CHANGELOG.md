@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **The empty and error messages stay in view on a table scrolled sideways.** With columns wider than the table,
+  scrolling right and then getting an empty result left the message off to the left, out of view. It now sticks to
+  the visible width.
+
 ## [0.73.0] - 2026-10-23
 
 ### Added
