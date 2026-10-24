@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **The table's outline survives a page-wide reset.** The outline, surface and scrolling were the host's own box,
+  and a document rule such as Tailwind's preflight (`* { border: 0 }`) beats any rule a component sets on its host —
+  the table lost its outline in such apps. They now belong to a new `base` part inside the shadow root, which a
+  document rule cannot reach; style it with `flex-table::part(base)`. The host still takes the size (`height`,
+  `flex`, `max-height`) and still answers `scrollTop`, `scrollLeft`, `scrollHeight`, `clientHeight`, `scrollTo` and
+  `scrollBy`, and fires `scroll`. A rule that set `border` or `background` on the `flex-table` element itself now
+  draws a second box around the table — move it to `::part(base)`.
+
 ## [0.74.0] - 2026-10-24
 
 ### Fixed

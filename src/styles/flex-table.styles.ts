@@ -119,16 +119,30 @@ export const flexTableStyles = css`
     display: none !important;
   }
 
+  /* 호스트는 크기만 받는다(height · flex) — 상자와 스크롤은 섀도 안 base 가 갖는다. 호스트에 준 테두리 · 여백은
+     문서의 전역 리셋(Tailwind preflight 류)에 지고, 섀도 안 규칙은 리셋이 닿지 않는다. */
   :host {
-    display: block;
-    position: relative;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     font-family: var(--ft-font-family);
     font-size: var(--ft-font-size);
     color: var(--ft-text-color);
+    outline: none;
+  }
+
+  .ft-base {
+    position: relative;
+    /* 호스트가 flex 열이면 남은 높이를, 소비자가 호스트를 block 으로 바꿨으면 그 높이를 그대로 받는다. */
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+    overflow: auto;
+    box-sizing: border-box;
     background: var(--ft-bg);
     border: 1px solid var(--ft-border-color);
-    outline: none;
+    outline: none; /* 초점 표시는 셀이 한다 — 호스트와 같다 */
   }
 
   .ft-header {

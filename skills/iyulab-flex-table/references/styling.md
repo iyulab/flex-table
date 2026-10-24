@@ -2,7 +2,7 @@
 
 ## Sizing
 
-The host is the scroll container and virtualizes against its own height:
+The host takes the size; the grid virtualizes against it:
 
 ```css
 flex-table { height: 400px; }
@@ -10,6 +10,11 @@ flex-table { height: 400px; }
 .page { height: 100%; display: flex; flex-direction: column; }
 .page flex-table { flex: 1 1 auto; min-height: 0; }
 ```
+
+The outline, surface and scrollbars belong to the `base` part inside the shadow root, so a page-wide reset
+(`* { border: 0; padding: 0 }`, as Tailwind's preflight does) does not strip them. Style the box there —
+`flex-table::part(base) { border: none; }` drops the outline inside a card. `scrollTop`, `scrollLeft`,
+`scrollTo` and the `scroll` event still work on the host.
 
 ## Theming
 

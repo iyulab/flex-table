@@ -19,7 +19,7 @@ npm install @iyulab/flex-table
 ## Quick Start
 
 ```html
-<!-- The table is its own scroll container, so give it a height — see Sizing below. -->
+<!-- The table scrolls inside itself, so give it a height — see Sizing below. -->
 <flex-table style="height: 400px" row-height="32" show-row-numbers></flex-table>
 
 <script type="module">
@@ -71,8 +71,8 @@ npm install @iyulab/flex-table
 
 ## Sizing
 
-The table is its own scroll container (`overflow: auto` on the host) and it measures the viewport
-from the host's own height. **Give it a height** — directly, or through a constrained parent:
+The table scrolls inside itself and measures the viewport from the host's own height. **Give it a
+height** — directly, or through a constrained parent:
 
 ```css
 flex-table { height: 400px; }
@@ -83,6 +83,10 @@ flex-table { height: 400px; }
 .page      { height: 100%; display: flex; flex-direction: column; }
 .page flex-table { flex: 1 1 auto; min-height: 0; }
 ```
+
+The outline, surface and scrollbars are drawn by the `base` part inside the shadow root, so a page-wide
+reset (`* { border: 0 }`, as Tailwind's preflight does) cannot strip them; style the box with
+`flex-table::part(base)`. `scrollTop`, `scrollLeft`, `scrollTo` and the `scroll` event work on the host.
 
 ⚠ **Without a height constraint the virtual scroll has nothing to virtualise against.** The body
 carries the full content height, so an unconstrained host grows to match it and the viewport

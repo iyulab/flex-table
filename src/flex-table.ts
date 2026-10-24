@@ -77,6 +77,10 @@ const OVERSCAN = 5;
  */
 const UNCONSTRAINED_WARN_ROWS = 200;
 
+/**
+ * @csspart base - The grid's box and scroll container: outline, surface and both scrollbars. The host takes the size
+ *   (`height`, `flex`); `scrollTop`, `scrollLeft`, `scrollTo` and the `scroll` event on the host reach this element.
+ */
 @customElement('flex-table')
 export class FlexTable extends LitElement {
   static styles = flexTableStyles;
@@ -300,6 +304,43 @@ export class FlexTable extends LitElement {
 
   @state()
   private _scrollLeft = 0;
+
+  /**
+   * 스크롤 컨테이너 — 섀도 안 `base` part. 상자(테두리 · 바탕)와 스크롤을 호스트가 아니라 여기가 가져
+   * 문서의 전역 리셋(Tailwind preflight 류)이 외곽선을 지우지 못한다. 호스트의 스크롤 · 뷰포트 속성은
+   * 이 요소로 위임한다(아래) — `table.scrollTop` 을 읽고 쓰는 쪽은 바뀌지 않는다.
+   */
+  private get _base(): HTMLElement | null {
+    return (this.renderRoot as ShadowRoot | undefined)?.querySelector?.('.ft-base') ?? null;
+  }
+
+  override get scrollTop(): number { return this._base ? this._base.scrollTop : super.scrollTop; }
+  override set scrollTop(value: number) { if (this._base) this._base.scrollTop = value; else super.scrollTop = value; }
+  override get scrollLeft(): number { return this._base ? this._base.scrollLeft : super.scrollLeft; }
+  override set scrollLeft(value: number) { if (this._base) this._base.scrollLeft = value; else super.scrollLeft = value; }
+  override get scrollHeight(): number { return this._base ? this._base.scrollHeight : super.scrollHeight; }
+  override get scrollWidth(): number { return this._base ? this._base.scrollWidth : super.scrollWidth; }
+  /** 보이는 뷰포트 — 테두리 · 스크롤바를 뺀 크기(종전에 호스트가 스크롤 컨테이너였을 때와 같은 뜻). */
+  override get clientHeight(): number { return this._base ? this._base.clientHeight : super.clientHeight; }
+  override get clientWidth(): number { return this._base ? this._base.clientWidth : super.clientWidth; }
+
+  override scrollTo(options?: ScrollToOptions): void;
+  override scrollTo(x: number, y: number): void;
+  override scrollTo(a?: ScrollToOptions | number, b?: number): void {
+    const base = this._base;
+    if (typeof a === 'number') { if (base) base.scrollTo(a, b ?? 0); else super.scrollTo(a, b ?? 0); }
+    else if (base) base.scrollTo(a);
+    else super.scrollTo(a);
+  }
+
+  override scrollBy(options?: ScrollToOptions): void;
+  override scrollBy(x: number, y: number): void;
+  override scrollBy(a?: ScrollToOptions | number, b?: number): void {
+    const base = this._base;
+    if (typeof a === 'number') { if (base) base.scrollBy(a, b ?? 0); else super.scrollBy(a, b ?? 0); }
+    else if (base) base.scrollBy(a);
+    else super.scrollBy(a);
+  }
 
   @state()
   private _viewportHeight = 0;
@@ -1432,7 +1473,6 @@ export class FlexTable extends LitElement {
     this._onDragover = this._onDragover.bind(this);
     this._onDragleave = this._onDragleave.bind(this);
     this._onDrop = this._onDrop.bind(this);
-    this.addEventListener('scroll', this._onScroll, { passive: true });
     this.addEventListener('keydown', this._onKeyDown);
     this.addEventListener('focus', this._onHostFocus);
     this.renderRoot.addEventListener('focusin', this._onFocusIn as EventListener);
@@ -1454,7 +1494,7 @@ export class FlexTable extends LitElement {
     // ResizeObserver는 ResizeObserverLoop 보호 메커니즘이 있어 안전.
     if (typeof ResizeObserver !== 'undefined') {
       this._hostResizeObserver = new ResizeObserver(() => this._measureViewport());
-      this._hostResizeObserver.observe(this);
+      this._hostResizeObserver.observe(this._base ?? this);
     }
   }
 
@@ -1463,7 +1503,6 @@ export class FlexTable extends LitElement {
     this._unsubscribeLocale?.();
     this._unsubscribeLocale = undefined;
     this._detachedLocaleRevision = Locale.revision;
-    this.removeEventListener('scroll', this._onScroll);
     this.removeEventListener('keydown', this._onKeyDown);
     this.removeEventListener('focus', this._onHostFocus);
     this.renderRoot.removeEventListener('focusin', this._onFocusIn as EventListener);
@@ -1488,6 +1527,11 @@ export class FlexTable extends LitElement {
   }
 
   protected firstUpdated(): void {
+    // 크기 감시는 스크롤 컨테이너(base)의 상자를 — 스크롤바가 생기고 사라지는 것도 거기서 보인다.
+    if (this._hostResizeObserver && this._base) {
+      this._hostResizeObserver.disconnect();
+      this._hostResizeObserver.observe(this._base);
+    }
     this._readDensityTokens();
     this._measureViewport();
     // Lit adopts the grid's own compiled styles into the shadow root once, before this runs —
@@ -1755,6 +1799,8 @@ export class FlexTable extends LitElement {
   private _onScroll(): void {
     this._scrollTop = this.scrollTop;
     this._scrollLeft = this.scrollLeft;
+    // 스크롤하는 것은 섀도 안 base 다 — 호스트에 `scroll` 을 듣던 소비자에게 같은 신호를 준다(scroll 은 섀도를 넘지 않는다).
+    this.dispatchEvent(new Event('scroll', { bubbles: false, composed: false })); // 요소의 네이티브 scroll 과 같은 전파
     if (this._hint?.by === 'pointer') this._hint = null;
     else if (this._hint) this._syncKeyboardHint();
   }
@@ -2403,7 +2449,8 @@ export class FlexTable extends LitElement {
    * anything else inside it (an editor, a menu, a button a cell renders) belong to that control.
    */
   private _isGridSurface(target: EventTarget | undefined): boolean {
-    if (target === this) return true;
+    // 빈 자리를 누르면 초점이 스크롤 컨테이너(base)에 간다 — 호스트와 같은 표면이다.
+    if (target === this || target === this._base) return true;
     return target instanceof HTMLElement
       && (target.classList.contains('ft-cell') || target.classList.contains('ft-header-cell'))
       && !target.classList.contains('ft-editing');
@@ -2455,7 +2502,7 @@ export class FlexTable extends LitElement {
 
   private _onFocusIn = (e: FocusEvent): void => {
     const target = e.composedPath()[0];
-    if (target !== this && this._isGridSurface(target)) {
+    if (target !== this && target !== this._base && this._isGridSurface(target)) {
       this._focusedCellEl = target as HTMLElement;
       // The host steps out of the Tab order while a cell holds the focus, so Shift+Tab leaves the grid
       // instead of landing on the host. Restored when the focus leaves.
@@ -3382,6 +3429,11 @@ export class FlexTable extends LitElement {
   // --- Rendering ---
 
   render() {
+    // tabindex=-1: 내용이 넘치는 스크롤 컨테이너는 브라우저가 스스로 Tab 정지로 만든다(빈 표에서 둘째 정지가 생겼다) — 표의 Tab 정지는 호스트 하나다.
+    return html`<div class="ft-base" part="base" tabindex="-1" @scroll=${this._onScroll}>${this._renderContent()}</div>`;
+  }
+
+  private _renderContent() {
     const cols = this.visibleColumns;
     const importOverlay = this.importEnabled && this._isDragOver
       ? html`<div class="ft-import-overlay">${t('dropFileToImport')}</div>`
