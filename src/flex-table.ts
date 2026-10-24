@@ -209,7 +209,10 @@ export class FlexTable extends LitElement {
   @property({ type: Number, attribute: 'frozen-rows' })
   frozenRows: number = 0;
 
-  /** Message shown when `data` is empty (no rows at all). Empty (the default) uses the locale string (`noData` — 'No data'). */
+  /**
+   * Message shown when `data` is empty (no rows at all) and the table is not `loading`. Empty (the default) uses the
+   * locale string (`noData` — 'No data'). While `loading`, an empty table says `loadingData` ('Loading…') instead.
+   */
   @property({ type: String, attribute: 'empty-message' })
   emptyMessage: string = '';
 
@@ -220,6 +223,13 @@ export class FlexTable extends LitElement {
    */
   @property({ type: String, attribute: 'no-matching-message' })
   noMatchingMessage: string = '';
+
+  /**
+   * Message shown while `loading` and no rows are on screen (before a source's first response). Empty (the default)
+   * uses the locale string (`loadingData` — 'Loading…'). Same name as `u-rich-table`'s.
+   */
+  @property({ type: String, attribute: 'loading-message' })
+  loadingMessage: string = '';
 
   /**
    * The last load failure, or `null`. While set, the grid shows `error.message` in an alert where rows or the empty
@@ -3436,9 +3446,12 @@ export class FlexTable extends LitElement {
       : '';
 
     if (this.error || this.data.length === 0 || this._visibleRowCount === 0) {
+      // 불러오는 동안은 «없다» 를 말하지 않는다 — 첫 응답 전의 빈 `data` 는 결과가 아니다. 오류는 그보다 앞선다.
       const msg = this.error
         ? html`<div class="ft-empty ft-error" role="alert">${this.error.message}</div>`
-        : html`<div class="ft-empty">${this.data.length === 0 ? (this.emptyMessage || t('noData')) : (this.noMatchingMessage || t('noMatchingData'))}</div>`;
+        : this.loading
+          ? html`<div class="ft-empty ft-loading">${this.loadingMessage || t('loadingData')}</div>`
+          : html`<div class="ft-empty">${this.data.length === 0 ? (this.emptyMessage || t('noData')) : (this.noMatchingMessage || t('noMatchingData'))}</div>`;
       return html`
         ${loadingOverlay}
         <div class="ft-header" role="row" aria-rowindex="1" style="width: ${tw}px; height: ${hdrH}px;">

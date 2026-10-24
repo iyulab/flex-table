@@ -7,6 +7,12 @@
 - **The empty and error messages stay in view on a table scrolled sideways.** With columns wider than the table,
   scrolling right and then getting an empty result left the message off to the left, out of view. It now sticks to
   the visible width.
+- **A table that is loading no longer says it has no data.** With `loading` set and no rows yet — before a data
+  source's first response — the table showed its empty message (`emptyMessage` or 'No data') under the loading
+  overlay, and readers took it for the answer. It now says `loadingData` ('Loading…', '불러오는 중…' in Korean); the
+  empty message returns when loading ends, an error still takes the place first, and rows already on screen stay under
+  the overlay on a reload. New locale key `loadingData` and property `loadingMessage` (`loading-message`), the name
+  `u-rich-table` already uses.
 
 ## [0.73.0] - 2026-10-23
 

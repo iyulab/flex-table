@@ -21,8 +21,9 @@ All names below are members of the `FlexTable` class (`<flex-table>`).
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Server mode only emits sort/filter events |
 | `footerData` | `footer-data` | `Record<string, string \| number \| TemplateResult> \| null` | `null` | Summary row keyed by column key — a number is written with the column `format` (a server total); an entry wins over the column's `aggregate` |
-| `emptyMessage` | `empty-message` | `string` | `''` | Empty: locale `noData` |
+| `emptyMessage` | `empty-message` | `string` | `''` | Empty: locale `noData` · while `loading`: locale `loadingData` |
 | `noMatchingMessage` | `no-matching-message` | `string` | `''` | All rows hidden by filters. Empty: locale `noMatchingData` |
+| `loadingMessage` | `loading-message` | `string` | `''` | While `loading` with no rows. Empty: locale `loadingData` |
 | `error` | — | `{ message: string } \| null` | `null` | Load failure shown as an alert instead of rows / empty state (a source's `error` as is) |
 | `loading` | `loading` | `boolean` | `false` | Loading overlay + `aria-busy` |
 | `importEnabled` | `import-enabled` | `boolean` | `false` | Drag-and-drop `.xlsx` / `.csv` import |

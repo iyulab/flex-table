@@ -44,6 +44,7 @@ export type FlexTableMessageKey =
   // 빈 상태
   | 'noData'
   | 'noMatchingData'
+  | 'loadingData'
   // 필터
   | 'clear'
   | 'blankCells'
@@ -137,6 +138,7 @@ flexTableLocale.register('en', {
 
   noData: 'No data',
   noMatchingData: 'No matching data',
+  loadingData: 'Loading…',
 
   clear: 'Clear',
   blankCells: 'Blank cells',
@@ -225,6 +227,7 @@ flexTableLocale.register('ko', {
 
   noData: '데이터 없음',
   noMatchingData: '일치하는 데이터 없음',
+  loadingData: '불러오는 중…',
 
   clear: '지우기',
   blankCells: '빈 셀',

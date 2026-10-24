@@ -112,8 +112,9 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `selectionMode` | `selection-mode` | `'single' \| 'multi'` | `'multi'` | Row selection mode |
 | `dataMode` | `data-mode` | `'client' \| 'server'` | `'client'` | Client-side or server-side data processing |
 | `footerData` | `footer-data` | `Record<string, string \| number \| TemplateResult> \| null` | `null` | Footer/summary row data (keys match column keys). A string or template shows as given; a number is written with the column's `format`. An entry wins over the column's `aggregate` (see [Footer totals](#footer-totals)) |
-| `emptyMessage` | `empty-message` | `string` | `''` | Shown when `data` is empty. Empty uses the locale string `noData` ('No data') |
+| `emptyMessage` | `empty-message` | `string` | `''` | Shown when `data` is empty and not `loading` (while loading: locale `loadingData`, 'Loading…'). Empty uses the locale string `noData` ('No data') |
 | `noMatchingMessage` | `no-matching-message` | `string` | `''` | Shown when `data` has rows but every one is hidden by an active column filter. Empty uses the locale string `noMatchingData` |
+| `loadingMessage` | `loading-message` | `string` | `''` | Shown while `loading` with no rows on screen. Empty uses the locale string `loadingData` ('Loading…') |
 | `error` | — | `{ message: string } \| null` | `null` | The last load failure. While set, `error.message` is shown as an alert where the rows or the empty state would be, so a failed query does not look like "no data". Pass a data source's `error` as is |
 | `stylesheets` | — | `CSSStyleSheet[]` | `[]` | Constructable stylesheets adopted into the shadow root alongside the grid's own styles — the escape hatch for styling content a `render` function inserts, since document CSS doesn't cross the shadow boundary. Reassigning swaps the previous set, it doesn't accumulate |
 
