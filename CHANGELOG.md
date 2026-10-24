@@ -11,6 +11,8 @@
   `flex`, `max-height`) and still answers `scrollTop`, `scrollLeft`, `scrollHeight`, `clientHeight`, `scrollTo` and
   `scrollBy`, and fires `scroll`. A rule that set `border` or `background` on the `flex-table` element itself now
   draws a second box around the table — move it to `::part(base)`.
+  A surface that draws its own border around the table drops the table's with `--ft-outline: none` (it inherits
+  through the host).
 
 ## [0.74.0] - 2026-10-24
 

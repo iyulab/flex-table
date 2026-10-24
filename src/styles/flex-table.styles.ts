@@ -141,7 +141,8 @@ export const flexTableStyles = css`
     overflow: auto;
     box-sizing: border-box;
     background: var(--ft-bg);
-    border: 1px solid var(--ft-border-color);
+    /* 외곽선 — 감싸는 면이 자기 테두리 안에 표를 넣을 때 --ft-outline: none 으로 걷는다(속성은 섀도를 넘어 상속된다). */
+    border: var(--ft-outline, 1px solid var(--ft-border-color));
     outline: none; /* 초점 표시는 셀이 한다 — 호스트와 같다 */
   }
 

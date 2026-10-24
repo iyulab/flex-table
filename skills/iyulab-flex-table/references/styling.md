@@ -13,7 +13,8 @@ flex-table { height: 400px; }
 
 The outline, surface and scrollbars belong to the `base` part inside the shadow root, so a page-wide reset
 (`* { border: 0; padding: 0 }`, as Tailwind's preflight does) does not strip them. Style the box there —
-`flex-table::part(base) { border: none; }` drops the outline inside a card. `scrollTop`, `scrollLeft`,
+`flex-table::part(base) { border: none; }` drops the outline inside a card; a component that holds the table in its
+shadow root sets `--ft-outline: none` on it instead (`::part` cannot reach a slotted element's parts). `scrollTop`, `scrollLeft`,
 `scrollTo` and the `scroll` event still work on the host.
 
 ## Theming
@@ -27,7 +28,7 @@ Override individual properties to make the table differ from the rest of the app
 | Group | Custom properties |
 |---|---|
 | Font | `--ft-font-family`, `--ft-font-size` |
-| Surfaces / text | `--ft-bg`, `--ft-text-color`, `--ft-border-color`, `--ft-editor-bg`, `--ft-empty-color` |
+| Surfaces / text | `--ft-bg`, `--ft-text-color`, `--ft-border-color`, `--ft-outline` (the `base` border), `--ft-editor-bg`, `--ft-empty-color` |
 | Header | `--ft-header-bg`, `--ft-header-hover-bg`, `--ft-header-text-color`, `--ft-sort-indicator-color` |
 | Rows | `--ft-row-even-bg`, `--ft-row-odd-bg`, `--ft-row-hover-bg`, `--ft-row-odd-hover-bg` |
 | Accent | `--ft-active-color`, `--ft-selection-bg`, `--ft-selection-color` (row checkboxes — from `--u-selection-color`), `--ft-bool-color` |
