@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **A column without `width` sizes to its content.** The type said `width` defaulted to "auto", but such a column was
+  always 120px — a wide screen left the right half of the table empty while values were cut with "…". It now takes
+  the width of its header and the rows first drawn (measured once, up to 320px; a longer value is still cut), so a
+  short column narrows and a long one widens. Later data does not move it. Give `width` to keep a fixed width.
+- **Auto-fit (double-click on the resize handle, the column menu) also narrows** a column that is wider than its
+  content; it only widened before.
+
+### Added
+
+- **`ColumnDefinition.grow`** — the share of the table's spare width a column takes, in proportion like `flex-grow`.
+  When the columns together are narrower than the table, the `grow` columns fill the difference; a column the user
+  resizes keeps that width and stops growing.
+
 ## [0.75.0] - 2026-10-24
 
 ### Fixed

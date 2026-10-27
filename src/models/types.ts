@@ -83,8 +83,18 @@ export interface ColumnDefinition<T = DataRow> {
   label: string;
   /** Data type for rendering/editing (default: 'text'). Unknown types fall back to 'text'. */
   type?: ColumnType;
-  /** Column width in pixels (default: auto) */
+  /**
+   * Column width in pixels. Omitted, the column sizes itself to its header and the first rows it renders — measured
+   * once, when rows are first drawn, up to 320px (a longer value is cut with an ellipsis). A width the user sets by
+   * resizing or auto-fit takes precedence over both.
+   */
   width?: number;
+  /**
+   * Share of the table's spare width this column takes. When the columns together are narrower than the table, the
+   * difference is divided among the columns with `grow`, in proportion (`grow: 2` takes twice what `grow: 1` does), so
+   * the table fills its width. A column the user has resized keeps that width and stops growing. Default: 0.
+   */
+  grow?: number;
   /** Minimum column width in pixels (default: 40) */
   minWidth?: number;
   /** Whether the column is hidden */

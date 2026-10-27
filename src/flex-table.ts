@@ -35,7 +35,7 @@ import { effectiveAlign } from './models/types.js';
 import type { FlexTableEventMap } from './events.js';
 import type { TemplateResult } from 'lit';
 import { ColumnGestures } from './controllers/column-gestures.js';
-import { DEFAULT_COL_WIDTH, MIN_COL_WIDTH } from './core/column-width.js';
+import { AUTO_MAX_COL_WIDTH, DEFAULT_COL_WIDTH, MIN_COL_WIDTH, growShares, naturalWidths } from './core/column-width.js';
 import { FindReplaceController } from './controllers/find-replace.js';
 import { ClipboardController } from './controllers/clipboard.js';
 import { FillHandleController } from './controllers/fill-handle.js';
@@ -1400,9 +1400,55 @@ export class FlexTable extends LitElement {
     return this._columnWidths.get(key);
   }
 
-  private _getColWidth(col: ColumnDefinition): number {
-    const width = this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
+  /** Content widths of the columns that declare no `width`, measured once when their rows are first drawn. */
+  private _autoWidths = new Map<string, number>();
+  /** Spare width each `grow` column takes in this layout — recomputed with the column offsets. */
+  private _growExtra = new Map<string, number>();
+
+  /** A column's width before it takes any spare width: the user's, the declared one, the measured one, then the default. */
+  private _baseColWidth(col: ColumnDefinition): number {
+    const width = this._columnWidths.get(col.key) ?? col.width ?? this._autoWidths.get(col.key) ?? DEFAULT_COL_WIDTH;
     return Math.max(width, col.minWidth ?? MIN_COL_WIDTH);
+  }
+
+  private _getColWidth(col: ColumnDefinition): number {
+    return this._baseColWidth(col) + (this._growExtra.get(col.key) ?? 0);
+  }
+
+  /** Divides the width the columns leave empty among the `grow` columns the user has not resized. */
+  private _computeGrowExtra(cols: ColumnDefinition[]): Map<string, number> {
+    const grows = cols.map(col => (this._columnWidths.has(col.key) ? 0 : col.grow ?? 0));
+    const extra = new Map<string, number>();
+    if (!grows.some(g => g > 0)) return extra;
+    const used = cols.reduce((sum, col) => sum + this._baseColWidth(col), this._prefixWidth);
+    growShares(grows, this._viewportWidth - used).forEach((share, i) => { if (share > 0) extra.set(cols[i].key, share); });
+    return extra;
+  }
+
+  /**
+   * Sizes the columns that declare no `width` to their header and rendered rows (up to `AUTO_MAX_COL_WIDTH`). Each is
+   * measured once, the first time it has rows on screen — later data does not move it. A column with nothing measurable
+   * (no layout, nothing rendered) keeps the default and is tried again on the next render.
+   */
+  private _measureAutoColumns(): void {
+    const root = this.shadowRoot;
+    if (!root || this.data.length === 0) return;
+    const pending: { key: string; cells: HTMLElement[] }[] = [];
+    this.visibleColumns.forEach((col, i) => {
+      if (col.width != null || this._columnWidths.has(col.key) || this._autoWidths.has(col.key)) return;
+      const body = [...root.querySelectorAll<HTMLElement>(`.ft-cell[data-col-index="${i}"]:not(.ft-editing)`)];
+      if (body.length === 0) return;
+      const header = root.querySelector<HTMLElement>(`.ft-header-cell[data-col-index="${i}"]`);
+      pending.push({ key: col.key, cells: header ? [header, ...body] : body });
+    });
+    if (pending.length === 0) return;
+    let measured = false;
+    naturalWidths(pending.map(p => p.cells)).forEach((width, i) => {
+      if (width <= 0) return;
+      this._autoWidths.set(pending[i].key, Math.min(AUTO_MAX_COL_WIDTH, width));
+      measured = true;
+    });
+    if (measured) this.requestUpdate();
   }
 
   private get headerHeight(): number {
@@ -1574,6 +1620,7 @@ export class FlexTable extends LitElement {
 
   private _updateColOffsets(): void {
     const cols = this.visibleColumns;
+    this._growExtra = this._computeGrowExtra(cols);
     const offsets: number[] = [];
     let x = this._prefixWidth;
     for (const col of cols) {
@@ -1632,6 +1679,11 @@ export class FlexTable extends LitElement {
       this._followEditingRow();
       this._computeAggregates();
     }
+    if (changedProperties.has('columns')) {
+      // 측정한 폭은 열 열쇠에 붙는다 — 새 배열이 같은 열을 다시 실어도 다시 재지 않는다(데이터마다 폭이 흔들리지 않게).
+      const auto = new Set(this.columns.filter(c => c.width == null).map(c => c.key));
+      for (const key of this._autoWidths.keys()) if (!auto.has(key)) this._autoWidths.delete(key);
+    }
     this._updateColOffsets();
     this._selection.setDimensions(this._visibleRowCount, this.visibleColumns.length);
   }
@@ -1665,6 +1717,7 @@ export class FlexTable extends LitElement {
       this.removeAttribute('aria-busy');
     }
     this._commentPopup.afterRender();
+    this._measureAutoColumns();
   }
 
   /** Recompute filter → sort pipeline. */
@@ -2595,7 +2648,7 @@ export class FlexTable extends LitElement {
     const colIndex = this.visibleColumns.findIndex(c => c.key === key);
     const col = this.visibleColumns[colIndex];
     if (!col) return;
-    const currentWidth = this._columnWidths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
+    const currentWidth = this._getColWidth(col);
     const minW = col.minWidth ?? MIN_COL_WIDTH;
     const newWidth = Math.max(minW, currentWidth + delta);
     this._columnWidths.set(col.key, newWidth);

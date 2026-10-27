@@ -1,6 +1,6 @@
 import type { ColumnDefinition } from '../models/types.js';
 import type { FlexTableEventMap } from '../events.js';
-import { DEFAULT_COL_WIDTH, MIN_COL_WIDTH } from '../core/column-width.js';
+import { MIN_COL_WIDTH, naturalWidths } from '../core/column-width.js';
 
 /** What the column gestures need from the table — the controller owns the drag and resize state, the table owns the rest. */
 export interface ColumnGesturesContext {
@@ -49,27 +49,16 @@ export class ColumnGestures {
     const col = this.ctx.columns()[colIndex];
     if (!col) return;
 
-    // Measure content widths by scanning visible cells using data-col-index attribute
-    const cells = this.ctx.root()?.querySelectorAll(`.ft-cell[data-col-index="${colIndex}"]`);
-    let maxWidth = 0;
-
-    // Measure header text width using data-col-index attribute
-    const headerCell = this.ctx.root()?.querySelector(`.ft-header-cell[data-col-index="${colIndex}"]`) as HTMLElement | null;
-    if (headerCell) {
-      maxWidth = Math.max(maxWidth, headerCell.scrollWidth);
-    }
-
-    // Measure data cell widths
-    if (cells) {
-      for (const cell of cells) {
-        const el = cell as HTMLElement;
-        maxWidth = Math.max(maxWidth, el.scrollWidth);
-      }
-    }
-
-    // Apply with padding and minimum
-    const minW = col.minWidth ?? MIN_COL_WIDTH;
-    const newWidth = Math.max(minW, maxWidth + 8); // 8px buffer
+    // The header and the rendered rows at their own content width — narrower than the column as well as wider, so
+    // auto-fit shrinks a column that is wider than its content.
+    const root = this.ctx.root();
+    const cells = [
+      ...(root?.querySelectorAll<HTMLElement>(`.ft-header-cell[data-col-index="${colIndex}"]`) ?? []),
+      ...(root?.querySelectorAll<HTMLElement>(`.ft-cell[data-col-index="${colIndex}"]:not(.ft-editing)`) ?? []),
+    ];
+    const [content] = naturalWidths([cells]);
+    if (content <= 0) return;
+    const newWidth = Math.max(col.minWidth ?? MIN_COL_WIDTH, content);
     this.ctx.widths.set(col.key, newWidth);
     this.ctx.invalidate();
 
@@ -81,7 +70,7 @@ export class ColumnGestures {
     e.stopPropagation(); // Prevent sort toggle
 
     const col = this.ctx.columns()[colIndex];
-    const startWidth = this.ctx.widths.get(col.key) ?? col.width ?? DEFAULT_COL_WIDTH;
+    const startWidth = this.ctx.colWidth(col);
     this.resizing = { colIndex, startX: e.clientX, startWidth };
 
     const onMouseMove = (ev: MouseEvent) => {
@@ -103,7 +92,7 @@ export class ColumnGestures {
       cleanup();
 
       if (this.resizing) {
-        const finalWidth = this.ctx.widths.get(col.key) ?? DEFAULT_COL_WIDTH;
+        const finalWidth = this.ctx.widths.get(col.key) ?? this.ctx.colWidth(col);
         this.ctx.emitResize({ key: col.key, width: finalWidth, colIndex });
         this.resizing = null;
       }

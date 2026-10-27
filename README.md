@@ -54,6 +54,7 @@ npm install @iyulab/flex-table
 - **Sorting** — Click header to sort (asc/desc/none), Shift+click for multi-sort
 - **Column Menu** — A 24×24 button in every header opens the column's menu: sort, filter, hide/show, auto-fit, wider/narrower (also opens on header right-click)
 - **Column Resize** — Drag header border, double-click to auto-fit, Alt+Arrow keyboard resize, or the column menu
+- **Column Widths** — A column without `width` sizes to its content (measured once, when its rows are first drawn, up to 320px); `grow` columns share the width the others leave empty, so a wide screen is used and a narrow one scrolls
 - **Column Operations** — `addColumn()`, `deleteColumn()`, `moveColumn()` with undo
 - **Pinned Columns** — Freeze columns to left or right (`pinned: 'left' | 'right'`)
 - **Filtering** — Programmatic API + built-in header filter UI (`show-filters`)
@@ -143,7 +144,8 @@ interface ColumnDefinition {
   key: string;             // The row property, or a dot path into a nested record ('Customer.Name' — see below)
   label: string;           // Column header text
   type?: ColumnType;       // 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'select' (any other string falls back to 'text')
-  width?: number;          // Column width in pixels (default: auto)
+  width?: number;          // Column width in pixels (default: the header and first rendered rows' content, up to 320)
+  grow?: number;           // Share of the table's spare width (like flex-grow) — the table fills its width
   minWidth?: number;       // Minimum width in pixels (default: 40, enforced in rendering)
   hidden?: boolean;        // Hide column from view
   sortable?: boolean;      // Enable sorting (default: true)
