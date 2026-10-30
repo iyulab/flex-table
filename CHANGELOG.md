@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Column number format codes (`format: '#,##0;[Red](#,##0)'`) are read by `applyNumberFormat` from `@iyulab/components` —
+  the same engine the sheet and widget packages use — instead of a copy inside the table. The supported syntax and the
+  output are unchanged. Needs `@iyulab/components` 2.36.0 or later (the peer range now says so).
+
 ## [0.76.0] - 2026-10-27
 
 ### Changed

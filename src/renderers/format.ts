@@ -4,9 +4,19 @@
  */
 
 import { readCellDate } from '../core/date-value.js';
-import { formatWithCode, isDateFormat, type FormattedNumber } from './number-format.js';
+// 숫자 서식 코드는 components 의 정본 하나가 읽는다 — 표 · 시트 · 위젯이 같은 어휘를 쓴다.
+import { applyNumberFormat, type FormattedNumber } from '@iyulab/components/dist/utilities/numberFormat.js';
 
-export type { FormattedNumber, FormatTone } from './number-format.js';
+export type { FormattedNumber, FormatTone } from '@iyulab/components/dist/utilities/numberFormat.js';
+
+/** Whether `code` is a date/time pattern: date letters outside quotes and brackets, no digit placeholders. */
+export function isDateFormat(code: string): boolean {
+  const bare = code
+    .replace(/"[^"]*"/g, '')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\\./g, '');
+  return /[yMdHhs]/.test(bare) && !/[0#?]/.test(bare);
+}
 
 /**
  * Apply a format string or function to a cell value.
@@ -40,7 +50,7 @@ export function formatPattern(value: unknown, format: string): FormattedNumber {
 const warned = new Set<string>();
 
 function formatNumberPattern(value: unknown, fmt: string): FormattedNumber {
-  const result = formatWithCode(value, fmt);
+  const result = applyNumberFormat(value, fmt);
   if (result) return result;
   if (!warned.has(fmt)) {
     warned.add(fmt);
@@ -51,7 +61,7 @@ function formatNumberPattern(value: unknown, fmt: string): FormattedNumber {
 }
 
 /**
- * Apply a spreadsheet number format code (see `number-format.ts` for the supported syntax).
+ * Apply a spreadsheet number format code (syntax: `applyNumberFormat` in `@iyulab/components`).
  * Non-numeric values use the fourth (text) section when there is one, otherwise show as is.
  */
 export function formatNumberValue(value: unknown, fmt: string): string {

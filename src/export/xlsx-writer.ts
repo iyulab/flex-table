@@ -6,7 +6,7 @@
 
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { exportCellValue, exportDate, excelSerial } from './values.js';
-import { isDateFormat } from '../renderers/number-format.js';
+import { isDateFormat } from '../renderers/format.js';
 
 // ---------------------------------------------------------------------------
 // CRC32
