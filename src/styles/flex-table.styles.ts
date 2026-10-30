@@ -443,6 +443,19 @@ export const flexTableStyles = css`
     outline: 2px solid var(--ft-active-color);
     outline-offset: -2px;
   }
+  /* 카드의 선택 상자 — 그리드 칸의 누름 자리(칸 전체)가 아니라 24px 자리. 제목 줄 높이에 맞춰 위에 선다. */
+  .ft-card .ft-card-check {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin-inline: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: max(24px, var(--u-target-size, 0px));
+    min-block-size: max(24px, var(--u-target-size, 0px));
+    margin-block: -2px 0;
+    cursor: pointer;
+  }
   .ft-card-body {
     flex: 1 1 auto;
     min-width: 0;

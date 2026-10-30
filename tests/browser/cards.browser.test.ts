@@ -42,6 +42,9 @@ async function mount(width: string, props: Partial<FlexTable> = {}): Promise<Fle
   el.editable = false;
   Object.assign(el, props);
   el.style.display = 'block';
+  // 왼쪽에 자리를 둔다 — 넓힌 시험 창에서 iframe 왼쪽 가장자리 띠의 작은 대상(카드 선택 상자 x≈19)은 Playwright 클릭이
+  // 아무 이벤트도 일으키지 못했다(pointerdown 0건 · 같은 상자를 오른쪽으로 옮기면 닿는다). 시험 하네스의 일이다.
+  el.style.marginInlineStart = '48px';
   el.style.width = width;
   el.style.height = '300px';
   document.body.appendChild(el);
