@@ -80,6 +80,10 @@ const UNCONSTRAINED_WARN_ROWS = 200;
 /**
  * @csspart base - The grid's box and scroll container: outline, surface and both scrollbars. The host takes the size
  *   (`height`, `flex`); `scrollTop`, `scrollLeft`, `scrollTo` and the `scroll` event on the host reach this element.
+ * @csspart cards - The list of cards that replaces the grid on narrow screens (`layout`)
+ * @csspart card - One row's card
+ * @csspart card-title - The card's title (the `card: 'title'` column, or the first visible one)
+ * @csspart card-fields - The label/value list under the title
  */
 @customElement('flex-table')
 export class FlexTable extends LitElement {
