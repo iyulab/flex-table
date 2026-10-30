@@ -2,11 +2,22 @@
 
 ## [Unreleased]
 
+### Added
+
+- Column `filterable` (default `true`). `false` leaves Filter out of that column's menu and «Filter by this value» out
+  of its cell menu — an actions or a picture column offered a filter that could match nothing. `setFilter()` from code
+  still applies, and a filter set that way can still be cleared from the menus. `u-rich-table` uses the same name.
+
 ### Changed
 
 - Column number format codes (`format: '#,##0;[Red](#,##0)'`) are read by `applyNumberFormat` from `@iyulab/components` —
   the same engine the sheet and widget packages use — instead of a copy inside the table. The supported syntax and the
   output are unchanged. Needs `@iyulab/components` 2.36.0 or later (the peer range now says so).
+
+### Fixed
+
+- The cell menu of a column with `sortable: false` no longer offers Sort ascending / Sort descending. The items were
+  drawn but did nothing.
 
 ## [0.76.0] - 2026-10-27
 

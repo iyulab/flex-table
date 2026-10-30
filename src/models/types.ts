@@ -102,6 +102,12 @@ export interface ColumnDefinition<T = DataRow> {
   /** Whether the column is sortable (default: true) */
   sortable?: boolean;
   /**
+   * Whether the column takes a filter (default: true) — `false` leaves Filter out of its column menu and «Filter by this
+   * value» out of its cell menu (an actions or a picture column). The name `u-rich-table` uses for the same thing.
+   * `setFilter()` from code still applies, and a filter set that way can still be cleared from the menus.
+   */
+  filterable?: boolean;
+  /**
    * Horizontal alignment of cell content. Logical values, so right-to-left locales mirror.
    * Default: derived from `type` — 'end' for 'number', 'center' for 'boolean', 'start' otherwise.
    */

@@ -59,6 +59,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `grow` | `number` | share of the spare width, in proportion (like `flex-grow`); a column the user resizes stops growing; default 0 |
 | `hidden` | `boolean` | |
 | `sortable` | `boolean` | default `true` |
+| `filterable` | `boolean` | default `true` — `false` leaves Filter out of the column menu and «Filter by this value» out of the cell menu (`setFilter()` still applies; a filter set that way can still be cleared). The name `u-rich-table` uses |
 | `align` | `'start' \| 'center' \| 'end'` | Default from type: number → end, boolean → center, else start |
 | `headerAlign` | `'start' \| 'center' \| 'end'` | Defaults to the cell alignment |
 | `description` | `string` | What the column's values mean (the basis a label cannot carry). An info icon beside the header label opens it as a tooltip on hover, on a tap of the icon, and while the keyboard is on the header cell (Escape closes); it is also the header's `aria-description`. Not part of any export |

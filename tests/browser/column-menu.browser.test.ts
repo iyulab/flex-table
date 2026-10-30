@@ -140,3 +140,54 @@ describe('flex-table 열 메뉴', () => {
     });
   });
 });
+
+describe('열 필터 옵트아웃 — filterable: false', () => {
+  const menuTexts = (el: FlexTable, selector: string) =>
+    [...el.shadowRoot!.querySelectorAll<HTMLElement>(selector)].map((i) => i.textContent!.trim());
+
+  async function mountColumns(): Promise<FlexTable> {
+    const el = await mount('');
+    el.columns = [
+      { key: 'a', label: 'A', width: 140 },
+      { key: 'b', label: 'B', width: 140, filterable: false, sortable: false },
+    ];
+    el.showContextMenu = true;
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 50));
+    return el;
+  }
+
+  it('그 열의 머리 메뉴에 «Filter…» 가 없다 — 다른 열에는 있다', async () => {
+    const el = await mountColumns();
+    const buttons = el.shadowRoot!.querySelectorAll<HTMLElement>('.ft-column-menu-btn');
+    buttons[0].click();
+    await el.updateComplete;
+    expect(menuTexts(el, '.ft-header-menu [role="menuitem"]').some((t) => t.startsWith('Filter'))).toBe(true);
+    document.body.click();
+    await el.updateComplete;
+    buttons[1].click();
+    await el.updateComplete;
+    expect(menuTexts(el, '.ft-header-menu [role="menuitem"]').some((t) => t.startsWith('Filter'))).toBe(false);
+  });
+
+  it('그 열의 셀 메뉴에 «값으로 거르기» 도 정렬도 없다 — 코드로 건 필터는 메뉴에서 지울 수 있다', async () => {
+    const el = await mountColumns();
+    const openOn = async (col: number) => {
+      const target = el.shadowRoot!.querySelector<HTMLElement>(`.ft-row[aria-rowindex="2"] .ft-cell[aria-colindex="${col + 1}"]`)!;
+      const r = target.getBoundingClientRect();
+      target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, composed: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 5 }));
+      await el.updateComplete;
+      await new Promise((r) => setTimeout(r, 50));
+      return menuTexts(el, '.ft-body-context-menu .ft-context-menu-item');
+    };
+    const a = await openOn(0);
+    expect(a.some((t) => t.includes('this value'))).toBe(true);
+    const b = await openOn(1);
+    expect(b.some((t) => t.includes('this value'))).toBe(false);
+    expect(b.some((t) => t.startsWith('Sort'))).toBe(false);
+    el.setFilter('b', { type: 'equals', value: 'b1' });
+    await el.updateComplete;
+    const after = await openOn(1);
+    expect(after.some((t) => t.startsWith('Clear filter'))).toBe(true);
+  });
+});

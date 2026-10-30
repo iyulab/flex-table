@@ -149,6 +149,7 @@ interface ColumnDefinition {
   minWidth?: number;       // Minimum width in pixels (default: 40, enforced in rendering)
   hidden?: boolean;        // Hide column from view
   sortable?: boolean;      // Enable sorting (default: true)
+  filterable?: boolean;    // Offer Filter in its menus (default: true)
   align?: 'start' | 'center' | 'end';       // Cell alignment (default from type: number → end, boolean → center, else start)
   headerAlign?: 'start' | 'center' | 'end'; // Header alignment (default: the cell alignment above)
   description?: string;      // What the values mean — an info icon beside the label opens it as a tooltip

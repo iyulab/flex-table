@@ -3201,8 +3201,8 @@ export class FlexTable extends LitElement {
           ${item('sort-desc', t('sortDescending'), () => this._applySortFromMenu(key, 'desc'))}
           <div class="ft-header-menu-separator" role="separator"></div>
         ` : nothing}
-        ${this.showFilters ? html`
-          ${item('filter', t('filter'), () => this._openFilterFromMenu(key))}
+        ${this.showFilters && (col.filterable !== false || hasFilter) ? html`
+          ${col.filterable !== false ? item('filter', t('filter'), () => this._openFilterFromMenu(key)) : nothing}
           ${hasFilter ? item('clear-filter', t('clearFilter'), () => this._filterPopover.clearColumn(key)) : nothing}
           <div class="ft-header-menu-separator" role="separator"></div>
         ` : nothing}
@@ -3249,12 +3249,16 @@ export class FlexTable extends LitElement {
         ${separator}
         ${item(t('hideColumn'), () => this._setColumnHidden(col.key, true))}
         ${separator}
-        ${item(`${t('sortAscending')} ↑`, () => this._applySortFromMenu(col.key, 'asc'))}
-        ${item(`${t('sortDescending')} ↓`, () => this._applySortFromMenu(col.key, 'desc'))}
-        ${separator}
-        ${item(t('filterByThisValue'), () => this.setFilter(col.key, value === null || ['string', 'number', 'boolean'].includes(typeof value) ? { type: 'equals', value: value as string | number | boolean | null } : (v) => v === value))}
-        ${hasFilter ? item(t('clearFilter'), () => this.removeFilter(col.key)) : nothing}
-        ${separator}
+        ${col.sortable !== false ? html`
+          ${item(`${t('sortAscending')} ↑`, () => this._applySortFromMenu(col.key, 'asc'))}
+          ${item(`${t('sortDescending')} ↓`, () => this._applySortFromMenu(col.key, 'desc'))}
+          ${separator}
+        ` : nothing}
+        ${col.filterable !== false || hasFilter ? html`
+          ${col.filterable !== false ? item(t('filterByThisValue'), () => this.setFilter(col.key, value === null || ['string', 'number', 'boolean'].includes(typeof value) ? { type: 'equals', value: value as string | number | boolean | null } : (v) => v === value)) : nothing}
+          ${hasFilter ? item(t('clearFilter'), () => this.removeFilter(col.key)) : nothing}
+          ${separator}
+        ` : nothing}
         ${item(hasComment ? t('editComment') : t('addComment'), () => this._commentPopup.open(dataIndex, col.key, x, y))}
         ${hasComment ? item(t('deleteComment'), () => this.setComment(dataIndex, col.key, null), true) : nothing}
       </div>
