@@ -7,6 +7,13 @@
 - Column `filterable` (default `true`). `false` leaves Filter out of that column's menu and «Filter by this value» out
   of its cell menu — an actions or a picture column offered a filter that could match nothing. `setFilter()` from code
   still applies, and a filter set that way can still be cleared from the menus. `u-rich-table` uses the same name.
+- **Rows become cards where a grid does not suit** — `layout` (`auto` default · `table` · `cards`). Under `auto` a
+  phone-width screen (below `card-breakpoint`, 600px by default) or a narrower place whose columns do not fit shows
+  each row as a card: the first visible column (or `card: 'title'`) as its title, the other columns as label and value
+  (`card: 'hidden'` leaves one out), through the same cell rendering and formats. Selection, `row-activate` (click or
+  `Enter` on a card — `col` is `-1`) and `Space` to select work on cards; the grid's cell keyboard does not. A table with
+  editable columns stays a grid. `renderCard` draws your own card. When `auto` falls back and the app has not set
+  `layout`, the table notes it once in the console so the app can decide. The same vocabulary as `u-rich-table`.
 
 ### Changed
 

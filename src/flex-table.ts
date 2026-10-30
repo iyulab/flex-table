@@ -205,6 +205,36 @@ export class FlexTable extends LitElement {
   @property({ type: Boolean, attribute: 'show-filters' })
   showFilters: boolean = false;
 
+  /**
+   * How rows are drawn. `auto` (the default) draws the grid, and a list of cards where a grid does not suit: on a screen
+   * narrower than `cardBreakpoint` (a phone), or in a place narrower than that where the columns do not fit. A grid that
+   * fits a narrow place stays a grid on a wide screen. `table` and `cards` choose one and say the app has decided;
+   * under `auto` the table notes once in the console when it falls back, so the app can pick. A table with editable
+   * columns stays a grid under `auto` — editing is a grid task. The vocabulary `u-rich-table` uses.
+   */
+  @property({ reflect: true })
+  get layout(): 'auto' | 'table' | 'cards' {
+    return this._layoutMode;
+  }
+  set layout(value: 'auto' | 'table' | 'cards') {
+    const old = this._layoutMode;
+    this._layoutMode = value === 'table' || value === 'cards' ? value : 'auto';
+    this._layoutChosen = true;
+    this.requestUpdate('layout', old);
+  }
+  private _layoutMode: 'auto' | 'table' | 'cards' = 'auto';
+  /** 앱이 `layout` 을 정했는가 — 정했으면 `auto` 의 폴백 안내를 내지 않는다. */
+  private _layoutChosen = false;
+  private _warnedCards = false;
+
+  /** Under `layout="auto"`, the screen width — and the width of a table whose columns do not fit — below which rows become cards (px). Default 600. */
+  @property({ type: Number, attribute: 'card-breakpoint' })
+  cardBreakpoint: number = 600;
+
+  /** Draws one row's card in place of the default (title + label/value list) — the shape `u-data-view` and `u-rich-table` take. */
+  @property({ attribute: false })
+  renderCard?: (row: DataRow, index: number) => unknown;
+
   /** Enable built-in context menu on cell right-click. */
   @property({ type: Boolean, attribute: 'show-context-menu' })
   showContextMenu: boolean = false;
@@ -347,6 +377,21 @@ export class FlexTable extends LitElement {
 
   @state()
   private _viewportWidth = 0;
+
+  /** 창의 폭 — 휴대폰 판정(카드 폴백). 재기 전에는 0(판정 안 함). */
+  @state()
+  private _screenWidth = 0;
+
+  /** 행을 카드로 그리는가 — `layout` 과 폭(창 · 호스트 · 열 합계). */
+  private get _cardsActive(): boolean {
+    if (this.layout === 'cards') return true;
+    if (this.layout === 'table') return false;
+    if (this.editable && this.columns.some(c => c.editable === true || typeof c.editable === 'function')) return false;
+    const breakpoint = this.cardBreakpoint;
+    if (this._screenWidth > 0 && this._screenWidth < breakpoint) return true;
+    if (this._viewportWidth <= 0 || this._viewportWidth >= breakpoint) return false;
+    return this._totalRowWidth > this._viewportWidth + 1;
+  }
 
   private _colLeftOffsets: number[] = [];
   private _totalRowWidth = 0;
@@ -1532,6 +1577,7 @@ export class FlexTable extends LitElement {
       this.setAttribute('tabindex', '0');
     }
     this.setAttribute('role', 'grid');
+    window.addEventListener('resize', this._onWindowResize);
 
     // ResizeObserver — host의 client size 변화만 감시.
     // 이전 구현은 `updated()`에서 매번 _measureViewport()를 호출하여 @state를 갱신했는데,
@@ -1570,6 +1616,7 @@ export class FlexTable extends LitElement {
       this._hostResizeObserver.disconnect();
       this._hostResizeObserver = null;
     }
+    window.removeEventListener('resize', this._onWindowResize);
   }
 
   protected firstUpdated(): void {
@@ -1689,6 +1736,13 @@ export class FlexTable extends LitElement {
   }
 
   protected updated(changedProps: PropertyValues): void {
+    // 카드에서는 그리드 역할을 내려놓는다 — 안쪽은 목록이다. 표로 돌아오면 되돌린다.
+    const role = this._cardsActive ? null : 'grid';
+    if (this.getAttribute('role') !== role) {
+      if (role) this.setAttribute('role', role);
+      else this.removeAttribute('role');
+    }
+    this._noteCardFallback();
     // _measureViewport()는 더 이상 여기서 호출하지 않는다.
     // 호출 시 @state 갱신 → 무한 update 루프 위험 (위 connectedCallback의 ResizeObserver 주석 참조).
     // 크기 변화는 ResizeObserver가 비동기로 처리한다.
@@ -1826,7 +1880,100 @@ export class FlexTable extends LitElement {
     const w = this.clientWidth;
     if (h !== this._viewportHeight) this._viewportHeight = h;
     if (w !== this._viewportWidth) this._viewportWidth = w;
+    if (typeof window !== 'undefined' && window.innerWidth !== this._screenWidth) this._screenWidth = window.innerWidth;
     this._warnIfUnconstrained();
+  }
+
+  private readonly _onWindowResize = (): void => {
+    if (window.innerWidth !== this._screenWidth) this._screenWidth = window.innerWidth;
+  };
+
+  /** `auto` 가 카드로 물러났고 앱이 `layout` 을 정하지 않았으면 표마다 한 번. */
+  private _noteCardFallback(): void {
+    if (this._layoutChosen || this._warnedCards || !this._cardsActive) return;
+    this._warnedCards = true;
+    const phone = this._screenWidth > 0 && this._screenWidth < this.cardBreakpoint;
+    console.warn(
+      `[@iyulab/flex-table] drew its rows as cards: ${phone
+        ? `the screen is ${Math.round(this._screenWidth)}px wide`
+        : `it is ${Math.round(this._viewportWidth)}px wide and its columns need ${Math.round(this._totalRowWidth)}px`}, below card-breakpoint ${this.cardBreakpoint}px. ` +
+      'Choose for narrow screens — layout="cards" (with column `card` roles or renderCard) or layout="table" — and this note goes away.',
+    );
+  }
+
+  /**
+   * 카드 목록 — 표시 순서(정렬 · 필터 · 그룹 접기 뒤)의 행. 제목 열(`card: 'title'`, 없으면 첫 보이는 열) + 나머지 열의 라벨:값.
+   * 셀 값은 표와 같은 그리기(`renderCell` — 서식 · `render`)를 지난다. 표의 계약: 선택 체크박스 · 카드 클릭/Enter → `row-activate`
+   * · Space → 선택. 가상 스크롤은 없다 — 카드마다 `content-visibility: auto` 로 화면 밖은 그리지 않는다.
+   */
+  private _renderCards() {
+    if (this.error) return html`<div class="ft-empty ft-error" role="alert">${this.error.message}</div>`;
+    if (this._visibleRowCount === 0) {
+      return this.loading
+        ? html`<div class="ft-empty ft-loading">${this.loadingMessage || t('loadingData')}</div>`
+        : html`<div class="ft-empty">${this.data.length === 0 ? (this.emptyMessage || t('noData')) : (this.noMatchingMessage || t('noMatchingData'))}</div>`;
+    }
+    const visible = this.visibleColumns.filter(c => c.card !== 'hidden');
+    const title = visible.find(c => c.card === 'title') ?? visible[0];
+    const rest = visible.filter(c => c !== title);
+    const cards = [];
+    for (let i = 0; i < this._visibleRowCount; i++) {
+      const dataIndex = this._toDataIndex(i);
+      const row = this.data[dataIndex];
+      if (!row) continue;
+      const id = this.getRowId(row);
+      const selected = this.selectable !== false && this._rowSelection.isSelected(id);
+      const custom = this.renderCard?.(row, dataIndex);
+      cards.push(html`<li class="ft-card ${selected ? 'ft-card-selected' : ''}" part="card" tabindex="0"
+          @click=${(e: MouseEvent) => this._onCardClick(e, dataIndex)}
+          @keydown=${(e: KeyboardEvent) => this._onCardKeyDown(e, dataIndex, i)}>
+        ${this.selectable ? html`<label class="ft-checkbox-hit ft-card-check"><input type="checkbox" aria-label=${t('selectRow')}
+          .checked=${selected} ?disabled=${!this._canSelectRow(row)}
+          @change=${(e: Event) => this._onRowCheckboxChange(e, i)}></label>` : nothing}
+        <div class="ft-card-body">
+          ${custom !== undefined ? custom : html`
+            ${title ? html`<div class="ft-card-title" part="card-title">${renderCell(getCellValue(row, title.key), row, title)}</div>` : nothing}
+            ${rest.length ? html`<dl class="ft-card-fields" part="card-fields">
+              ${rest.map(col => html`<div class="ft-card-field"><dt>${col.label}</dt><dd>${renderCell(getCellValue(row, col.key), row, col)}</dd></div>`)}
+            </dl>` : nothing}`}
+        </div>
+      </li>`);
+    }
+    return html`<ul class="ft-cards" part="cards" aria-label=${this.ariaLabel ?? nothing}>${cards}</ul>`;
+  }
+
+  /** 카드 클릭 = 행 열기 — 카드 안의 컨트롤(체크박스 · 단추 · 링크)을 누른 것은 그 컨트롤의 일이다. */
+  private _onCardClick(e: MouseEvent, dataIndex: number): void {
+    const card = e.currentTarget as HTMLElement;
+    for (const el of e.composedPath()) {
+      if (el === card) break;
+      if (el instanceof HTMLElement && el.matches('a, button, input, select, textarea, label, [role="button"]')) return;
+    }
+    this._emitCardActivate(dataIndex, 'click');
+  }
+
+  private _onCardKeyDown(e: KeyboardEvent, dataIndex: number, visualIndex: number): void {
+    if (e.target !== e.currentTarget || e.isComposing) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this._emitCardActivate(dataIndex, 'keyboard');
+    } else if (e.key === ' ' && this.selectable) {
+      e.preventDefault();
+      const row = this.data[dataIndex];
+      if (!row || !this._canSelectRow(row)) return;
+      this._rowSelection.toggle(this.getRowId(row));
+      this._lastCheckboxRowId = this.getRowId(row);
+      this._rowSelectionVersion++;
+      this._dispatchRowSelectionEvent();
+      void visualIndex;
+    }
+  }
+
+  /** 카드의 `row-activate` — 칸이 없으므로 `col` 은 -1, `key` 는 없다. */
+  private _emitCardActivate(dataIndex: number, via: 'click' | 'keyboard'): void {
+    const row = this.data[dataIndex];
+    if (!row) return;
+    this._emit('row-activate', { row, id: this.getRowId(row), via, index: dataIndex, col: -1, key: undefined });
   }
 
   private _warnedUnconstrained = false;
@@ -2317,6 +2464,8 @@ export class FlexTable extends LitElement {
 
   private _onKeyDown(e: KeyboardEvent): void {
     if (this._editing.current) return;
+    // 카드의 키는 카드의 것이다 — 그리드의 칸 이동 · 편집 키 모델은 표에서만.
+    if (this._cardsActive) return;
     // Keys pressed in the filter dropdown are the dropdown's. Most of its controls stop them; a date
     // bound lets Escape through while its calendar is open, for the overlay layer to close the calendar.
     if (this._openFilterKey && e.composedPath().some(n => n instanceof Element && n.classList.contains('ft-filter-dropdown'))) return;
@@ -2487,6 +2636,7 @@ export class FlexTable extends LitElement {
    * pointer focus places the cell it pressed instead.
    */
   private _onHostFocus = (e: FocusEvent): void => {
+    if (this._cardsActive) return;
     if (e.composedPath()[0] !== this || this._activeCell || this._headerCol !== null) return;
     if (this.visibleColumns.length === 0 || !this.matches(':focus-visible')) return;
     if (this._visibleRowCount > 0) {
@@ -3487,7 +3637,7 @@ export class FlexTable extends LitElement {
 
   render() {
     // tabindex=-1: 내용이 넘치는 스크롤 컨테이너는 브라우저가 스스로 Tab 정지로 만든다(빈 표에서 둘째 정지가 생겼다) — 표의 Tab 정지는 호스트 하나다.
-    return html`<div class="ft-base" part="base" tabindex="-1" @scroll=${this._onScroll}>${this._renderContent()}</div>`;
+    return html`<div class="ft-base" part="base" tabindex="-1" @scroll=${this._onScroll}>${this._cardsActive ? this._renderCards() : this._renderContent()}</div>`;
   }
 
   private _renderContent() {

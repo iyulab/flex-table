@@ -110,6 +110,9 @@ guarantee about a *constrained* host. `height-model.browser.test.ts` pins both s
 | `theme` | `theme` | `'light' \| 'dark'` | auto | Force theme; auto-detects `prefers-color-scheme` |
 | `editable` | `editable` | `boolean` | `true` | Global read-only mode when `false`. Defaults to `true` — a purely read-only grid should set this explicitly rather than relying on per-column `editable: false` alone, since it's also what makes Enter fire `row-activate` (see [Events](#events)) instead of entering edit mode |
 | `showFilters` | `show-filters` | `boolean` | `false` | Offer the built-in filter dropdowns through each column menu («Filter…») |
+| `layout` | `layout` | `'auto' \| 'table' \| 'cards'` | `'auto'` | Rows as a grid or as cards — `auto` draws cards on a phone-width screen or where the columns do not fit a narrower place (see *Narrow screens*) |
+| `cardBreakpoint` | `card-breakpoint` | `number` | `600` | The width (px) below which `auto` considers cards |
+| `renderCard` | — | `(row, index) => unknown` | — | Draws one row's card yourself |
 | `maxRows` | `max-rows` | `number` | `0` | Max row count (0 = unlimited); blocks `addRow()` and paste expansion |
 | `maxUndoSize` | `max-undo-size` | `number` | `100` | Max undo history stack size |
 | `selectable` | `selectable` | `boolean \| (row) => boolean` | `false` | Enable row-level checkbox selection. A function of the row decides per row (the shape a column's `editable` takes): a rejected row draws a disabled checkbox and is left out of select-all, Shift-range and Shift+Space. `setSelection()` / `selectWhere()` are not filtered |
@@ -150,6 +153,7 @@ interface ColumnDefinition {
   hidden?: boolean;        // Hide column from view
   sortable?: boolean;      // Enable sorting (default: true)
   filterable?: boolean;    // Offer Filter in its menus (default: true)
+  card?: 'title' | 'hidden'; // Its place in a card on narrow screens (default: first column is the title)
   align?: 'start' | 'center' | 'end';       // Cell alignment (default from type: number → end, boolean → center, else start)
   headerAlign?: 'start' | 'center' | 'end'; // Header alignment (default: the cell alignment above)
   description?: string;      // What the values mean — an info icon beside the label opens it as a tooltip

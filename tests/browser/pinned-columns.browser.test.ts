@@ -24,6 +24,7 @@ function mount(columns: unknown[], rowCount = 30): FlexTable {
   document.body.appendChild(host);
 
   const el = document.createElement('flex-table') as FlexTable;
+  el.setAttribute('layout', 'table'); // 그리드를 잰다 — 좁은 자리에서 열이 넘치면 layout="auto" 가 카드다
   el.style.display = 'block';
   el.style.width = `${HOST_WIDTH}px`;
   el.style.height = '300px';

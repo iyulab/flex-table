@@ -34,9 +34,10 @@ export default defineConfig({
           browser: {
             enabled: true,
             // 실제 스크롤바로 — headless 기본(`--hide-scrollbars`)은 스크롤바 폭이 0 이라 «스크롤바가 폭을 먹는» 결함을 못 본다.
-            provider: playwright({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } }),
+            provider: playwright({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] }, contextOptions: { viewport: { width: 1600, height: 1200 } } }),
             // headless 고정 — 헤드 있는 창은 OS 표시 배율에 물려 얇은 테두리가 장치 픽셀로 스냅된다(components 설정 주석 참조).
             instances: [{ browser: 'chromium', headless: true }],
+            viewport: { width: 1280, height: 900 },
           },
           // 고정 포트 이유는 packages/components/vitest.config.ts 참조.
           // 41501~41505 는 형제 패키지가 쓰고 있다.

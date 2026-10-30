@@ -13,6 +13,9 @@ All names below are members of the `FlexTable` class (`<flex-table>`).
 | `theme` | `theme` | `'light' \| 'dark' \| undefined` | auto | Auto follows `prefers-color-scheme` |
 | `editable` | `editable` | `boolean` | `true` | `false` = read-only grid; Enter then fires `row-activate` |
 | `showFilters` | `show-filters` | `boolean` | `false` | Adds **Filter…** to each column menu |
+| `layout` | `layout` | `'auto' \| 'table' \| 'cards'` | `'auto'` | `auto` draws cards where a grid does not suit: a screen narrower than `cardBreakpoint` (a phone), or a narrower place whose columns do not fit. A grid that fits stays a grid; a table with editable columns stays a grid. `table` · `cards` say the app has decided — under `auto` the table notes a fallback once in the console |
+| `cardBreakpoint` | `card-breakpoint` | `number` | `600` | The width (px) below which `auto` considers cards |
+| `renderCard` | — | `(row, index) => unknown` | — | Draws one row's card in place of the default (title + label/value list) — the shape `u-rich-table` and `u-data-view` take |
 | `showContextMenu` | `show-context-menu` | `boolean` | `false` | Built-in cell context menu |
 | `frozenRows` | `frozen-rows` | `number` | `0` | Rows kept visible at the top |
 | `maxRows` | `max-rows` | `number` | `0` | 0 = unlimited; blocks `addRow()` and paste expansion |
@@ -60,6 +63,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `hidden` | `boolean` | |
 | `sortable` | `boolean` | default `true` |
 | `filterable` | `boolean` | default `true` — `false` leaves Filter out of the column menu and «Filter by this value» out of the cell menu (`setFilter()` still applies; a filter set that way can still be cleared). The name `u-rich-table` uses |
+| `card` | `'title' \| 'hidden'` | The column's place in a card (`layout` cards): `title` heads it (the first visible column does otherwise), `hidden` leaves it out |
 | `align` | `'start' \| 'center' \| 'end'` | Default from type: number → end, boolean → center, else start |
 | `headerAlign` | `'start' \| 'center' \| 'end'` | Defaults to the cell alignment |
 | `description` | `string` | What the column's values mean (the basis a label cannot carry). An info icon beside the header label opens it as a tooltip on hover, on a tap of the icon, and while the keyboard is on the header cell (Escape closes); it is also the header's `aria-description`. Not part of any export |

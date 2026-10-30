@@ -1521,6 +1521,7 @@ describe('FlexTable', () => {
     // across three scroll steps, and the column was never visible.
     function mount(viewportWidth: number, scrollLeft = 0) {
       const el = createElement();
+      el.layout = 'table'; // the grid is measured — a narrow place whose columns overflow would draw cards under auto
       el.columns = [
         { key: 'a', label: 'A', width: 200 },
         { key: 'b', label: 'B', width: 200 },
@@ -1567,6 +1568,7 @@ describe('FlexTable', () => {
 
     it('stacks multiple right-pinned columns in order', async () => {
       const el = createElement();
+      el.layout = 'table';
       el.columns = [
         { key: 'a', label: 'A', width: 400 },
         { key: 'edit', label: 'Edit', width: 60, pinned: 'right' },

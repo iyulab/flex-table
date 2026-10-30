@@ -24,6 +24,7 @@ afterEach(() => {
 
 async function mount(style: string, rows = 200): Promise<FlexTable> {
   const el = document.createElement('flex-table') as FlexTable;
+  el.setAttribute('layout', 'table'); // 그리드를 잰다 — 좁은 자리에서 열이 넘치면 layout="auto" 가 카드다
   el.style.cssText = `width: 400px; ${style}`;
   document.body.appendChild(el);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -24,6 +24,7 @@ function offCentre(el: FlexTable): number {
 describe('flex-table — state message in the visible area', () => {
   it('🔴scrolled sideways, then emptied: the message is centred in view', async () => {
     table = document.createElement('flex-table') as FlexTable;
+    table.setAttribute('layout', 'table'); // 그리드를 잰다 — 좁은 자리에서 열이 넘치면 layout="auto" 가 카드다
     table.style.cssText = 'width: 600px; height: 300px';
     document.body.appendChild(table);
     table.columns = Array.from({ length: 15 }, (_, i) => ({ key: `c${i}`, label: `Column ${i}`, width: 150 }));

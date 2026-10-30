@@ -26,6 +26,7 @@ async function mount(extra: Record<string, unknown> = {}): Promise<FlexTable> {
   const host = document.createElement('div');
   document.body.appendChild(host);
   const el = document.createElement('flex-table') as FlexTable;
+  el.setAttribute('layout', 'table'); // 그리드를 잰다 — 좁은 자리에서 열이 넘치면 layout="auto" 가 카드다
   el.style.display = 'block';
   el.style.width = '600px';
   el.style.height = '300px';

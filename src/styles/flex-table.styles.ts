@@ -411,6 +411,67 @@ export const flexTableStyles = css`
 
   /* 빈 상태 · 오류 문구는 표(호스트)의 보이는 폭에 서서 가로로 굴려도 그 자리에 머문다 — 머리글이 넓은 표에서 오른쪽으로 굴린 채
      결과가 비면 문구가 화면 밖에 있었다. 블록이라 폭은 이미 보이는 폭이다. */
+  /* 카드 목록 — layout cards 또는 표가 맞지 않는 자리의 auto. 카드 사이는 선 하나. 가상 스크롤 대신 화면 밖 카드를 그리지 않는다. */
+  .ft-cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .ft-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border-bottom: 1px solid var(--ft-border-color);
+    cursor: pointer;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 72px;
+  }
+  .ft-card:last-child {
+    border-bottom: none;
+  }
+  .ft-card:hover {
+    background: var(--ft-row-hover-bg);
+  }
+  .ft-card-selected {
+    background: var(--ft-selection-bg);
+  }
+  .ft-card:focus {
+    outline: none;
+  }
+  .ft-card:focus-visible {
+    outline: 2px solid var(--ft-active-color);
+    outline-offset: -2px;
+  }
+  .ft-card-body {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ft-card-title {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .ft-card-fields {
+    margin: 4px 0 0;
+    display: grid;
+    gap: 2px;
+  }
+  .ft-card-field {
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+  }
+  .ft-card-field dt {
+    flex: 0 0 auto;
+    max-width: 45%;
+    color: var(--ft-empty-color);
+  }
+  .ft-card-field dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   .ft-empty {
     position: sticky;
     inset-inline-start: 0;
