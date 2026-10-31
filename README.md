@@ -153,7 +153,7 @@ interface ColumnDefinition {
   hidden?: boolean;        // Hide column from view
   sortable?: boolean;      // Enable sorting (default: true)
   filterable?: boolean;    // Offer Filter in its menus (default: true)
-  card?: 'title' | 'hidden'; // Its place in a card on narrow screens (default: first column is the title)
+  card?: 'title' | 'hidden' | 'always'; // Its place in a card on narrow screens (default: first column is the title; an empty value's line is left out unless `render` or `always`)
   align?: 'start' | 'center' | 'end';       // Cell alignment (default from type: number → end, boolean → center, else start)
   headerAlign?: 'start' | 'center' | 'end'; // Header alignment (default: the cell alignment above)
   description?: string;      // What the values mean — an info icon beside the label opens it as a tooltip

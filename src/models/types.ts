@@ -104,9 +104,11 @@ export interface ColumnDefinition<T = DataRow> {
   /**
    * The column's place in a card, when the table draws its rows as cards (`layout="cards"`, or `auto` where a table
    * does not suit): `title` heads the card (the first column does when none says so), `hidden` leaves it out. Other
-   * columns are written under the title as label and value. The name `u-rich-table` uses.
+   * columns are written under the title as label and value — a row whose value is empty (`null`, `undefined`, blank
+   * text) leaves that line out, unless the column has a `render` (it decides what an empty value shows) or says
+   * `always`. The name `u-rich-table` uses.
    */
-  card?: 'title' | 'hidden';
+  card?: 'title' | 'hidden' | 'always';
   /**
    * Whether the column takes a filter (default: true) — `false` leaves Filter out of its column menu and «Filter by this
    * value» out of its cell menu (an actions or a picture column). The name `u-rich-table` uses for the same thing.

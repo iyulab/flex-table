@@ -4,6 +4,11 @@
 
 ### Changed
 
+- **A card leaves out the line of an empty value.** When the table draws its rows as cards, a column whose value is
+  `null`, `undefined` or blank text no longer stands as a label with nothing after it — a list with many optional
+  columns had cards half made of such lines and fit fewer rows on a phone. `0` and `false` are values and stay. A column
+  with a `render` keeps its line (it decides what an empty value shows), and the new column role `card: 'always'`
+  keeps it too.
 - The array source's free-text search (`useArraySource` · `createArraySource` · `computeArrayView`) matches with the
   `@iyulab/components` search match, as the column filter's «contains» already did — case and diacritics folded
   (`muller` finds `Müller`) and Korean initials (`ㅂㅅ` finds `부산`). It was a case-insensitive substring.

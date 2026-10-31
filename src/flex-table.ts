@@ -1907,6 +1907,7 @@ export class FlexTable extends LitElement {
 
   /**
    * 카드 목록 — 표시 순서(정렬 · 필터 · 그룹 접기 뒤)의 행. 제목 열(`card: 'title'`, 없으면 첫 보이는 열) + 나머지 열의 라벨:값.
+   * 값이 빈 줄은 뺀다(`cardFieldShown` — 카드에서 라벨만 남은 줄은 «비었다» 를 문장처럼 말해 다음 행을 화면 밖으로 민다).
    * 셀 값은 표와 같은 그리기(`renderCell` — 서식 · `render`)를 지난다. 표의 계약: 선택 체크박스 · 카드 클릭/Enter → `row-activate`
    * · Space → 선택. 가상 스크롤은 없다 — 카드마다 `content-visibility: auto` 로 화면 밖은 그리지 않는다.
    */
@@ -1938,7 +1939,10 @@ export class FlexTable extends LitElement {
           ${custom !== undefined ? custom : html`
             ${title ? html`<div class="ft-card-title" part="card-title">${renderCell(getCellValue(row, title.key), row, title)}</div>` : nothing}
             ${rest.length ? html`<dl class="ft-card-fields" part="card-fields">
-              ${rest.map(col => html`<div class="ft-card-field"><dt>${col.label}</dt><dd>${renderCell(getCellValue(row, col.key), row, col)}</dd></div>`)}
+              ${rest.map(col => {
+                const value = getCellValue(row, col.key);
+                return cardFieldShown(col, value) ? html`<div class="ft-card-field"><dt>${col.label}</dt><dd>${renderCell(value, row, col)}</dd></div>` : nothing;
+              })}
             </dl>` : nothing}`}
         </div>
       </li>`);
@@ -4240,4 +4244,10 @@ declare global {
   interface HTMLElementTagNameMap {
     'flex-table': FlexTable;
   }
+}
+
+/** 카드의 라벨:값 줄을 그리는가 — 값이 비면(`null` · `undefined` · 공백뿐인 글자) 빼되, `render` 를 가진 열(빈 값에 무엇을 보일지 스스로 정한다)과 `card: 'always'` 는 남긴다. */
+function cardFieldShown(col: Pick<ColumnDefinition, 'card' | 'render'>, value: unknown): boolean {
+  if (col.card === 'always' || col.render) return true;
+  return !(value === null || value === undefined || (typeof value === 'string' && value.trim() === ''));
 }

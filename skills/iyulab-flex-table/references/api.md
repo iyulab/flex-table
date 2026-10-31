@@ -63,7 +63,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `hidden` | `boolean` | |
 | `sortable` | `boolean` | default `true` |
 | `filterable` | `boolean` | default `true` — `false` leaves Filter out of the column menu and «Filter by this value» out of the cell menu (`setFilter()` still applies; a filter set that way can still be cleared). The name `u-rich-table` uses |
-| `card` | `'title' \| 'hidden'` | The column's place in a card (`layout` cards): `title` heads it (the first visible column does otherwise), `hidden` leaves it out |
+| `card` | `'title' \| 'hidden' \| 'always'` | The column's place in a card (`layout` cards): `title` heads it (the first visible column does otherwise), `hidden` leaves it out. A line whose value is empty (`null`, `undefined`, blank text) is left out — unless the column has a `render` or says `always` |
 | `align` | `'start' \| 'center' \| 'end'` | Default from type: number → end, boolean → center, else start |
 | `headerAlign` | `'start' \| 'center' \| 'end'` | Defaults to the cell alignment |
 | `description` | `string` | What the column's values mean (the basis a label cannot carry). An info icon beside the header label opens it as a tooltip on hover, on a tap of the icon, and while the keyboard is on the header cell (Escape closes); it is also the header's `aria-description`. Not part of any export |

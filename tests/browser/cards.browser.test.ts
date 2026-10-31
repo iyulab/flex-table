@@ -112,6 +112,30 @@ describe('flex-table — 카드 폴백', () => {
     expect([...cards(el)[0].querySelectorAll('dt')].map((d) => d.textContent)).toEqual(['Status']);
   });
 
+  it('🔴값이 빈 칸은 카드에 줄을 세우지 않는다(null · undefined · 공백) — render 를 가진 열과 always 는 남는다', async () => {
+    const el = await mount('900px', {
+      layout: 'cards',
+      columns: [
+        { key: 'id', label: 'Order' },
+        { key: 'maker', label: 'Maker' },
+        { key: 'model', label: 'Model' },
+        { key: 'closed', label: 'Closed' },
+        { key: 'note', label: 'Note', render: (v: unknown) => (v ? String(v) : 'none') },
+        { key: 'owner', label: 'Owner', card: 'always' },
+        { key: 'qty', label: 'Qty' },
+      ],
+      data: [
+        { id: 'A-1', maker: 'Acme', model: '', closed: null, note: null, owner: null, qty: 0 },
+        { id: 'A-2', maker: '  ', model: 'M2', note: 'x', owner: 'Kim', qty: 3 },
+      ],
+    });
+    const labels = (i: number) => [...cards(el)[i].querySelectorAll('dt')].map((d) => d.textContent);
+    // 0 은 값이다 — 빈 것은 null · undefined · 공백뿐인 글자만.
+    expect(labels(0)).toEqual(['Maker', 'Note', 'Owner', 'Qty']);
+    expect(labels(1)).toEqual(['Model', 'Note', 'Owner', 'Qty']);
+    expect(cards(el)[0].querySelector('.ft-card-title')!.textContent!.trim()).toBe('A-1');
+  });
+
   it('🔴카드를 누르면 row-activate(click) · Enter 는 (keyboard) · 체크박스는 선택만', async () => {
     const el = await mount('900px', { layout: 'cards', selectable: true });
     const events: string[] = [];

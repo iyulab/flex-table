@@ -135,7 +135,7 @@ Server paging from OData or an in-memory array uses the same binding — see `re
 - Styles for elements returned by `render` must be passed through the `stylesheets` property
   (constructable `CSSStyleSheet[]`); document CSS does not cross the shadow boundary.
 - On a phone (or a narrow place the columns do not fit) `layout="auto"` draws rows as cards and notes it once in the
-  console. Decide: `layout="cards"` with column `card` roles (`title` · `hidden`) or `renderCard`, or `layout="table"`.
+  console. Decide: `layout="cards"` with column `card` roles (`title` · `hidden` · `always`) or `renderCard`, or `layout="table"`.
   A table with editable columns stays a grid.
 - Always show `error` from `useODataSource` — pass it to the table (`error={source.error}`); a failed request otherwise leaves the grid empty. Branch on `error.status` / `error.code` rather than parsing the message.
 
