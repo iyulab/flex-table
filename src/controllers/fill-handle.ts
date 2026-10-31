@@ -3,6 +3,7 @@ import { getCellValue, setCellValue } from '../core/cell-value.js';
 import type { CellRange, SelectionState } from '../core/selection.js';
 import type { FlexTableEventMap } from '../events.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
+import { delegate } from '@iyulab/components/dist/utilities/listenInShadow.js';
 
 /** What the fill handle needs from the table — the controller owns the drag and the fill, the table owns everything else. */
 export interface FillHandleContext {
@@ -117,7 +118,7 @@ export class FillHandleController {
       ${preview}
       <div class="ft-fill-handle"
         style="left:${left}px;top:${top}px;"
-        @mousedown=${(e: MouseEvent) => this.onMouseDown(e)}>
+        ${delegate('mousedown', (e: MouseEvent) => this.onMouseDown(e))}>
       </div>
     `;
   }

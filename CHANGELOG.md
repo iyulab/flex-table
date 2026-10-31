@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **Screen readers no longer announce «clickable» on every cell, header, row number and card.** Measured with NVDA in
+  browse mode, each cell, sortable header, row number, resize handle and card was announced as «clickable»: it carried
+  a click or mousedown listener on the element. The handlers are now heard on the shadow root (`delegate` from
+  `@iyulab/components`); selecting, sorting, resizing and opening a row work as before.
+
 ## [0.78.0] - 2026-10-31
 
 ### Changed

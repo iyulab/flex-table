@@ -47,6 +47,7 @@ import { calendarOpen } from './core/calendar-state.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
 import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
+import { delegate } from '@iyulab/components/dist/utilities/listenInShadow.js';
 
 /** How a `mergeRepeated` cell joins the cells above and below it in its column. */
 interface MergeState { continues: boolean; opensDown: boolean; headParity: 'even' | 'odd' }
@@ -1930,7 +1931,7 @@ export class FlexTable extends LitElement {
       const selected = this.selectable !== false && this._rowSelection.isSelected(id);
       const custom = this.renderCard?.(row, dataIndex);
       cards.push(html`<li class="ft-card ${selected ? 'ft-card-selected' : ''}" part="card" tabindex="0"
-          @click=${(e: MouseEvent) => this._onCardClick(e, dataIndex)}
+          ${delegate<MouseEvent>('click', (e, card) => this._onCardClick(e, dataIndex, card))}
           @keydown=${(e: KeyboardEvent) => this._onCardKeyDown(e, dataIndex, i)}>
         ${this.selectable ? html`<label class="ft-checkbox-hit ft-card-check"><input type="checkbox" aria-label=${t('selectRow')}
           .checked=${selected} ?disabled=${!this._canSelectRow(row)}
@@ -1951,8 +1952,7 @@ export class FlexTable extends LitElement {
   }
 
   /** 카드 클릭 = 행 열기 — 카드 안의 컨트롤(체크박스 · 단추 · 링크)을 누른 것은 그 컨트롤의 일이다. */
-  private _onCardClick(e: MouseEvent, dataIndex: number): void {
-    const card = e.currentTarget as HTMLElement;
+  private _onCardClick(e: MouseEvent, dataIndex: number, card: HTMLElement): void {
     for (const el of e.composedPath()) {
       if (el === card) break;
       if (el instanceof HTMLElement && el.matches('a, button, input, select, textarea, label, [role="button"]')) return;
@@ -2082,7 +2082,7 @@ export class FlexTable extends LitElement {
     }
   }
 
-  private _onCellClickEvent(e: MouseEvent, rowIndex: number, colIndex: number): void {
+  private _onCellClickEvent(e: MouseEvent, rowIndex: number, colIndex: number, cell: HTMLElement): void {
     // If this click is the end of a drag selection, skip — drag already handled it
     if (this._wasDrag) {
       this._wasDrag = false;
@@ -2106,7 +2106,7 @@ export class FlexTable extends LitElement {
     this.requestUpdate();
     // A plain click opens the row — the pointer half of `row-activate` (Enter is the keyboard half).
     // A click that extends a selection, or presses a control the cell renders, is that act's, not this one.
-    if (!extendsSelection && !isFromControl(e, e.currentTarget as EventTarget)) {
+    if (!extendsSelection && !isFromControl(e, cell)) {
       this._fireRowActivate(this.visibleColumns[colIndex], 'click');
     }
   }
@@ -3073,8 +3073,8 @@ export class FlexTable extends LitElement {
         aria-sort=${ariaSortValue ?? nothing}
         aria-description=${col.description ?? nothing}
         @contextmenu=${(e: MouseEvent) => this._onHeaderContextMenu(e, col)}
-        @mousedown=${(e: MouseEvent) => this._columnGestures.headerMouseDown(e, col, colIndex)}
-        @click=${sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined}>
+        ${delegate('mousedown', (e: MouseEvent) => this._columnGestures.headerMouseDown(e, col, colIndex))}
+        ${delegate('click', sortable ? (e: MouseEvent) => this._onHeaderClick(e, col) : undefined)}>
         ${showHiddenIndicator ? html`
           <button class="ft-hidden-col-indicator" tabindex="-1"
             title=${t('showHiddenColumns')}
@@ -3097,7 +3097,7 @@ export class FlexTable extends LitElement {
           \u22EE
         </button>
         <div class="ft-resize-handle"
-          @mousedown=${(e: MouseEvent) => { e.stopPropagation(); this._wasHeaderDrag = true; this._columnGestures.startResize(e, colIndex); }}
+          ${delegate('mousedown', (e: MouseEvent) => { e.stopPropagation(); this._wasHeaderDrag = true; this._columnGestures.startResize(e, colIndex); })}
           @dblclick=${(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); this._columnGestures.autoFit(col.key); }}></div>
       </div>
       ${this._openFilterKey === col.key ? this._filterPopover.renderDropdown(col) : ''}
@@ -3109,10 +3109,10 @@ export class FlexTable extends LitElement {
     if (!col.description) return nothing;
     return html`
       <span class="ft-header-hint" aria-hidden="true"
-        @mousedown=${(e: MouseEvent) => e.stopPropagation()}
+        ${delegate('mousedown', (e: MouseEvent) => e.stopPropagation())}
         @pointerenter=${(e: PointerEvent) => { if (e.pointerType === 'mouse') this._openHint(col, 'pointer', e.currentTarget as HTMLElement); }}
         @pointerleave=${() => { if (this._hint?.by === 'pointer') this._hint = null; }}
-        @click=${(e: MouseEvent) => this._onHintIconClick(e, col)}>
+        ${delegate<MouseEvent>('click', (e, icon) => this._onHintIconClick(e, col, icon))}>
         <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" focusable="false">
           <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm.9 10.5H7.1V7h1.8v4.5ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/>
         </svg>
@@ -3125,13 +3125,13 @@ export class FlexTable extends LitElement {
    * arrives with the tooltip already open from the hover and must not close it. The click never
    * reaches the header's sort.
    */
-  private _onHintIconClick(e: MouseEvent, col: ColumnDefinition): void {
+  private _onHintIconClick(e: MouseEvent, col: ColumnDefinition, icon: HTMLElement): void {
     e.stopPropagation();
     if (this._hint?.key === col.key && this._hint.by === 'pointer') {
       if ((e as PointerEvent).pointerType === 'touch') this._hint = null;
       return;
     }
-    this._openHint(col, 'pointer', e.currentTarget as HTMLElement);
+    this._openHint(col, 'pointer', icon);
     // The document click that would close it is this very click.
     requestAnimationFrame(() => document.addEventListener('click', this._onDocumentClick, { once: true }));
   }
@@ -3342,17 +3342,17 @@ export class FlexTable extends LitElement {
     //   드롭다운을 같은 클릭이 곧바로 닫는다. 폭 조절 둘은 연달아 누르도록 메뉴를 열어 둔다.
     const item = (action: string, label: unknown, run: () => void, keepOpen = false) => html`
       <button type="button" role="menuitem" class="ft-header-menu-item" data-action=${action}
-        @click=${(e: MouseEvent) => {
+        ${delegate('click', (e: MouseEvent) => {
           e.stopPropagation();
           if (!keepOpen) this._headerMenu = null;
           run();
-        }}>${label}</button>
+        })}>${label}</button>
     `;
 
     return html`
       <div class="ft-header-menu" role="menu" aria-label=${t('columnMenuRegion', { header: col.label })}
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: var(--u-layer-floating, 1000);"
-        @mousedown=${(e: MouseEvent) => e.stopPropagation()}
+        ${delegate('mousedown', (e: MouseEvent) => e.stopPropagation())}
         @keydown=${(e: KeyboardEvent) => this._onHeaderMenuKeydown(e)}>
         ${col.sortable !== false ? html`
           ${item('sort-asc', t('sortAscending'), () => this._applySortFromMenu(key, 'asc'))}
@@ -3389,7 +3389,7 @@ export class FlexTable extends LitElement {
     const item = (label: string, run: () => void, danger = false) => html`
       <button type="button" role="menuitem"
         class="ft-context-menu-item ${danger ? 'ft-context-menu-danger' : ''}"
-        @click=${() => { run(); close(); }}>${label}</button>
+        ${delegate('click', () => { run(); close(); })}>${label}</button>
     `;
     const separator = html`<div class="ft-context-menu-separator" role="separator"></div>`;
 
@@ -3397,7 +3397,7 @@ export class FlexTable extends LitElement {
     return html`
       <div class="ft-body-context-menu" role="menu" aria-label=${t('cellActions')}
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: var(--u-layer-floating, 1000);"
-        @mousedown=${(e: MouseEvent) => e.stopPropagation()}
+        ${delegate('mousedown', (e: MouseEvent) => e.stopPropagation())}
         @keydown=${(e: KeyboardEvent) => this._onMenuKeydown(e, '.ft-body-context-menu', close)}>
         ${item(t('copy'), () => this._clipboard.copyFromMenu())}
         ${separator}
@@ -3952,8 +3952,8 @@ export class FlexTable extends LitElement {
     const rowNumCell = this.showRowNumbers ? html`
       <div class="ft-row-num ${isDraggingRow ? 'ft-col-dragging' : ''}"
         style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2; cursor: grab;"
-        @mousedown=${(e: MouseEvent) => this._rowReorder.onNumMouseDown(e, index)}
-        @click=${() => this._onRowNumberClick(index)}>${dataIndex + 1}</div>
+        ${delegate('mousedown', (e: MouseEvent) => this._rowReorder.onNumMouseDown(e, index))}
+        ${delegate('click', () => this._onRowNumberClick(index))}>${dataIndex + 1}</div>
     ` : '';
 
     // Data cells: pinned outside range + visible range
@@ -4107,9 +4107,9 @@ export class FlexTable extends LitElement {
         aria-invalid=${validationError ? 'true' : nothing}
         title=${validationError ?? nothing}
         style=${cellStyle}
-        @mousedown=${(e: MouseEvent) => this._onCellMouseDown(e, rowIndex, colIndex)}
+        ${delegate('mousedown', (e: MouseEvent) => this._onCellMouseDown(e, rowIndex, colIndex))}
         @mouseenter=${() => this._onCellMouseEnter(rowIndex, colIndex)}
-        @click=${(e: MouseEvent) => this._onCellClickEvent(e, rowIndex, colIndex)}
+        ${delegate<MouseEvent>('click', (e, cell) => this._onCellClickEvent(e, rowIndex, colIndex, cell))}
         @dblclick=${() => this._onCellDblClick(rowIndex, colIndex)}>
         ${commentTooltip}
         ${renderCell(getCellValue(row, col.key), row, col)}
@@ -4190,7 +4190,7 @@ export class FlexTable extends LitElement {
             ${candidates.map((c, i) => html`
               <div class="ft-autocomplete-item ${i === activeIdx ? 'ft-autocomplete-active' : ''}"
                 id=${`ft-autocomplete-${i}`} role="option" aria-selected=${i === activeIdx ? 'true' : 'false'}
-                @mousedown=${(e: MouseEvent) => { e.preventDefault(); this._selectAutocompleteCandidate(c); }}>
+                ${delegate('mousedown', (e: MouseEvent) => { e.preventDefault(); this._selectAutocompleteCandidate(c); })}>
                 ${c}
               </div>
             `)}

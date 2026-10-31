@@ -1,5 +1,6 @@
 import { html, nothing, type TemplateResult } from 'lit';
 import { t } from '../locale.js';
+import { delegate } from '@iyulab/components/dist/utilities/listenInShadow.js';
 
 /** What the comment popup needs from the table — the controller owns the popup, the table owns the comments. */
 export interface CommentPopupContext {
@@ -92,7 +93,7 @@ export class CommentPopupController {
     return html`
       <div class="ft-comment-popup"
         style="position: fixed; left: ${adjustedX}px; top: ${adjustedY}px; z-index: calc(var(--u-layer-floating, 1000) + 1);"
-        @mousedown=${(e: MouseEvent) => e.stopPropagation()}>
+        ${delegate('mousedown', (e: MouseEvent) => e.stopPropagation())}>
         <textarea class="ft-comment-popup-textarea" aria-label=${t('addComment')}
           rows="4"
           placeholder=${t('addCommentPlaceholder')}

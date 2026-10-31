@@ -10,6 +10,7 @@ import type { FilterModel, NumericOp, TextFilterMode } from '../core/filter-mode
 import type { FilterPredicate } from '../core/filtering.js';
 import type { CompositionTracker } from '@iyulab/components/dist/utilities/composition.js';
 import type { ColumnDefinition } from '../models/types.js';
+import { delegate } from '@iyulab/components/dist/utilities/listenInShadow.js';
 
 /** What the filter popover needs from the table — the controller owns the popover's state and controls, the table owns the filters. */
 export interface FilterPopoverContext {
@@ -68,7 +69,7 @@ export class FilterPopoverController {
 
     return html`
       <div class="ft-filter-dropdown" role="dialog" aria-label=${t('filterFor', { header: col.label })}
-        @click=${(e: MouseEvent) => e.stopPropagation()}
+        ${delegate('click', (e: MouseEvent) => e.stopPropagation())}
         @keydown=${{ handleEvent: (e: KeyboardEvent) => this.onDialogKeydown(e), capture: true }}>
         ${type === 'boolean' ? this.renderBooleanFilter(col)
           : type === 'number' ? this.renderNumberFilter(col)
