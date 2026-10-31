@@ -1898,6 +1898,7 @@ export class FlexTable extends LitElement {
     if (this._layoutChosen || this._warnedCards || !this._cardsActive) return;
     this._warnedCards = true;
     const phone = this._screenWidth > 0 && this._screenWidth < this.cardBreakpoint;
+    // eslint-disable-next-line no-console -- a developer diagnostic: the app left `layout` to the table and got cards
     console.warn(
       `[@iyulab/flex-table] drew its rows as cards: ${phone
         ? `the screen is ${Math.round(this._screenWidth)}px wide`
