@@ -55,7 +55,7 @@ function formatNumberPattern(value: unknown, fmt: string): FormattedNumber {
   if (!warned.has(fmt)) {
     warned.add(fmt);
     // eslint-disable-next-line no-console -- the column's format is wrong; say which one, once
-    console.warn(`[@iyulab/flex-table] number format "${fmt}" uses syntax the table does not support (conditions, [Color N], scientific or fractions) — showing values unformatted.`);
+    console.warn(`[@iyulab/flex-table] number format "${fmt}" uses syntax the table does not support (conditions, [Color N], scientific, fractions, or more than 21 integer / 100 fraction digits) — showing values unformatted.`);
   }
   return { text: String(value) };
 }
