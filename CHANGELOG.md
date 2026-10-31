@@ -9,6 +9,10 @@
   a click or mousedown listener on the element. The handlers are now heard on the shadow root (`delegate` from
   `@iyulab/components`); selecting, sorting, resizing and opening a row work as before.
 
+### Changed
+
+- Requires `@iyulab/components` 2.39.0 or later: the click handlers above use its `delegate` directive.
+
 ## [0.78.0] - 2026-10-31
 
 ### Changed
