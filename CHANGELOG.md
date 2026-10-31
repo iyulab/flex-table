@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- The array source's free-text search (`useArraySource` · `createArraySource` · `computeArrayView`) matches with the
+  `@iyulab/components` search match, as the column filter's «contains» already did — case and diacritics folded
+  (`muller` finds `Müller`) and Korean initials (`ㅂㅅ` finds `부산`). It was a case-insensitive substring.
+
 ## [0.77.0] - 2026-10-31
 
 ### Added

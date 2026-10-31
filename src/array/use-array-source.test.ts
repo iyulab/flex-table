@@ -36,6 +36,17 @@ describe('computeArrayView — 검색', () => {
     expect(result.totalCount).toBe(2);
   });
 
+  it('검색 일치는 components 의 것 — 발음 기호 접기 · 한글 초성(열 필터의 «포함» 과 같다)', () => {
+    const rows = [
+      { id: 1, name: 'Müller', price: 1, category: '서울' },
+      { id: 2, name: 'Smith', price: 2, category: '부산' },
+    ] as Row[];
+    expect(computeArrayView(rows, { ...BASE, search: 'muller' }).data.map((r) => r.id)).toEqual([1]);
+    expect(computeArrayView(rows, { ...BASE, search: 'ㅂㅅ' }).data.map((r) => r.id)).toEqual([2]);
+    // 확정된 음절은 음절 그대로 — «서» 는 «성» 이 아니다
+    expect(computeArrayView(rows, { ...BASE, search: '성' }).totalCount).toBe(0);
+  });
+
   it('searchFields로 검색 범위를 좁힐 수 있다(서버 read 모델에 없는 조인 파생 필드 포함)', () => {
     // "카테고리로는 검색하지 않는다"는 정책을 흉내 — name만 대상으로.
     const result = computeArrayView(ROWS, {

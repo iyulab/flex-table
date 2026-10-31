@@ -1119,7 +1119,7 @@ const source = useArraySource(joined, {
 | `defaultOrderBy` | — | Initial sort (e.g. `'name asc'`), same syntax as `useODataSource` |
 | `initialPage` / `initialSearch` / `initialSort` | `0` / `''` / — | Same names, same meanings, same first-render-only contract as `useODataSource` — the shared shape covers initial state too, so swapping sources needs no other change |
 | `columns` | — | `ColumnDefinition[]` — sets each column's comparison by its `type`. A column without a declared type compares by its values' kind: numbers numerically, booleans as booleans, `Date` objects as dates, anything else as text. Declare `type` to compare date or number *strings* by value. |
-| `searchFields` | all values | `(row) => value[]` — narrows or widens what free-text search matches; the default searches every property on the row, including client-joined ones |
+| `searchFields` | all values | `(row) => value[]` — narrows or widens what free-text search matches; the default searches every property on the row, including client-joined ones. The match is the `@iyulab/components` search match, as in the column filter's «contains»: case and diacritics folded, Korean initials (`ㅂㅅ` finds `부산`) |
 
 The returned fields mean the same thing as `useODataSource`'s, except `totalCount` is the
 count after search (not a server-reported total), and `loading`/`error` are always

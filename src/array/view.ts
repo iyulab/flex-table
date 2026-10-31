@@ -7,6 +7,7 @@ import type { SortCriteria } from '../core/sorting.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { DEFAULT_MAX_ROWS, type FetchAllOptions } from '../core/fetch-all.js';
 import { RowLimitError } from '../core/source-error.js';
+import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 
 export interface ComputeArrayViewOptions<T> {
   search: string;
@@ -37,11 +38,12 @@ export function computeArrayView<T extends DataRow>(
   const columnFiltered = columnFilters.length > 0
     ? computeFilteredIndices(data as DataRow[], columnFilters).map((i) => data[i])
     : data;
-  const term = search.trim().toLowerCase();
+  // 검색 일치는 components 의 것 — 대소문자 · 발음 기호 접기, 한글 초성(열 필터의 «포함» 과 같다)
+  const term = search.trim();
   const filtered = term
     ? columnFiltered.filter((row) => {
         const values = searchFields ? searchFields(row) : Object.values(row as Record<string, unknown>);
-        return values.some((v) => v != null && String(v).toLowerCase().includes(term));
+        return values.some((v) => v != null && Locale.matchesSearch(String(v), term));
       })
     : columnFiltered;
 
