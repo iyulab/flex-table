@@ -45,6 +45,24 @@ export default defineConfig({
           isolate: true,
         },
       },
+      {
+        // WebKit 표본 — 엔진 차이가 알려진 축(키보드 · 편집 초점 · 선택)만. 편집 루프(`npm test`)가 아니라 게시 전 전체 검증에서
+        // `npm run test:webkit` 으로 돈다. 대상 밖: 클립보드(시험이 Chromium 의 copy · paste 이벤트 경로를 단언한다 — Safari 는 선택 없이
+        // copy 를 내지 않아 다른 경로를 탄다) · 날짜 편집기(headless WebKit 프레임에서 달력 입력 클릭이 «보이게 스크롤» 에서 멈춘다) · IME(CDP).
+        test: {
+          name: 'webkit',
+          include: ['keyboard', 'editor-focus-once', 'edit-follows-row', 'selection-color'].map((name) => `tests/browser/${name}.browser.test.ts`),
+          browser: {
+            enabled: true,
+            provider: playwright({ contextOptions: { viewport: { width: 1600, height: 1200 } } }),
+            instances: [{ browser: 'webkit', headless: true }],
+            viewport: { width: 1280, height: 900 },
+          },
+          api: { host: '127.0.0.1', port: 41513 },
+          isolate: true,
+          fileParallelism: false,
+        },
+      },
     ],
   },
 });

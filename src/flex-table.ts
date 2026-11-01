@@ -2027,7 +2027,15 @@ export class FlexTable extends LitElement {
     }
   }
 
+  /** The menu key opened a menu — Chromium fires its own `contextmenu` once more when that key is released. */
+  private _keyMenuUntil = 0;
+
   private _onContextMenu(e: MouseEvent): void {
+    if (e.isTrusted && performance.now() < this._keyMenuUntil) {
+      this._keyMenuUntil = 0;
+      e.preventDefault();
+      return;
+    }
     // Find the cell element from the event path
     const path = e.composedPath();
     const cellEl = path.find(
@@ -2496,6 +2504,30 @@ export class FlexTable extends LitElement {
     // control's: Enter and Space activate it rather than editing the active cell. Ctrl/Cmd shortcuts
     // (copy, undo, fill…) still apply.
     if (!this._isGridSurface(e.composedPath()[0]) && !e.ctrlKey && !e.metaKey) return;
+
+    // The context-menu key and Shift+F10 open the menu of what has the keyboard (WAI-ARIA). Chromium and
+    // Firefox turn them into a `contextmenu` event themselves; Safari does not, so the keyboard had no way
+    // to the cell or column menu there. The key is taken here and the same event dispatched, at the cell.
+    if ((e.key === 'F10' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) || e.key === 'ContextMenu') {
+      if (e.key === 'ContextMenu') this._keyMenuUntil = performance.now() + 1000;
+      // On the header row it is the column menu, opened as Alt+ArrowDown opens it (the focus moves into it).
+      const headerCol = this._headerCol !== null ? cols[this._headerCol] : undefined;
+      if (headerCol) {
+        e.preventDefault();
+        this._openColumnMenu(headerCol);
+        return;
+      }
+      const target = e.composedPath()[0];
+      if (target instanceof Element) {
+        e.preventDefault();
+        const box = target.getBoundingClientRect();
+        target.dispatchEvent(new MouseEvent('contextmenu', {
+          bubbles: true, composed: true, cancelable: true,
+          clientX: box.left + Math.min(8, box.width / 2), clientY: box.top + box.height / 2,
+        }));
+        return;
+      }
+    }
 
     if (this._headerCol !== null) {
       this._onHeaderKeyDown(e, cols);

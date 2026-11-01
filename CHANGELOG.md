@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- **Shift+F10 and the context-menu key open the cell or column menu in Safari.** The table relied on the browser turning
+  those keys into a `contextmenu` event; Chromium and Firefox do, Safari does not, so the keyboard had no way to the menu
+  there. The table now takes the key itself and opens the menu at the cell that has the keyboard, in every browser.
 - **Screen readers no longer announce «clickable» on every cell, header, row number and card.** Measured with NVDA in
   browse mode, each cell, sortable header, row number, resize handle and card was announced as «clickable»: it carried
   a click or mousedown listener on the element. The handlers are now heard on the shadow root (`delegate` from

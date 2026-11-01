@@ -315,6 +315,19 @@ describe('flex-table keyboard — the header row', () => {
     expect(activeHeader(), 'sorting keeps the keyboard on the header').toEqual(['1']);
   });
 
+  it('the context-menu key and Shift+F10 on a header cell open its column menu, and it stays open', async () => {
+    await mount();
+    for (const keys of ['{ContextMenu}', '{Shift>}{F10}{/Shift}']) {
+      await at(0, 1);
+      await press('{ArrowUp}');
+      await press(keys);
+      await new Promise((r) => setTimeout(r, 150));
+      expect(menuOpen(), `${keys}: open — the browser's own contextmenu on key release does not toggle it shut`).toBe(true);
+      await press('{Escape}');
+      expect(menuOpen()).toBe(false);
+    }
+  });
+
   it('Alt+ArrowDown opens the column menu; Escape closes it and returns to the grid on the same header cell', async () => {
     await mount();
     await at(0, 2);
@@ -372,6 +385,23 @@ describe('flex-table keyboard — the focus is on the cell the keyboard is on', 
     await press('{ArrowDown}');
     await new Promise((r) => setTimeout(r, 250));
     expect(focused()).toBe(cell(1, 0));
+  });
+
+  it('the context-menu key opens the same cell menu — the table takes the key, so it works where the browser fires no contextmenu for it (Safari)', async () => {
+    await mount();
+    table.showContextMenu = true;
+    const opened: { row: number; col: number }[] = [];
+    table.addEventListener('context-menu', (e) => opened.push({ row: e.detail.row, col: e.detail.col }));
+    let keyTaken = false;
+    document.addEventListener('keydown', (e) => { if (e.key === 'ContextMenu') keyTaken = e.defaultPrevented; }, { once: true });
+    await settle();
+    await at(1, 2);
+    await press('{ContextMenu}');
+    await new Promise((r) => setTimeout(r, 100));
+    expect(opened, 'once — the browser’s own contextmenu on key release is not a second open').toEqual([{ row: 1, col: 2 }]);
+    expect(keyTaken, 'the table takes the key — the browser does not open its own menu as well').toBe(true);
+    await press('{Escape}');
+    expect(focused()).toBe(cell(1, 2));
   });
 
   it('Shift+F10 on the active cell opens the cell menu at that cell; Escape returns to the cell', async () => {
