@@ -165,7 +165,7 @@ export const flexTableStyles = css`
     user-select: none;
     border-bottom: 2px solid var(--ft-border-color);
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-overflow: ellipsis; /* ellipsis-ok: the column menu auto-fits or widens the column (keyboard too) */
     white-space: nowrap;
     box-sizing: border-box;
     display: flex;
@@ -277,7 +277,7 @@ export const flexTableStyles = css`
     align-content: safe center;
     border-bottom: 1px solid var(--ft-border-color);
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-overflow: ellipsis; /* ellipsis-ok: the column menu auto-fits or widens the column; the editor shows the value */
     white-space: nowrap;
     box-sizing: border-box;
     cursor: default;
@@ -386,7 +386,7 @@ export const flexTableStyles = css`
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-overflow: ellipsis; /* ellipsis-ok: the list sizes to its longest candidate; this is a fallback */
     font-size: var(--ft-font-size, 14px);
     color: var(--ft-text-color);
   }
@@ -869,7 +869,7 @@ export const flexTableStyles = css`
     font-size: 13px;
     color: var(--ft-header-text-color);
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-overflow: ellipsis; /* ellipsis-ok: the footer shares its column width; widen the column to read it */
     white-space: nowrap;
     box-sizing: border-box;
   }
