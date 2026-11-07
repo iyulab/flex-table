@@ -4,6 +4,12 @@
 
 ### Fixed
 
+- **The first click on the header of a source's default descending sort now flips it.** With `defaultOrderBy: 'X desc'` the
+  table shows `X desc` from the start, and the header cycles ascending → descending → none. The first click sent «none»;
+  the source then asks with `defaultOrderBy`, which is the order already on screen, so only the arrow vanished and a second
+  click was needed to reach ascending. `ODataSource.setSort([])` now moves on to ascending when the sort it clears is the
+  single descending default (other cases are unchanged: a default that is ascending, another column, no default order).
+
 - **Shift+F10 and the context-menu key open the cell or column menu in Safari.** The table relied on the browser turning
   those keys into a `contextmenu` event; Chromium and Firefox do, Safari does not, so the keyboard had no way to the menu
   there. The table now takes the key itself and opens the menu at the cell that has the keyboard, in every browser.

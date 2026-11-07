@@ -80,6 +80,21 @@ export function parseOrderBy(orderBy: string): SortCriteria[] {
   });
 }
 
+/**
+ * 표가 보낸 «정렬 없음»(`[]`)이 지금 보이는 정렬과 **순서가 같을 때** 다음 단계로 넘긴다.
+ *
+ * 헤더는 오름 → 내림 → 없음으로 돈다. 정렬이 없으면 소스는 `defaultOrderBy` 로 묻는데, 그 기본이 지금 보이는 `X desc` 이면
+ * «없음» 은 화면의 순서를 하나도 바꾸지 않고 화살표만 지운다 — 누른 한 번이 허공에 간다. 그 경우에만(기본 정렬과 같은, 하나뿐인
+ * 내림차순 기준을 «없음» 으로 지우려 할 때) 반대 방향으로 넘긴다. 기본이 오름이거나 다른 열이면 «없음» 은 순서를 실제로
+ * 바꾸므로 그대로다.
+ */
+export function skipNoopClear(next: SortCriteria[], current: SortCriteria[], defaultOrderBy?: string): SortCriteria[] {
+  if (next.length > 0 || current.length !== 1 || current[0].direction !== 'desc' || !defaultOrderBy) return next;
+  const asText = (c: SortCriteria[]) => c.map(s => `${s.key} ${s.direction}`).join(', ');
+  if (asText(current) !== asText(parseOrderBy(defaultOrderBy))) return next;
+  return [{ key: current[0].key, direction: 'asc' }];
+}
+
 /** `buildODataQuery` 가 읽는 표 상태 — `useODataSource` 가 요청마다 넘기는 것과 같은 모양. */
 export interface ODataQueryState {
   /** 0부터 세는 페이지 번호. `pageSize` 와 함께 `$skip` 이 된다. */

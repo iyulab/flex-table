@@ -2,7 +2,7 @@
 import type { SortCriteria } from '../core/sorting.js';
 import type { ColumnDefinition } from '../models/types.js';
 import { filterModelsToOData, type FilterModels } from '../core/filter-model.js';
-import { buildODataQuery, resolveInitialState } from './query.js';
+import { buildODataQuery, resolveInitialState, skipNoopClear } from './query.js';
 import { networkFailure, readFailedResponse, RowLimitError, SourceRequestError, toSourceError, type SourceError } from '../core/source-error.js';
 import { DEFAULT_MAX_ROWS, type FetchAllOptions } from '../core/fetch-all.js';
 
@@ -97,7 +97,10 @@ export interface ODataSource<T> {
   setPage(page: number): void;
   /** 페이지 크기를 바꾸고 첫 장으로 간다(페이저의 «페이지당 행 수»). */
   setPageSize(size: number): void;
-  /** 정렬을 바꾸고 첫 장으로 간다. */
+  /**
+   * 정렬을 바꾸고 첫 장으로 간다. `[]` 은 «정렬 없음» — 소스는 `defaultOrderBy` 로 묻는다. 다만 기본 정렬이 지금 보이는 내림차순
+   * 하나이면 «없음» 은 순서를 바꾸지 않으므로(헤더의 오름 → 내림 → 없음 순환이 한 번을 허공에 쓴다) 오름차순으로 넘긴다.
+   */
   setSort(criteria: SortCriteria[]): void;
   /** 검색어를 바꾸고 첫 장으로 간다. */
   setSearch(term: string): void;
@@ -263,7 +266,7 @@ export function createODataSource<T = Record<string, unknown>>(url: string, opti
       schedule();
     },
     setSort(criteria) {
-      set({ sortCriteria: criteria, page: 0 });
+      set({ sortCriteria: skipNoopClear(criteria, inner.sortCriteria, opts.defaultOrderBy), page: 0 });
       schedule();
     },
     setSearch(term) {
