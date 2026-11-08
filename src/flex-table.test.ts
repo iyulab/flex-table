@@ -3387,6 +3387,21 @@ describe('FlexTable', () => {
 
       expect(el.data[0]['tag']).toBe('banana');
     });
+
+    it('strict mode accepts any value of a column with more than twenty distinct values', async () => {
+      const el = createElement();
+      el.columns = [{ key: 'tag', label: 'Tag', autocomplete: 'strict' }];
+      el.data = Array.from({ length: 30 }, (_, i) => ({ tag: `tag-${i}` }));
+      await el.updateComplete;
+
+      // The suggestion list stops at twenty; the strict check is about the whole column, not the first twenty.
+      (el as any)._editingCell = { row: 0, col: 0 };
+      (el as any)._editing.start({ row: 0, col: 0 }, 'tag-0', el.data[0]);
+      (el as any)._applyEdit('tag-27');
+      await el.updateComplete;
+
+      expect(el.data[0]['tag']).toBe('tag-27');
+    });
   });
 
   describe('built-in context menu', () => {

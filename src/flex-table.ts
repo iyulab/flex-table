@@ -46,6 +46,7 @@ import { FilterPopoverController } from './controllers/filter-popover.js';
 import { CursorController } from './controllers/cursor.js';
 import { KeyboardNavController } from './controllers/keyboard-nav.js';
 import { KeyMenuGuard, menuKeyAction, menuShift } from './controllers/menu.js';
+import { autocompleteCandidates, columnHasValue, stepAutocomplete, type AutocompleteState } from './core/autocomplete.js';
 import { calendarOpen } from './core/calendar-state.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
@@ -446,7 +447,7 @@ export class FlexTable extends LitElement {
   private _checkboxShiftPending = false;
 
   @state()
-  private _autocompleteState: { candidates: string[]; activeIndex: number } | null = null;
+  private _autocompleteState: AutocompleteState | null = null;
 
   /**
    * The header description tooltip (`ColumnDefinition.description`). `by` says who opened it — the
@@ -2215,8 +2216,7 @@ export class FlexTable extends LitElement {
 
     // Strict autocomplete: value must be in existing column values
     if (colDef.autocomplete === 'strict' && newValue != null && newValue !== '') {
-      const allCandidates = this._getAutocompleteCandidates(colDef, '');
-      if (!allCandidates.includes(String(newValue))) {
+      if (!columnHasValue(this.data, colDef.key, newValue)) {
         const error = t('notInList');
         this._markCellInvalid(target, colDef, () => t('notInList'));
         this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
@@ -2293,14 +2293,13 @@ export class FlexTable extends LitElement {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         e.stopPropagation();
-        const len = this._autocompleteState.candidates.length;
-        this._autocompleteState = { ...this._autocompleteState, activeIndex: Math.min(this._autocompleteState.activeIndex + 1, len - 1) };
+        this._autocompleteState = stepAutocomplete(this._autocompleteState, 1);
         return;
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         e.stopPropagation();
-        this._autocompleteState = { ...this._autocompleteState, activeIndex: Math.max(this._autocompleteState.activeIndex - 1, -1) };
+        this._autocompleteState = stepAutocomplete(this._autocompleteState, -1);
         return;
       }
       if (e.key === 'Enter' && this._autocompleteState.activeIndex >= 0) {
@@ -2343,19 +2342,7 @@ export class FlexTable extends LitElement {
 
   /** `composing` — `text` 의 마지막 음절이 아직 IME 로 조합 중이다(검색 일치가 자모 앞부분으로 견준다). */
   private _getAutocompleteCandidates(col: ColumnDefinition, text: string, composing = false): string[] {
-    const seen = new Set<string>();
-    const results: string[] = [];
-    for (const row of this.data) {
-      const v = getCellValue(row, col.key);
-      if (v == null) continue;
-      const s = String(v);
-      if (!seen.has(s) && (text === '' || Locale.matchesSearch(s, text, { composing }))) {
-        seen.add(s);
-        results.push(s);
-        if (results.length >= 20) break;
-      }
-    }
-    return results;
+    return autocompleteCandidates(this.data, col.key, text, composing);
   }
 
   private _onAutocompleteInput(e: Event, col: ColumnDefinition): void {

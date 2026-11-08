@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- **`autocomplete: 'strict'` accepts every value of the column, not only the first twenty.** The strict check asked the
+  suggestion list whether the typed value was in it, and that list stops at twenty distinct values — so on a column with more
+  than twenty, a value from further down was turned away with «not in list». It now looks at the whole column.
+
 - **The first click on the header of a source's default descending sort now flips it.** With `defaultOrderBy: 'X desc'` the
   table shows `X desc` from the start, and the header cycles ascending → descending → none. The first click sent «none»;
   the source then asks with `defaultOrderBy`, which is the order already on screen, so only the arrow vanished and a second
