@@ -15,7 +15,6 @@ import { filterModelPredicate, isEmptyFilterModel, isFilterModel } from './core/
 import type { FilterModel, FilterModels } from './core/filter-model.js';
 import { UndoStack } from './core/undo.js';
 import { editableDate, editableDateTime, editableNumber, parseValueForColumn } from './clipboard/clipboard.js';
-import { parseDate, parseDateTime } from '@iyulab/components/dist/utilities/format.js';
 // The date and datetime cell editor (registers `u-date-picker`).
 import '@iyulab/components/dist/components/date-picker/UDatePicker.js';
 import { exportData, exportDataBlob, downloadBlob, getExportExtension } from './export/export.js';
@@ -46,7 +45,8 @@ import { FilterPopoverController } from './controllers/filter-popover.js';
 import { CursorController } from './controllers/cursor.js';
 import { KeyboardNavController } from './controllers/keyboard-nav.js';
 import { KeyMenuGuard, menuKeyAction, menuShift } from './controllers/menu.js';
-import { autocompleteCandidates, columnHasValue, stepAutocomplete, type AutocompleteState } from './core/autocomplete.js';
+import { autocompleteCandidates, stepAutocomplete, type AutocompleteState } from './core/autocomplete.js';
+import { validateEdit } from './core/edit-validation.js';
 import { calendarOpen } from './core/calendar-state.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
@@ -2214,37 +2214,12 @@ export class FlexTable extends LitElement {
     const colDef = this.visibleColumns[col];
     const oldValue = editState.originalValue;
 
-    // Strict autocomplete: value must be in existing column values
-    if (colDef.autocomplete === 'strict' && newValue != null && newValue !== '') {
-      if (!columnHasValue(this.data, colDef.key, newValue)) {
-        const error = t('notInList');
-        this._markCellInvalid(target, colDef, () => t('notInList'));
-        this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
-        return;
-      }
-    }
-
-    // A number column keeps text it cannot read as a number (the paste contract) — but an edit is
-    // the person typing into the cell, so tell them instead of storing text in a number column.
-    const unreadable = (colDef.type === 'number' && typeof newValue === 'string')
-      || (colDef.type === 'date' && typeof newValue === 'string' && parseDate(newValue) === null)
-      || (colDef.type === 'datetime' && typeof newValue === 'string' && parseDateTime(newValue) === null);
-    if (unreadable) {
-      const key = colDef.type === 'number' ? 'notANumber' : colDef.type === 'date' ? 'notADate' : 'notADateTime';
-      const error = t(key);
-      this._markCellInvalid(target, colDef, () => t(key));
-      this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
+    // The rules an edit must meet before it is written: strict list, a readable number/date, the column's validator.
+    const problem = validateEdit(colDef, newValue, this.data, target, t);
+    if (problem) {
+      this._markCellInvalid(target, colDef, problem.live ?? problem.message);
+      this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error: problem.message });
       return;
-    }
-
-    // Run validator if present
-    if (colDef.validator) {
-      const error = colDef.validator(newValue, target, colDef);
-      if (error) {
-        this._markCellInvalid(target, colDef, error);
-        this._emit('validation-error', { row: dataRow, col, key: colDef.key, value: newValue, error });
-        return;
-      }
     }
 
     // Mutate data — the row object, which undo and redo write too (`data` can change in between)
