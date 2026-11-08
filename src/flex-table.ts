@@ -2016,15 +2016,17 @@ export class FlexTable extends LitElement {
 
   private _onDocumentClick(): void {
     if (this._hint?.by === 'pointer') this._hint = null;
-    if (this._openFilterKey) {
-      this._openFilterKey = null;
-    }
-    if (this._headerMenu) {
-      this._headerMenu = null;
-    }
-    if (this._bodyContextMenu) {
-      this._bodyContextMenu = null;
-    }
+    this._closeOverlays();
+  }
+
+  /**
+   * Closes the filter dropdown and both menus. One of them is open at a time: opening any of them first closes the
+   * rest — a right-click on a cell makes no `click`, so the document closer alone left a column menu standing under it.
+   */
+  private _closeOverlays(): void {
+    this._openFilterKey = null;
+    this._headerMenu = null;
+    this._bodyContextMenu = null;
   }
 
   /** The menu key opened a menu — Chromium fires its own `contextmenu` once more when that key is released. */
@@ -2083,6 +2085,7 @@ export class FlexTable extends LitElement {
     this._commentPopup.cancel();
 
     if (this.showContextMenu && !ctxEvent.defaultPrevented) {
+      this._closeOverlays();
       this._bodyContextMenu = { rowIndex, colIndex, dataIndex, x: e.clientX, y: e.clientY };
       requestAnimationFrame(() => {
         document.addEventListener('click', this._onDocumentClick, { once: true });
@@ -3019,7 +3022,7 @@ export class FlexTable extends LitElement {
 
   private _onHeaderContextMenu(e: MouseEvent, col: ColumnDefinition): void {
     e.preventDefault();
-    this._openFilterKey = null;
+    this._closeOverlays();
     this._headerMenu = { key: col.key, x: e.clientX, y: e.clientY, hiddenNeighbors: this._hiddenNeighbors(col) };
     this._emit('header-context-menu', { key: col.key, label: col.label, x: e.clientX, y: e.clientY });
     requestAnimationFrame(() => {
@@ -3045,7 +3048,7 @@ export class FlexTable extends LitElement {
   /** Open `col`'s column menu under `anchor` (its menu button by default) and focus the first item. */
   private _openColumnMenu(col: ColumnDefinition, anchor = this._columnMenuButton(col.key)): void {
     const rect = anchor?.getBoundingClientRect();
-    this._openFilterKey = null;
+    this._closeOverlays();
     this._headerMenu = { key: col.key, x: rect?.left ?? 0, y: rect?.bottom ?? 0, hiddenNeighbors: this._hiddenNeighbors(col) };
     requestAnimationFrame(() => {
       document.addEventListener('click', this._onDocumentClick, { once: true });

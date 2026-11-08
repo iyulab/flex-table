@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- **Only one menu is open at a time.** Right-clicking a cell while a column menu was open (or opening a column menu while a
+  cell menu was open) left both on screen: a right-click makes no `click`, so the document-wide closer never ran. Opening the
+  column menu, the cell menu or the filter dropdown now closes the others first.
+
 - **`autocomplete: 'strict'` accepts every value of the column, not only the first twenty.** The strict check asked the
   suggestion list whether the typed value was in it, and that list stops at twenty distinct values — so on a column with more
   than twenty, a value from further down was turned away with «not in list». It now looks at the whole column.
