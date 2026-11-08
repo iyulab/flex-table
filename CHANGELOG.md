@@ -9,6 +9,12 @@
 
 ### Fixed
 
+- **A read-only table's cell menu no longer offers «Insert row above/below» and «Delete row».** With `editable` off and
+  `showContextMenu` on, the built-in cell menu still listed the three row entries and they changed the data, although
+  `editable` is the table's global read-only mode. They are left out now; the two inserts are also left out when `maxRows`
+  is reached (they did nothing). Copy, hide, sort, filter and comment entries are unchanged, and the `addRow()` and
+  `deleteRows()` methods are not affected.
+
 - **Only one menu is open at a time.** Right-clicking a cell while a column menu was open (or opening a column menu while a
   cell menu was open) left both on screen: a right-click makes no `click`, so the document-wide closer never ran. Opening the
   column menu, the cell menu or the filter dropdown now closes the others first.

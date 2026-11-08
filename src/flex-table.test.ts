@@ -3480,6 +3480,43 @@ describe('FlexTable', () => {
       expect(items.length).toBeGreaterThan(3);
     });
 
+    it('a read-only table (editable=false) has no «insert row» or «delete row» in its cell menu', async () => {
+      const count = async (editable: boolean) => {
+        const el = makeCM();
+        el.editable = editable;
+        await el.updateComplete;
+        (el as any)._bodyContextMenu = { rowIndex: 0, colIndex: 0, dataIndex: 0, x: 100, y: 100 };
+        await el.updateComplete;
+        const menu = el.shadowRoot!.querySelector('.ft-body-context-menu')!;
+        return { items: menu.querySelectorAll('[role="menuitem"]').length, danger: menu.querySelectorAll('.ft-context-menu-danger').length };
+      };
+      const editable = await count(true);
+      const readOnly = await count(false);
+      expect(editable.danger).toBe(1); // «Delete row»
+      expect(readOnly.danger).toBe(0);
+      expect(editable.items - readOnly.items).toBe(3); // insert above, insert below, delete
+      expect(readOnly.items).toBeGreaterThan(2); // copy, hide, sort… stay
+    });
+
+    it('a full table (maxRows reached) cannot offer «insert row» — it would do nothing', async () => {
+      const el = makeCM();
+      el.maxRows = 2;
+      await el.updateComplete;
+
+      (el as any)._bodyContextMenu = { rowIndex: 0, colIndex: 0, dataIndex: 0, x: 100, y: 100 };
+      await el.updateComplete;
+
+      const items = [...el.shadowRoot!.querySelectorAll('.ft-body-context-menu [role="menuitem"]')];
+      // «Delete row» (the only danger entry besides a comment delete) stays; the two inserts are gone.
+      expect(items.filter((i) => i.classList.contains('ft-context-menu-danger')).length).toBe(1);
+      const full = makeCM();
+      await full.updateComplete;
+      (full as any)._bodyContextMenu = { rowIndex: 0, colIndex: 0, dataIndex: 0, x: 100, y: 100 };
+      await full.updateComplete;
+      const fullCount = full.shadowRoot!.querySelectorAll('.ft-body-context-menu [role="menuitem"]').length;
+      expect(items.length).toBe(fullCount - 2);
+    });
+
     it('is a keyboard menu — buttons in role=menu, first item focused, arrows move, Escape returns focus to the grid', async () => {
       const el = makeCM();
       await el.updateComplete;

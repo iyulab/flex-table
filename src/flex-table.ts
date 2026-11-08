@@ -47,6 +47,7 @@ import { KeyboardNavController } from './controllers/keyboard-nav.js';
 import { KeyMenuGuard, menuKeyAction, menuShift } from './controllers/menu.js';
 import { autocompleteCandidates, stepAutocomplete, type AutocompleteState } from './core/autocomplete.js';
 import { validateEdit } from './core/edit-validation.js';
+import { headerMenuPlan, bodyMenuPlan, type HeaderMenuAction, type BodyMenuAction } from './core/menu-plan.js';
 import { calendarOpen } from './core/calendar-state.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
@@ -3146,27 +3147,39 @@ export class FlexTable extends LitElement {
         })}>${label}</button>
     `;
 
+    const plan = headerMenuPlan({
+      sortable: col.sortable !== false,
+      showFilters: this.showFilters,
+      filterable: col.filterable !== false,
+      hasFilter,
+      hiddenNeighbors: hiddenNeighbors.length,
+    });
+    let shown = 0;
+    const entry = (a: HeaderMenuAction | 'separator') => {
+      switch (a) {
+        case 'separator': return html`<div class="ft-header-menu-separator" role="separator"></div>`;
+        case 'sort-asc': return item(a, t('sortAscending'), () => this._applySortFromMenu(key, 'asc'));
+        case 'sort-desc': return item(a, t('sortDescending'), () => this._applySortFromMenu(key, 'desc'));
+        case 'filter': return item(a, t('filter'), () => this._openFilterFromMenu(key));
+        case 'clear-filter': return item(a, t('clearFilter'), () => this._filterPopover.clearColumn(key));
+        case 'hide': return item(a, t('hideColumn'), () => this._setColumnHidden(key, true));
+        case 'show': {
+          const h = hiddenNeighbors[shown++];
+          return item(a, t('showColumn', { header: h.label }), () => this._setColumnHidden(h.key, false));
+        }
+        case 'autofit': return item(a, t('autoFitWidth'), () => this._columnGestures.autoFit(key));
+        case 'wider': return item(a, t('wider'), () => this._resizeColumnBy(key, COLUMN_RESIZE_STEP), true);
+        case 'narrower': return item(a, t('narrower'), () => this._resizeColumnBy(key, -COLUMN_RESIZE_STEP), true);
+      }
+    };
+
+    // Which entries appear is `headerMenuPlan`'s rule (core/menu-plan.ts); this renders them.
     return html`
       <div class="ft-header-menu" role="menu" aria-label=${t('columnMenuRegion', { header: col.label })}
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: var(--u-layer-floating, 1000);"
         ${delegate('mousedown', (e: MouseEvent) => e.stopPropagation())}
         @keydown=${(e: KeyboardEvent) => this._onHeaderMenuKeydown(e)}>
-        ${col.sortable !== false ? html`
-          ${item('sort-asc', t('sortAscending'), () => this._applySortFromMenu(key, 'asc'))}
-          ${item('sort-desc', t('sortDescending'), () => this._applySortFromMenu(key, 'desc'))}
-          <div class="ft-header-menu-separator" role="separator"></div>
-        ` : nothing}
-        ${this.showFilters && (col.filterable !== false || hasFilter) ? html`
-          ${col.filterable !== false ? item('filter', t('filter'), () => this._openFilterFromMenu(key)) : nothing}
-          ${hasFilter ? item('clear-filter', t('clearFilter'), () => this._filterPopover.clearColumn(key)) : nothing}
-          <div class="ft-header-menu-separator" role="separator"></div>
-        ` : nothing}
-        ${item('hide', t('hideColumn'), () => this._setColumnHidden(key, true))}
-        ${hiddenNeighbors.map(h => item('show', t('showColumn', { header: h.label }), () => this._setColumnHidden(h.key, false)))}
-        <div class="ft-header-menu-separator" role="separator"></div>
-        ${item('autofit', t('autoFitWidth'), () => this._columnGestures.autoFit(key))}
-        ${item('wider', t('wider'), () => this._resizeColumnBy(key, COLUMN_RESIZE_STEP), true)}
-        ${item('narrower', t('narrower'), () => this._resizeColumnBy(key, -COLUMN_RESIZE_STEP), true)}
+        ${plan.map(entry)}
       </div>
     `;
   }
@@ -3189,6 +3202,31 @@ export class FlexTable extends LitElement {
         ${delegate('click', () => { run(); close(); })}>${label}</button>
     `;
     const separator = html`<div class="ft-context-menu-separator" role="separator"></div>`;
+    // Which entries appear is `bodyMenuPlan`'s rule (core/menu-plan.ts); this renders them.
+    const plan = bodyMenuPlan({
+      editable: this.editable,
+      canInsert: !(this.maxRows > 0 && this.data.length >= this.maxRows),
+      sortable: col.sortable !== false,
+      filterable: col.filterable !== false,
+      hasFilter,
+      hasComment,
+    });
+    const entry = (a: BodyMenuAction | 'separator') => {
+      switch (a) {
+        case 'separator': return separator;
+        case 'copy': return item(t('copy'), () => this._clipboard.copyFromMenu());
+        case 'insert-above': return item(t('insertRowAbove'), () => this.addRow(undefined, dataIndex));
+        case 'insert-below': return item(t('insertRowBelow'), () => this.addRow(undefined, dataIndex + 1));
+        case 'delete-row': return item(t('deleteRow'), () => this.deleteRows([dataIndex]), true);
+        case 'hide': return item(t('hideColumn'), () => this._setColumnHidden(col.key, true));
+        case 'sort-asc': return item(`${t('sortAscending')} ↑`, () => this._applySortFromMenu(col.key, 'asc'));
+        case 'sort-desc': return item(`${t('sortDescending')} ↓`, () => this._applySortFromMenu(col.key, 'desc'));
+        case 'filter-value': return item(t('filterByThisValue'), () => this.setFilter(col.key, value === null || ['string', 'number', 'boolean'].includes(typeof value) ? { type: 'equals', value: value as string | number | boolean | null } : (v) => v === value));
+        case 'clear-filter': return item(t('clearFilter'), () => this.removeFilter(col.key));
+        case 'comment': return item(hasComment ? t('editComment') : t('addComment'), () => this._commentPopup.open(dataIndex, col.key, x, y));
+        case 'delete-comment': return item(t('deleteComment'), () => this.setComment(dataIndex, col.key, null), true);
+      }
+    };
 
     // Opens at the pointer; `updated()` moves it back inside the viewport once its real size is known.
     return html`
@@ -3196,26 +3234,7 @@ export class FlexTable extends LitElement {
         style="position: fixed; left: ${x}px; top: ${y}px; z-index: var(--u-layer-floating, 1000);"
         ${delegate('mousedown', (e: MouseEvent) => e.stopPropagation())}
         @keydown=${(e: KeyboardEvent) => this._onMenuKeydown(e, '.ft-body-context-menu', close)}>
-        ${item(t('copy'), () => this._clipboard.copyFromMenu())}
-        ${separator}
-        ${item(t('insertRowAbove'), () => this.addRow(undefined, dataIndex))}
-        ${item(t('insertRowBelow'), () => this.addRow(undefined, dataIndex + 1))}
-        ${item(t('deleteRow'), () => this.deleteRows([dataIndex]), true)}
-        ${separator}
-        ${item(t('hideColumn'), () => this._setColumnHidden(col.key, true))}
-        ${separator}
-        ${col.sortable !== false ? html`
-          ${item(`${t('sortAscending')} ↑`, () => this._applySortFromMenu(col.key, 'asc'))}
-          ${item(`${t('sortDescending')} ↓`, () => this._applySortFromMenu(col.key, 'desc'))}
-          ${separator}
-        ` : nothing}
-        ${col.filterable !== false || hasFilter ? html`
-          ${col.filterable !== false ? item(t('filterByThisValue'), () => this.setFilter(col.key, value === null || ['string', 'number', 'boolean'].includes(typeof value) ? { type: 'equals', value: value as string | number | boolean | null } : (v) => v === value)) : nothing}
-          ${hasFilter ? item(t('clearFilter'), () => this.removeFilter(col.key)) : nothing}
-          ${separator}
-        ` : nothing}
-        ${item(hasComment ? t('editComment') : t('addComment'), () => this._commentPopup.open(dataIndex, col.key, x, y))}
-        ${hasComment ? item(t('deleteComment'), () => this.setComment(dataIndex, col.key, null), true) : nothing}
+        ${plan.map(entry)}
       </div>
     `;
   }
