@@ -1952,20 +1952,7 @@ describe('FlexTable', () => {
 
   // --- Horizontal Scroll ---
 
-  it('should have horizontal scroll tracking in _scrollToActiveCell', async () => {
-    const el = createElement();
-    el.columns = [
-      { key: 'a', label: 'A', width: 200 },
-      { key: 'b', label: 'B', width: 200 },
-      { key: 'c', label: 'C', width: 200 },
-    ];
-    el.data = [{ a: '1', b: '2', c: '3' }];
-    await el.updateComplete;
-
-    // The component should have scrollToActiveCell with horizontal support
-    // Verify it's a FlexTable with the expected methods
-    expect(typeof (el as any)._scrollToActiveCell).toBe('function');
-  });
+  // 가로·세로 따라가기 스크롤은 `src/controllers/cursor.test.ts` 가 잰다(제어기의 공개 동작 — 비공개 메서드 존재 확인이 아니라).
 
   // --- Resize Handle ---
 

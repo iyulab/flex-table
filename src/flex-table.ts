@@ -43,10 +43,12 @@ import { RangeEditController } from './controllers/range-edit.js';
 import { CommentPopupController } from './controllers/comment-popup.js';
 import { RowReorderController } from './controllers/row-reorder.js';
 import { FilterPopoverController } from './controllers/filter-popover.js';
+import { CursorController } from './controllers/cursor.js';
+import { KeyboardNavController } from './controllers/keyboard-nav.js';
+import { KeyMenuGuard, menuKeyAction, menuShift } from './controllers/menu.js';
 import { calendarOpen } from './core/calendar-state.js';
 import { isImeComposing } from '@iyulab/components/dist/utilities/keyboard.js';
 import { CompositionTracker, replayInput } from '@iyulab/components/dist/utilities/composition.js';
-import { isFromControl } from '@iyulab/components/dist/utilities/elements.js';
 import { delegate } from '@iyulab/components/dist/utilities/listenInShadow.js';
 
 /** How a `mergeRepeated` cell joins the cells above and below it in its column. */
@@ -464,8 +466,6 @@ export class FlexTable extends LitElement {
   private _viewDirty = true;
   /** Column key → its `aggregate` over the shown rows; recomputed with the view (not on scroll-only updates). */
   private _aggregates: Record<string, unknown> | null = null;
-  private _isDragging = false;
-  private _wasDrag = false;
   /** Set by a resize or a real column-drag reorder; consumed once by the next header `click` to
    * suppress the browser's synthetic click that follows mouseup (same pattern as `_wasDrag` for
    * cell-selection drags below). */
@@ -1610,8 +1610,7 @@ export class FlexTable extends LitElement {
     this.removeEventListener('drop', this._onDrop as unknown as EventListener);
     document.removeEventListener('click', this._onDocumentClick);
     this._commentPopup.dispose();
-    this._isDragging = false;
-    this._wasDrag = false;
+    this._cursor.reset();
     // Clean up any in-progress resize listeners
     if (this._columnGestures.resizeCleanup) {
       this._columnGestures.resizeCleanup();
@@ -2028,11 +2027,10 @@ export class FlexTable extends LitElement {
   }
 
   /** The menu key opened a menu — Chromium fires its own `contextmenu` once more when that key is released. */
-  private _keyMenuUntil = 0;
+  private readonly _keyMenu = new KeyMenuGuard();
 
   private _onContextMenu(e: MouseEvent): void {
-    if (e.isTrusted && performance.now() < this._keyMenuUntil) {
-      this._keyMenuUntil = 0;
+    if (this._keyMenu.swallow(e)) {
       e.preventDefault();
       return;
     }
@@ -2089,101 +2087,6 @@ export class FlexTable extends LitElement {
         document.addEventListener('click', this._onDocumentClick, { once: true });
       });
     }
-  }
-
-  private _onCellClickEvent(e: MouseEvent, rowIndex: number, colIndex: number, cell: HTMLElement): void {
-    // If this click is the end of a drag selection, skip — drag already handled it
-    if (this._wasDrag) {
-      this._wasDrag = false;
-      return;
-    }
-    // Plain click: drag ended without moving to another cell, reset drag state
-    this._isDragging = false;
-    if (this._editing.current) {
-      this._commitEdit();
-    }
-    const extendsSelection = e.shiftKey || e.ctrlKey || e.metaKey;
-    if (e.shiftKey) {
-      this._selection.setActiveWithRange(rowIndex, colIndex);
-    } else if (e.ctrlKey || e.metaKey) {
-      this._selection.toggleCell(rowIndex, colIndex);
-    } else {
-      this._selection.setActive(rowIndex, colIndex);
-    }
-    this._activeCell = this._selection.activeCell ? { ...this._selection.activeCell } : null;
-    this._dispatchSelectionEvent();
-    this.requestUpdate();
-    // A plain click opens the row — the pointer half of `row-activate` (Enter is the keyboard half).
-    // A click that extends a selection, or presses a control the cell renders, is that act's, not this one.
-    if (!extendsSelection && !isFromControl(e, cell)) {
-      this._fireRowActivate(this.visibleColumns[colIndex], 'click');
-    }
-  }
-
-  private _onCellMouseDown(e: MouseEvent, rowIndex: number, colIndex: number): void {
-    if (e.button !== 0) return;
-    if (e.shiftKey) return;
-    // Ctrl+Click: focus without starting drag or clearing selection
-    if (e.ctrlKey || e.metaKey) {
-      this.focus({ preventScroll: true });
-      e.preventDefault();
-      return;
-    }
-
-    this._isDragging = true;
-    this._wasDrag = false;
-
-    if (this._editing.current) this._commitEdit();
-    this._selection.setActive(rowIndex, colIndex);
-    this._activeCell = { row: rowIndex, col: colIndex };
-
-    this.focus({ preventScroll: true });
-    // Prevent browser text selection during drag
-    e.preventDefault();
-
-    const onMouseUp = () => {
-      this._isDragging = false;
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-    document.addEventListener('mouseup', onMouseUp);
-    this.requestUpdate();
-  }
-
-  private _onCellMouseEnter(rowIndex: number, colIndex: number): void {
-    if (!this._isDragging) return;
-
-    this._wasDrag = true;
-    this._selection.setActiveWithRange(rowIndex, colIndex);
-    this._activeCell = this._selection.activeCell ? { ...this._selection.activeCell } : null;
-    this._dispatchSelectionEvent();
-    this.requestUpdate();
-  }
-
-  private _onRowNumberClick(rowIndex: number): void {
-    // Synthetic click following a real row-drag reorder — not a select intent.
-    if (this._wasRowDrag) {
-      this._wasRowDrag = false;
-      return;
-    }
-    if (this._editing.current) {
-      this._commitEdit();
-    }
-    const lastCol = this.visibleColumns.length - 1;
-    this._selection.setActive(rowIndex, 0);
-    this._selection.setActiveWithRange(rowIndex, lastCol);
-    this._activeCell = this._selection.activeCell ? { ...this._selection.activeCell } : null;
-    this._dispatchSelectionEvent();
-    this.requestUpdate();
-  }
-
-  private _onCellDblClick(rowIndex: number, colIndex: number): void {
-    if (this._editing.current) {
-      this._commitEdit();
-    }
-    this._selection.setActive(rowIndex, colIndex);
-    this._activeCell = this._selection.activeCell ? { ...this._selection.activeCell } : null;
-    this._dispatchSelectionEvent();
-    this._startEdit();
   }
 
   // --- Editing ---
@@ -2471,10 +2374,8 @@ export class FlexTable extends LitElement {
   }
 
   private _syncActiveCell(): void {
-    this._activeCell = this._selection.activeCell ? { ...this._selection.activeCell } : null;
+    this._cursor.followSelection();
     if (this._activeCell) this._headerCol = null;
-    this._scrollToActiveCell();
-    this._dispatchSelectionEvent();
   }
 
   // --- Navigation ---
@@ -2509,7 +2410,7 @@ export class FlexTable extends LitElement {
     // Firefox turn them into a `contextmenu` event themselves; Safari does not, so the keyboard had no way
     // to the cell or column menu there. The key is taken here and the same event dispatched, at the cell.
     if ((e.key === 'F10' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) || e.key === 'ContextMenu') {
-      if (e.key === 'ContextMenu') this._keyMenuUntil = performance.now() + 1000;
+      if (e.key === 'ContextMenu') this._keyMenu.arm();
       // On the header row it is the column menu, opened as Alt+ArrowDown opens it (the focus moves into it).
       const headerCol = this._headerCol !== null ? cols[this._headerCol] : undefined;
       if (headerCol) {
@@ -2557,8 +2458,7 @@ export class FlexTable extends LitElement {
     // If no active cell, set to first cell on any nav key
     if (!this._selection.activeCell) {
       if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
-        this._selection.setActive(0, 0);
-        this._syncActiveCell();
+        this._nav.startAtFirstCell();
         e.preventDefault();
         return;
       }
@@ -2600,7 +2500,7 @@ export class FlexTable extends LitElement {
     // ArrowUp from the first row moves onto its column's header cell.
     if (e.key === 'ArrowUp' && !e.shiftKey && !e.altKey && this._activeCell?.row === 0) {
       e.preventDefault();
-      this._enterHeader(this._activeCell.col);
+      this._nav.enterHeader(this._activeCell.col);
       return;
     }
 
@@ -2621,19 +2521,18 @@ export class FlexTable extends LitElement {
     if (e.ctrlKey || e.metaKey) return;
     const at = Math.min(this._headerCol ?? 0, cols.length - 1);
     const col = cols[at];
-    let next: number;
+    if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault();
+      this._resizeColumnBy(col.key, e.key === 'ArrowRight' ? COLUMN_RESIZE_STEP : -COLUMN_RESIZE_STEP);
+      return;
+    }
+    const next = this._nav.headerTarget(e, at, cols.length);
+    if (next !== null) {
+      e.preventDefault();
+      this._nav.goToHeader(next);
+      return;
+    }
     switch (e.key) {
-      case 'ArrowLeft':
-      case 'ArrowRight':
-        if (e.altKey) {
-          e.preventDefault();
-          this._resizeColumnBy(col.key, e.key === 'ArrowRight' ? COLUMN_RESIZE_STEP : -COLUMN_RESIZE_STEP);
-          return;
-        }
-        next = e.key === 'ArrowLeft' ? Math.max(0, at - 1) : Math.min(cols.length - 1, at + 1);
-        break;
-      case 'Home': next = 0; break;
-      case 'End': next = cols.length - 1; break;
       case 'Escape':
         // Closes the description tooltip only — with none open the key is not ours.
         if (!this._hint) return;
@@ -2645,8 +2544,7 @@ export class FlexTable extends LitElement {
         e.preventDefault();
         if (e.altKey) this._openColumnMenu(col);
         else if (this._visibleRowCount > 0) {
-          this._selection.setActive(0, at);
-          this._syncActiveCell();
+          this._nav.returnToBody(at);
         }
         return;
       case 'Enter':
@@ -2658,17 +2556,6 @@ export class FlexTable extends LitElement {
       default:
         return;
     }
-    e.preventDefault();
-    this._headerCol = next;
-    this._scrollColumnIntoView(next);
-  }
-
-  /** Move the keyboard from the body onto the header cell of visible column `colIndex`. */
-  private _enterHeader(colIndex: number): void {
-    this._selection.clear();
-    this._syncActiveCell();
-    this._headerCol = colIndex;
-    this._scrollColumnIntoView(colIndex);
   }
 
   /**
@@ -2850,31 +2737,6 @@ export class FlexTable extends LitElement {
 
   private _handleNavigation(e: KeyboardEvent): boolean {
     switch (e.key) {
-      case 'ArrowUp':
-        e.shiftKey ? this._selection.shiftMoveUp() : this._selection.moveUp();
-        return true;
-      case 'ArrowDown':
-        e.shiftKey ? this._selection.shiftMoveDown() : this._selection.moveDown();
-        return true;
-      case 'ArrowLeft':
-        e.shiftKey ? this._selection.shiftMoveLeft() : this._selection.moveLeft();
-        return true;
-      case 'ArrowRight':
-        e.shiftKey ? this._selection.shiftMoveRight() : this._selection.moveRight();
-        return true;
-      case 'Tab': {
-        // Tab walks the cells and, past the last (Shift+Tab: before the first), leaves the grid like
-        // any other Tab stop — the grid never keeps the focus (WCAG 2.1.2).
-        const from = this._selection.activeCell;
-        const to = e.shiftKey ? this._selection.movePrev() : this._selection.moveNext();
-        return !(from && to && from.row === to.row && from.col === to.col);
-      }
-      case 'Home':
-        e.ctrlKey ? this._selection.moveToStart() : this._selection.moveToRowStart();
-        return true;
-      case 'End':
-        e.ctrlKey ? this._selection.moveToEnd() : this._selection.moveToRowEnd();
-        return true;
       case 'Escape':
         if (this._find.state) {
           this._find.close();
@@ -2887,47 +2749,8 @@ export class FlexTable extends LitElement {
         if (this.editable) this._rangeEdit.clearSelection();
         return true;
       default:
-        return false;
+        return this._nav.moveBody(e);
     }
-  }
-
-  private _scrollToActiveCell(): void {
-    if (!this._activeCell) return;
-
-    // Vertical scroll
-    const rowTop = this._activeCell.row * this.rowHeight + this.headerHeight;
-    const rowBottom = rowTop + this.rowHeight;
-
-    // Frozen rows are always visible — no scroll needed
-    if (this._activeCell.row < this._frozenRowCount) {
-      // Only handle horizontal scroll below
-    } else if (rowTop < this.scrollTop + this.headerHeight + this.frozenRowsHeight) {
-      this.scrollTop = rowTop - this.headerHeight - this.frozenRowsHeight;
-    } else if (rowBottom > this.scrollTop + this.clientHeight) {
-      this.scrollTop = rowBottom - this.clientHeight;
-    }
-
-    this._scrollColumnIntoView(this._activeCell.col);
-  }
-
-  /** Scroll horizontally so the visible column at `colIndex` is in view — cached column offsets. */
-  private _scrollColumnIntoView(colIndex: number): void {
-    const cols = this.visibleColumns;
-    const colLeft = this._colLeftOffsets[colIndex] ?? 0;
-    const colWidth = this._getColWidth(cols[colIndex]);
-    const colRight = colLeft + colWidth;
-
-    if (colLeft < this.scrollLeft) {
-      this.scrollLeft = colLeft;
-    } else if (colRight > this.scrollLeft + this.clientWidth) {
-      this.scrollLeft = colRight - this.clientWidth;
-    }
-  }
-
-  private _dispatchSelectionEvent(): void {
-    const ac = this._activeCell;
-    const row = ac ? this.data[this._toDataIndex(ac.row)] : undefined;
-    this._emit('cell-select', ac ? { ...ac, id: row ? this.getRowId(row) : '' } : null);
   }
 
   // --- Sorting ---
@@ -2943,7 +2766,7 @@ export class FlexTable extends LitElement {
 
     // Ctrl+Click or Meta+Click → column selection
     if (e.ctrlKey || e.metaKey) {
-      this._selectColumn(colIndex);
+      this._cursor.selectColumn(colIndex);
       return;
     }
 
@@ -2966,25 +2789,9 @@ export class FlexTable extends LitElement {
     this._emitViewState('sort');
   }
 
-  private _selectColumn(colIndex: number): void {
-    const rowCount = this._visibleRowCount;
-    if (rowCount === 0 || colIndex < 0) return;
-
-    this._selection.setActive(0, colIndex);
-    this._selection.setActiveWithRange(rowCount - 1, colIndex);
-    this._activeCell = { row: 0, col: colIndex };
-    this.requestUpdate();
-
-    this._emit('column-select', {
-        colIndex,
-        key: this.visibleColumns[colIndex]?.key,
-        rowCount,
-      });
-  }
-
   /** Public API: select an entire column by index. */
   selectColumn(colIndex: number): void {
-    this._selectColumn(colIndex);
+    this._cursor.selectColumn(colIndex);
   }
 
   /** Calculate cumulative left offset for a left-pinned column */
@@ -3316,27 +3123,19 @@ export class FlexTable extends LitElement {
     const items = Array.from(
       this.shadowRoot?.querySelectorAll<HTMLElement>(`${menuSelector} [role="menuitem"]`) ?? [],
     );
-    const current = items.indexOf(e.target as HTMLElement);
-    let next = -1;
-    switch (e.key) {
-      case 'ArrowDown': next = current < 0 ? 0 : (current + 1) % items.length; break;
-      case 'ArrowUp': next = current <= 0 ? items.length - 1 : current - 1; break;
-      case 'Home': next = 0; break;
-      case 'End': next = items.length - 1; break;
-      case 'Escape':
-        e.preventDefault();
-        e.stopPropagation();
-        close(true);
-        return;
-      case 'Tab':
-        close(false);
-        return;
-      default:
-        return;
+    const action = menuKeyAction(e.key, items.indexOf(e.target as HTMLElement), items.length);
+    if (!action) return;
+    if (action.kind === 'tab') {
+      close(false);
+      return;
     }
     e.preventDefault();
     e.stopPropagation();
-    items[next]?.focus();
+    if (action.kind === 'escape') {
+      close(true);
+      return;
+    }
+    items[action.index]?.focus();
   }
 
   /** Open the filter dropdown for `key` from its column menu, focusing its first control. */
@@ -3479,17 +3278,12 @@ export class FlexTable extends LitElement {
   private _keepMenuInView(selector: string): void {
     const menu = this.shadowRoot?.querySelector<HTMLElement>(selector);
     if (!menu) return;
-    const margin = 4;
-    const rect = menu.getBoundingClientRect();
-    // 🔴창 크기가 아니라 «보이는 영역» 이다 — `innerWidth` 는 스크롤바를 포함해, 그 값에 맞추면 메뉴 끝이 스크롤바 밑에 깔린다.
-    const viewWidth = document.documentElement.clientWidth;
-    const viewHeight = document.documentElement.clientHeight;
-    if (rect.right > viewWidth - margin) {
-      menu.style.left = `${Math.max(margin, viewWidth - rect.width - margin)}px`;
-    }
-    if (rect.bottom > viewHeight - margin) {
-      menu.style.top = `${Math.max(margin, viewHeight - rect.height - margin)}px`;
-    }
+    const shift = menuShift(menu.getBoundingClientRect(), {
+      width: document.documentElement.clientWidth,
+      height: document.documentElement.clientHeight,
+    });
+    if (shift.left !== undefined) menu.style.left = `${shift.left}px`;
+    if (shift.top !== undefined) menu.style.top = `${shift.top}px`;
   }
 
   private _adjustFilterDropdown(): void {
@@ -3581,7 +3375,7 @@ export class FlexTable extends LitElement {
     reveal: (row, col) => {
       this._selection.setActive(row, col);
       this._activeCell = { row, col };
-      this._scrollToActiveCell();
+      this._cursor.scrollToActive();
     },
     invalidate: () => this.requestUpdate(),
     focusInput: () => { this.shadowRoot?.querySelector<HTMLInputElement>('.ft-find-input')?.focus(); },
@@ -3663,6 +3457,43 @@ export class FlexTable extends LitElement {
     pushUndo: (step) => { this._undo.push(step); this._dispatchUndoStateEvent(); },
     emitReorder: (detail) => { this._emit('row-reorder', detail); },
     invalidate: () => this.requestUpdate(),
+  });
+  /** The cell cursor — the pointer's way into the selection (click, drag, row number, column) and the scroll that follows it. */
+  private readonly _cursor = new CursorController({
+    host: this,
+    selection: this._selection,
+    activeCell: () => this._activeCell,
+    setActiveCell: (position) => { this._activeCell = position; },
+    commitEdit: () => { this._commitEdit(); },
+    startEdit: () => { this._startEdit(); },
+    activateRow: (colIndex) => { this._fireRowActivate(this.visibleColumns[colIndex], 'click'); },
+    consumeRowDrag: () => {
+      const was = this._wasRowDrag;
+      this._wasRowDrag = false;
+      return was;
+    },
+    rowCount: () => this._visibleRowCount,
+    columnKey: (colIndex) => this.visibleColumns[colIndex]?.key,
+    rowId: (visualRow) => {
+      const row = this.data[this._toDataIndex(visualRow)];
+      return row ? this.getRowId(row) : '';
+    },
+    rowHeight: () => this.rowHeight,
+    headerHeight: () => this.headerHeight,
+    frozenRowCount: () => this._frozenRowCount,
+    frozenRowsHeight: () => this.frozenRowsHeight,
+    colLeftOffsets: () => this._colLeftOffsets,
+    colWidth: (colIndex) => this._getColWidth(this.visibleColumns[colIndex]),
+    emitCellSelect: (detail) => { this._emit('cell-select', detail); },
+    emitColumnSelect: (detail) => { this._emit('column-select', detail); },
+    invalidate: () => this.requestUpdate(),
+  });
+  /** Where the keys move the cursor — in the body and along the header row. */
+  private readonly _nav = new KeyboardNavController({
+    selection: this._selection,
+    followSelection: () => { this._syncActiveCell(); },
+    setHeaderCol: (col) => { this._headerCol = col; },
+    scrollColumnIntoView: (col) => { this._cursor.scrollColumnIntoView(col); },
   });
   /** The column filter popover — its controls and the per-column state they hold. */
   private readonly _filterPopover = new FilterPopoverController({
@@ -3986,7 +3817,7 @@ export class FlexTable extends LitElement {
       <div class="ft-row-num ${isDraggingRow ? 'ft-col-dragging' : ''}"
         style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2; cursor: grab;"
         ${delegate('mousedown', (e: MouseEvent) => this._rowReorder.onNumMouseDown(e, index))}
-        ${delegate('click', () => this._onRowNumberClick(index))}>${dataIndex + 1}</div>
+        ${delegate('click', () => this._cursor.rowNumberClick(index, this.visibleColumns.length - 1))}>${dataIndex + 1}</div>
     ` : '';
 
     // Data cells: pinned outside range + visible range
@@ -4140,10 +3971,10 @@ export class FlexTable extends LitElement {
         aria-invalid=${validationError ? 'true' : nothing}
         title=${validationError ?? nothing}
         style=${cellStyle}
-        ${delegate('mousedown', (e: MouseEvent) => this._onCellMouseDown(e, rowIndex, colIndex))}
-        @mouseenter=${() => this._onCellMouseEnter(rowIndex, colIndex)}
-        ${delegate<MouseEvent>('click', (e, cell) => this._onCellClickEvent(e, rowIndex, colIndex, cell))}
-        @dblclick=${() => this._onCellDblClick(rowIndex, colIndex)}>
+        ${delegate('mousedown', (e: MouseEvent) => this._cursor.mouseDown(e, rowIndex, colIndex))}
+        @mouseenter=${() => this._cursor.mouseEnter(rowIndex, colIndex)}
+        ${delegate<MouseEvent>('click', (e, cell) => this._cursor.click(e, rowIndex, colIndex, cell))}
+        @dblclick=${() => this._cursor.doubleClick(rowIndex, colIndex)}>
         ${commentTooltip}
         ${renderCell(getCellValue(row, col.key), row, col)}
       </div>
