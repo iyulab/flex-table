@@ -74,7 +74,7 @@ Replacing `data` with the same array reference does not trigger the clear-on-cha
 | `format` | `string \| (value, row, col) => string` | Display only. A number pattern reads like a spreadsheet: `;` sections (positive;negative;zero;text), literals (`'#,##0원'`), trailing `,` ÷1000, `%`, colors `[Red]` `[Green]` `[Blue]` `[Yellow]` as theme tones. Unsupported syntax (conditions, scientific, fractions) shows the value as is and warns once |
 | `render` | `CellRenderer<T>` | `(value, row, col) => TemplateResult \| string` |
 | `editor` | `CellEditor<T>` | `(value, row, col) => TemplateResult` with an `.ft-editor` element |
-| `validator` | `CellValidator<T>` | `(value, row, col) => string \| null \| undefined` |
+| `validator` | `CellValidator<T>` | `(value, row, col) => string \| null \| undefined`. Checks the cell editor's commit (with `autocomplete: 'strict'`); paste, fill, Delete, cut and replace write their block without it |
 | `aggregate` | `'sum' \| 'avg' \| 'count' \| 'min' \| 'max' \| (values, rows) => unknown` | Footer summary of the shown rows (after filters), written with the column `format`; not computed in server mode (use `footerData`) |
 | `conditionalRules` | `ConditionalRule<T>[]` | `{ when(value, row, col): boolean, style: CellStyle }` |
 | `mergeRepeated` | `boolean \| (row, previousRow, col) => boolean` | Draw a run of repeated values as one merged cell; values, sort, filter and export are unchanged |

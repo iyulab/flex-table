@@ -820,6 +820,10 @@ table.columns = [
 
 When validation fails, the cell displays a red border for 3 seconds and the `validation-error` event fires.
 
+`validator` (and `autocomplete: 'strict'`) check what is entered in the cell's editor. A block edit — paste, fill, Delete, cut,
+replace — writes its cells without them, as spreadsheets do (a paste carries data that already exists elsewhere); use `editable`
+below to keep a cell from changing at all.
+
 ### Cells that lock with their row
 
 A validator answers «is this value acceptable». Whether a cell may change at all is a separate

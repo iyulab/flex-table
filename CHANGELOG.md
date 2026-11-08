@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Documentation
+
+- `validator` and `autocomplete: 'strict'` check what is entered in the cell editor; a block edit (paste, fill, Delete, cut,
+  replace) writes its cells without them, as spreadsheets do. The README and the skill reference now say so.
+
 ### Fixed
 
 - **Only one menu is open at a time.** Right-clicking a cell while a column menu was open (or opening a column menu while a
