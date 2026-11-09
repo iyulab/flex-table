@@ -9,6 +9,11 @@
 
 ### Fixed
 
+- **A read-only table no longer lets a row be dragged by its number.** The row-number gutter's drag-to-reorder rewrote `data`
+  and fired `row-reorder` whatever `editable` said, although fill, delete, replace and the cell menu's row entries already
+  followed it. With `editable` off the number no longer starts a drag (its cursor is a pointer, not a grab) and still selects
+  the row on click. Comments are not affected — they are notes on the cells, not the table's data.
+
 - **A read-only table's cell menu no longer offers «Insert row above/below» and «Delete row».** With `editable` off and
   `showContextMenu` on, the built-in cell menu still listed the three row entries and they changed the data, although
   `editable` is the table's global read-only mode. They are left out now; the two inserts are also left out when `maxRows`

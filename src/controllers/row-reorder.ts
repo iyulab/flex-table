@@ -4,6 +4,8 @@ import type { ColumnDefinition, DataRow } from '../models/types.js';
 /** What the row reorder needs from the table — the controller owns the drag, the table owns the rows. */
 export interface RowReorderContext {
   host: HTMLElement;
+  /** The table is editable — a drag rewrites the table's `data`, so a read-only table does not start one. */
+  editable(): boolean;
   /** The visible columns, in display order — the first one labels the drag ghost. */
   columns(): ColumnDefinition[];
   data(): DataRow[];
@@ -52,6 +54,8 @@ export class RowReorderController {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    // A read-only table keeps its row order: the number still selects the row (its click), it just does not drag.
+    if (!this.ctx.editable()) return;
 
     this.drag = { rowIndex, startY: e.clientY, ghost: null, active: false, targetIndex: rowIndex };
 

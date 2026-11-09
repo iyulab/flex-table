@@ -3428,6 +3428,7 @@ export class FlexTable extends LitElement {
   /** Drag a row by its number to move it. */
   private readonly _rowReorder = new RowReorderController({
     host: this,
+    editable: () => this.editable,
     columns: () => this.visibleColumns,
     data: () => this.data,
     setData: (rows) => { this.data = rows; },
@@ -3799,7 +3800,7 @@ export class FlexTable extends LitElement {
     const isDraggingRow = this._rowReorder.isDragging(index);
     const rowNumCell = this.showRowNumbers ? html`
       <div class="ft-row-num ${isDraggingRow ? 'ft-col-dragging' : ''}"
-        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2; cursor: grab;"
+        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2; cursor: ${this.editable ? 'grab' : 'pointer'};"
         ${delegate('mousedown', (e: MouseEvent) => this._rowReorder.onNumMouseDown(e, index))}
         ${delegate('click', () => this._cursor.rowNumberClick(index, this.visibleColumns.length - 1))}>${dataIndex + 1}</div>
     ` : '';

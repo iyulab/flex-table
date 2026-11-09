@@ -2895,6 +2895,31 @@ describe('FlexTable', () => {
       expect(events[0].detail.from).toBe(0);
     });
 
+    it('a read-only table does not start a row drag, and the row number still selects the row', async () => {
+      const el = createElement();
+      el.editable = false;
+      el.showRowNumbers = true;
+      el.columns = [{ key: 'name', label: 'Name' }];
+      el.data = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
+      await el.updateComplete;
+
+      const reorders: CustomEvent[] = [];
+      el.addEventListener('row-reorder', e => reorders.push(e as CustomEvent));
+
+      const rowNums = el.shadowRoot!.querySelectorAll('.ft-row-num') as NodeListOf<HTMLElement>;
+      expect(rowNums[0].style.cursor).toBe('pointer');
+      rowNums[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientY: 10 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { clientY: 80 }));
+      // Still held down: no drag was started (mouseup clears `drag` either way, so look before it).
+      expect((el as any)._rowReorder.drag).toBeNull();
+      expect(document.body.querySelector('div[style*="position:fixed"]')).toBeNull();
+      document.dispatchEvent(new MouseEvent('mouseup', { clientY: 80 }));
+      await el.updateComplete;
+
+      expect(reorders).toHaveLength(0);
+      expect(el.data.map(r => r['name'])).toEqual(['A', 'B', 'C']);
+    });
+
     it('does not re-select the row when the browser synthesizes a click after a real row-drag reorder', async () => {
       const el = createElement();
       el.showRowNumbers = true;
