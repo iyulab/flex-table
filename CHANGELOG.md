@@ -9,6 +9,13 @@
 
 ### Fixed
 
+- **The grid mirrors in a right-to-left page.** Columns run from the right, a start-side pinned column stays at the right edge and
+  an end-side one at the left edge while the grid scrolls, the virtual column range follows the scroll position, and the keys
+  follow the screen: the left arrow goes to the next column (the header row too), Alt+left widens the column, dragging the
+  resize handle toward the end edge widens it, a dragged column and the fill handle use the same mirrored coordinates, and
+  moving the cursor to a column scrolls it into view. Cell and header positions are written as `inset-inline-start`, so the
+  left-to-right layout is unchanged. `scrollLeft` on the host follows the browser convention (zero at the start edge, negative
+  toward the end in a right-to-left page).
 - **A read-only table no longer lets a row be dragged by its number.** The row-number gutter's drag-to-reorder rewrote `data`
   and fired `row-reorder` whatever `editable` said, although fill, delete, replace and the cell menu's row entries already
   followed it. With `editable` off the number no longer starts a drag (its cursor is a pointer, not a grab) and still selects

@@ -2,6 +2,8 @@ import type { SelectionState } from '../core/selection.js';
 
 /** What the keyboard walk needs from the table — the controller knows where a key moves the cursor, the table acts on it. */
 export interface KeyboardNavContext {
+  /** 읽는 방향이 오른쪽→왼쪽인가 — 화면 방향을 쓰는 키 · 끌기 · 스크롤 좌표가 읽는다(없으면 왼쪽→오른쪽). */
+  isRtl?(): boolean;
   selection: SelectionState;
   /** Makes the selection's active cell the table's (scrolled to, announced) and leaves the header row. */
   followSelection(): void;
@@ -15,13 +17,22 @@ export class KeyboardNavController {
   constructor(private readonly ctx: KeyboardNavContext) {}
 
   /**
+   * The key as the cursor reads it: columns run from the start edge, so under right-to-left the left arrow is the «next
+   * column» key — the horizontal arrows swap there and nothing else changes (as a native radio group does).
+   */
+  private screenKey(key: string): string {
+    if (!(this.ctx.isRtl?.() ?? false)) return key;
+    return key === 'ArrowLeft' ? 'ArrowRight' : key === 'ArrowRight' ? 'ArrowLeft' : key;
+  }
+
+  /**
    * Moves the body cursor for an arrow, Tab, Home or End (Shift extends the range; Ctrl+Home / Ctrl+End go to the corners).
    * Returns whether the key was taken — a Tab off the last cell (Shift+Tab off the first) is not, so it leaves the grid
    * like any other Tab stop and the grid never keeps the focus (WCAG 2.1.2).
    */
   moveBody(e: KeyboardEvent): boolean {
     const sel = this.ctx.selection;
-    switch (e.key) {
+    switch (this.screenKey(e.key)) {
       case 'ArrowUp':
         e.shiftKey ? sel.shiftMoveUp() : sel.moveUp();
         return true;
@@ -55,7 +66,7 @@ export class KeyboardNavController {
    * ends), Home / End jump to the ends. `null` for any other key — and for Alt+Arrow, which resizes instead of moving.
    */
   headerTarget(e: KeyboardEvent, at: number, count: number): number | null {
-    switch (e.key) {
+    switch (this.screenKey(e.key)) {
       case 'ArrowLeft':
         return e.altKey ? null : Math.max(0, at - 1);
       case 'ArrowRight':

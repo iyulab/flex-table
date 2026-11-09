@@ -8,6 +8,8 @@ import { delegate } from '@iyulab/components/dist/utilities/listenInShadow.js';
 /** What the fill handle needs from the table — the controller owns the drag and the fill, the table owns everything else. */
 export interface FillHandleContext {
   host: HTMLElement;
+  /** 읽는 방향이 오른쪽→왼쪽인가 — 화면 방향을 쓰는 키 · 끌기 · 스크롤 좌표가 읽는다(없으면 왼쪽→오른쪽). */
+  isRtl?(): boolean;
   /** The visible columns, in display order. */
   columns(): ColumnDefinition[];
   data(): DataRow[];
@@ -117,7 +119,7 @@ export class FillHandleController {
     return html`
       ${preview}
       <div class="ft-fill-handle"
-        style="left:${left}px;top:${top}px;"
+        style="inset-inline-start:${left}px;top:${top}px;"
         ${delegate('mousedown', (e: MouseEvent) => this.onMouseDown(e))}>
       </div>
     `;
@@ -155,7 +157,9 @@ export class FillHandleController {
   private updateDrag(e: MouseEvent): void {
     if (!this.drag) return;
     const rect = this.ctx.host.getBoundingClientRect();
-    const mx = e.clientX - rect.left + this.ctx.scrollLeft() - this.ctx.prefixWidth();
+    // 시작 가장자리에서의 거리 — 열 오프셋과 같은 좌표계(RTL 은 오른쪽 가장자리 기준).
+    const fromStart = (this.ctx.isRtl?.() ?? false) ? rect.right - e.clientX : e.clientX - rect.left;
+    const mx = fromStart + this.ctx.scrollLeft() - this.ctx.prefixWidth();
     const my = this.ctx.rowSpaceY(e.clientY);
     const offsets = this.ctx.colLeftOffsets();
     const cols = this.ctx.columns();
@@ -196,7 +200,7 @@ export class FillHandleController {
     const top = this.ctx.headerHeight() + range.startRow * this.ctx.rowHeight() - this.ctx.scrollTop();
     const width = (offsets[range.endCol] ?? 0) + this.ctx.colWidth(cols[range.endCol]) - (offsets[range.startCol] ?? 0);
     const height = (range.endRow - range.startRow + 1) * this.ctx.rowHeight();
-    return html`<div class="ft-fill-preview" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px;"></div>`;
+    return html`<div class="ft-fill-preview" style="inset-inline-start:${left}px;top:${top}px;width:${width}px;height:${height}px;"></div>`;
   }
 }
 

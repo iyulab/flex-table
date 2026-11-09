@@ -123,9 +123,9 @@ describe('FlexTable', () => {
     const headers = el.shadowRoot!.querySelectorAll('.ft-header-cell') as NodeListOf<HTMLElement>;
     expect(headers.length).toBe(2);
     expect(headers[0].style.width).toBe('100px');
-    expect(headers[0].style.left).toBe('0px');
+    expect(headers[0].style.insetInlineStart).toBe('0px');
     expect(headers[1].style.width).toBe('200px');
-    expect(headers[1].style.left).toBe('100px');
+    expect(headers[1].style.insetInlineStart).toBe('100px');
   });
 
   it('should hide columns with hidden flag', async () => {
@@ -1504,12 +1504,12 @@ describe('FlexTable', () => {
     // Header pinned cells use absolute positioning (nested sticky doesn't paint correctly)
     const header = el.shadowRoot!.querySelector('.ft-header-cell.ft-pinned') as HTMLElement;
     expect(header.style.position).toBe('absolute');
-    expect(header.style.left).toBe('0px');
+    expect(header.style.insetInlineStart).toBe('0px');
 
     // Body pinned cells also use absolute positioning with scrollLeft compensation
     const cell = el.shadowRoot!.querySelector('.ft-cell.ft-pinned') as HTMLElement;
     expect(cell.style.position).toBe('absolute');
-    expect(cell.style.left).toBe('0px');
+    expect(cell.style.insetInlineStart).toBe('0px');
   });
 
   describe('right-pinned columns track the viewport, not the content', () => {
@@ -1541,7 +1541,7 @@ describe('FlexTable', () => {
       expect(header.style.position).toBe('absolute');
       expect(header.style.right).toBe('');
       // viewport right edge (0 + 300) minus the column's own width
-      expect(header.style.left).toBe('220px');
+      expect(header.style.insetInlineStart).toBe('220px');
     });
 
     it('follows the viewport as the content scrolls', async () => {
@@ -1549,7 +1549,7 @@ describe('FlexTable', () => {
       await el.updateComplete;
       const header = el.shadowRoot!.querySelector('.ft-header-cell.ft-pinned') as HTMLElement;
       // 120 + 300 - 80 — moves with scrollLeft, so it stays at the same screen position
-      expect(header.style.left).toBe('340px');
+      expect(header.style.insetInlineStart).toBe('340px');
     });
 
     it('rests at its natural offset when the content does not overflow', async () => {
@@ -1563,7 +1563,7 @@ describe('FlexTable', () => {
       await el.updateComplete;
       const header = el.shadowRoot!.querySelector('.ft-header-cell.ft-pinned') as HTMLElement;
       // clamped to the natural offset (120) instead of 520 — pinning must not invent overflow
-      expect(header.style.left).toBe('120px');
+      expect(header.style.insetInlineStart).toBe('120px');
     });
 
     it('stacks multiple right-pinned columns in order', async () => {
@@ -1579,7 +1579,7 @@ describe('FlexTable', () => {
       await el.updateComplete;
       const pinned = [...el.shadowRoot!.querySelectorAll('.ft-header-cell.ft-pinned')] as HTMLElement[];
       // last one hugs the edge (300 - 80), the one before it sits directly to its left
-      expect(pinned.map(p => p.style.left)).toEqual(['160px', '220px']);
+      expect(pinned.map(p => p.style.insetInlineStart)).toEqual(['160px', '220px']);
     });
 
     it('falls back to the natural offset before the viewport has been measured', async () => {
@@ -1588,7 +1588,7 @@ describe('FlexTable', () => {
       const el = mount(0);
       await el.updateComplete;
       const header = el.shadowRoot!.querySelector('.ft-header-cell.ft-pinned') as HTMLElement;
-      expect(header.style.left).toBe('400px');
+      expect(header.style.insetInlineStart).toBe('400px');
     });
 
     it('applies the same offset to body cells', async () => {
@@ -1596,7 +1596,7 @@ describe('FlexTable', () => {
       await el.updateComplete;
       const cell = el.shadowRoot!.querySelector('.ft-cell.ft-pinned') as HTMLElement;
       expect(cell.style.right).toBe('');
-      expect(cell.style.left).toBe('220px');
+      expect(cell.style.insetInlineStart).toBe('220px');
     });
   });
 
@@ -1638,8 +1638,8 @@ describe('FlexTable', () => {
     const firstPinned = headers[0] as HTMLElement;
     const secondPinned = headers[1] as HTMLElement;
 
-    expect(firstPinned.style.left).toBe('0px');
-    expect(secondPinned.style.left).toBe('60px');
+    expect(firstPinned.style.insetInlineStart).toBe('0px');
+    expect(secondPinned.style.insetInlineStart).toBe('60px');
   });
 
   it('should apply headerAlign as a class on the header cell', async () => {
@@ -2379,7 +2379,7 @@ describe('FlexTable', () => {
     const pinnedHeader = headerCells[2];
     expect(pinnedHeader.classList.contains('ft-pinned')).toBe(true);
     expect((pinnedHeader as HTMLElement).style.position).toBe('absolute');
-    expect((pinnedHeader as HTMLElement).style.left).not.toBe('');
+    expect((pinnedHeader as HTMLElement).style.insetInlineStart).not.toBe('');
   });
 
   it('should render pinned right body cell as an absolutely placed pinned cell', async () => {
@@ -2395,7 +2395,7 @@ describe('FlexTable', () => {
     const pinnedCell = cells[1]; // second cell (pinned right)
     expect(pinnedCell.classList.contains('ft-pinned')).toBe(true);
     expect((pinnedCell as HTMLElement).style.position).toBe('absolute');
-    expect((pinnedCell as HTMLElement).style.left).not.toBe('');
+    expect((pinnedCell as HTMLElement).style.insetInlineStart).not.toBe('');
   });
 
   // --- Keyboard Column Resize ---

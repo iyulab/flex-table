@@ -5,6 +5,8 @@ import type { FlexTableEventMap } from '../events.js';
 /** What the cursor needs from the table — the controller owns the pointer's way into the selection and the follow-scroll, the table owns everything else. */
 export interface CursorContext {
   host: HTMLElement;
+  /** 읽는 방향이 오른쪽→왼쪽인가 — 화면 방향을 쓰는 키 · 끌기 · 스크롤 좌표가 읽는다(없으면 왼쪽→오른쪽). */
+  isRtl?(): boolean;
   selection: SelectionState;
   /** The table's reactive copy of the selection's active cell (it drives the re-render). */
   activeCell(): CellPosition | null;
@@ -197,10 +199,13 @@ export class CursorController {
     const colLeft = this.ctx.colLeftOffsets()[colIndex] ?? 0;
     const colRight = colLeft + this.ctx.colWidth(colIndex);
 
-    if (colLeft < host.scrollLeft) {
-      host.scrollLeft = colLeft;
-    } else if (colRight > host.scrollLeft + host.clientWidth) {
-      host.scrollLeft = colRight - host.clientWidth;
+    // 논리 스크롤(시작 가장자리에서의 거리) 로 판정하고 브라우저 규약(RTL 은 끝으로 갈수록 음수)으로 쓴다.
+    const sign = (this.ctx.isRtl?.() ?? false) ? -1 : 1;
+    const start = Math.abs(host.scrollLeft);
+    if (colLeft < start) {
+      host.scrollLeft = sign * colLeft;
+    } else if (colRight > start + host.clientWidth) {
+      host.scrollLeft = sign * (colRight - host.clientWidth);
     }
   }
 }

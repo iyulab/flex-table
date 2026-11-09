@@ -186,7 +186,7 @@ export const flexTableStyles = css`
 
   .ft-resize-handle {
     position: absolute;
-    right: 0; top: 0; bottom: 0;
+    inset-inline-end: 0; top: 0; bottom: 0;
     width: 6px;
     cursor: col-resize;
     z-index: 3;
@@ -215,7 +215,7 @@ export const flexTableStyles = css`
 
   .ft-row-drop-indicator {
     position: absolute;
-    left: 0;
+    inset-inline-start: 0;
     height: 2px;
     background: var(--ft-active-color);
     pointer-events: none;
@@ -265,7 +265,7 @@ export const flexTableStyles = css`
   .ft-row {
     display: block;
     position: absolute;
-    left: 0;
+    inset-inline-start: 0;
   }
 
   .ft-cell {
@@ -330,7 +330,7 @@ export const flexTableStyles = css`
     outline-offset: -2px;
   }
 
-  .ft-editor-number { text-align: right; }
+  .ft-editor-number { text-align: end; }
 
   /* 날짜 편집기(u-date-picker) — 텍스트 편집기와 같은 자리·여백·초점선으로 셀을 채운다. 테두리는
      셀의 것이고, 달력은 피커 자신의 팝오버다. */
@@ -370,7 +370,7 @@ export const flexTableStyles = css`
   .ft-autocomplete-dropdown {
     position: absolute;
     top: 100%;
-    left: 0;
+    inset-inline-start: 0;
     z-index: 100;
     min-width: 100%;
     max-height: 180px;
@@ -504,12 +504,16 @@ export const flexTableStyles = css`
   .ft-comment-indicator {
     position: absolute;
     top: 0;
-    right: 0;
+    inset-inline-end: 0;
     width: 0;
     height: 0;
     border-style: solid;
-    border-width: 0 7px 7px 0;
-    border-color: transparent #f59e0b transparent transparent;
+    border-block-start-width: 0;
+    border-inline-end-width: 7px;
+    border-block-end-width: 7px;
+    border-inline-start-width: 0;
+    border-color: transparent;
+    border-inline-end-color: #f59e0b;
     pointer-events: none;
     z-index: 1;
   }
@@ -612,7 +616,7 @@ export const flexTableStyles = css`
     /* 호스트 하한(--u-target-size)이 있으면 그 값 — 미설정이면 24px. */
     inline-size: max(24px, var(--u-target-size, 0px));
     block-size: max(24px, var(--u-target-size, 0px));
-    margin-left: auto;
+    margin-inline-start: auto;
     flex-shrink: 0;
     border-radius: 4px;
     cursor: pointer;
@@ -727,7 +731,7 @@ export const flexTableStyles = css`
 
   .ft-filter-actions {
     margin-top: 6px;
-    text-align: right;
+    text-align: end;
   }
 
   .ft-filter-clear {
@@ -915,12 +919,12 @@ export const flexTableStyles = css`
   /* Hidden column indicator in header */
   .ft-hidden-col-indicator {
     position: absolute;
-    left: 0;
+    inset-inline-start: 0;
     top: 0;
     height: 100%;
     width: 16px;
     background: var(--ft-selection-bg);
-    border-right: 2px solid var(--ft-active-color);
+    border-inline-end: 2px solid var(--ft-active-color);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -930,7 +934,7 @@ export const flexTableStyles = css`
     padding: 0;
     border-top: none;
     border-bottom: none;
-    border-left: none;
+    border-inline-start: none;
     flex-shrink: 0;
   }
 
@@ -1051,7 +1055,7 @@ export const flexTableStyles = css`
   .ft-find-panel {
     position: sticky;
     top: 0;
-    right: 0;
+    inset-inline-end: 0;
     z-index: 20;
     background: var(--ft-header-bg);
     border-bottom: 1px solid var(--ft-border-color);

@@ -479,6 +479,7 @@ export class FlexTable extends LitElement {
   /** Column resize and drag-reorder — the gestures on the header. */
   private readonly _columnGestures = new ColumnGestures({
     host: this,
+    isRtl: () => this._isRtl(),
     root: () => this.shadowRoot,
     columns: () => this.visibleColumns,
     widths: this._columnWidths,
@@ -2006,9 +2007,20 @@ export class FlexTable extends LitElement {
     );
   }
 
+  /** 읽는 방향이 오른쪽→왼쪽인가 — 화면 방향을 쓰는 키 · 끌기 · 스크롤 좌표가 읽는다. */
+  private _isRtl(): boolean {
+    return getComputedStyle(this).direction === 'rtl';
+  }
+
+  /** Alt+화살표의 너비 변화 — «바깥쪽(끝 가장자리) 화살표» 가 넓힌다: LTR 은 오른쪽 · RTL 은 왼쪽. */
+  private _outwardStep(key: string): number {
+    return (key === 'ArrowRight') !== this._isRtl() ? COLUMN_RESIZE_STEP : -COLUMN_RESIZE_STEP;
+  }
+
   private _onScroll(): void {
     this._scrollTop = this.scrollTop;
-    this._scrollLeft = this.scrollLeft;
+    // 논리 스크롤 — 시작 가장자리에서 얼마나 스크롤했는가. RTL 의 `scrollLeft` 는 시작(오른쪽)이 0 이고 끝으로 갈수록 음수다.
+    this._scrollLeft = Math.abs(this.scrollLeft);
     // 스크롤하는 것은 섀도 안 base 다 — 호스트에 `scroll` 을 듣던 소비자에게 같은 신호를 준다(scroll 은 섀도를 넘지 않는다).
     this.dispatchEvent(new Event('scroll', { bubbles: false, composed: false })); // 요소의 네이티브 scroll 과 같은 전파
     if (this._hint?.by === 'pointer') this._hint = null;
@@ -2489,7 +2501,7 @@ export class FlexTable extends LitElement {
     const col = cols[at];
     if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault();
-      this._resizeColumnBy(col.key, e.key === 'ArrowRight' ? COLUMN_RESIZE_STEP : -COLUMN_RESIZE_STEP);
+      this._resizeColumnBy(col.key, this._outwardStep(e.key));
       return;
     }
     const next = this._nav.headerTarget(e, at, cols.length);
@@ -2683,7 +2695,7 @@ export class FlexTable extends LitElement {
     const col = cols[this._activeCell.col];
     if (!col) return true;
 
-    this._resizeColumnBy(col.key, e.key === 'ArrowRight' ? COLUMN_RESIZE_STEP : -COLUMN_RESIZE_STEP);
+    this._resizeColumnBy(col.key, this._outwardStep(e.key));
     return true;
   }
 
@@ -2844,11 +2856,11 @@ export class FlexTable extends LitElement {
 
     let cellStyle: string;
     if (isPinnedLeft) {
-      cellStyle = `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`;
+      cellStyle = `position: absolute; top: 0; inset-inline-start: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`;
     } else if (isPinnedRight) {
-      cellStyle = `position: absolute; top: 0; left: ${this._getPinnedRightLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`;
+      cellStyle = `position: absolute; top: 0; inset-inline-start: ${this._getPinnedRightLeft(colIndex)}px; width: ${width}px; height: ${hdrH}px; z-index: 4;`;
     } else {
-      cellStyle = `left: ${left}px; width: ${width}px; height: ${hdrH}px;`;
+      cellStyle = `inset-inline-start: ${left}px; width: ${width}px; height: ${hdrH}px;`;
     }
 
     const isDraggingThis = this._columnGestures.colDrag?.active && this._columnGestures.colDrag.colIndex === colIndex;
@@ -3406,6 +3418,7 @@ export class FlexTable extends LitElement {
   /** The fill handle at the selection's corner — drag to repeat the selection or continue a numeric series. */
   private readonly _fillHandle = new FillHandleController({
     host: this,
+    isRtl: () => this._isRtl(),
     columns: () => this.visibleColumns,
     data: () => this.data,
     rowCount: () => this._visibleRowCount,
@@ -3446,6 +3459,7 @@ export class FlexTable extends LitElement {
   /** The cell cursor — the pointer's way into the selection (click, drag, row number, column) and the scroll that follows it. */
   private readonly _cursor = new CursorController({
     host: this,
+    isRtl: () => this._isRtl(),
     selection: this._selection,
     activeCell: () => this._activeCell,
     setActiveCell: (position) => { this._activeCell = position; },
@@ -3475,6 +3489,7 @@ export class FlexTable extends LitElement {
   });
   /** Where the keys move the cursor — in the body and along the header row. */
   private readonly _nav = new KeyboardNavController({
+    isRtl: () => this._isRtl(),
     selection: this._selection,
     followSelection: () => { this._syncActiveCell(); },
     setHeaderCol: (col) => { this._headerCol = col; },
@@ -3529,7 +3544,7 @@ export class FlexTable extends LitElement {
     const sl = this._scrollLeft;
     const selectAllHeader = this.selectable
       ? html`<div class="ft-checkbox-header"
-            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${hdrH}px; z-index: 4;">
+            style="position: absolute; top: 0; inset-inline-start: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${hdrH}px; z-index: 4;">
           ${this._rowSelection.mode === 'multi' ? html`
             <!-- 칸 전체가 누르는 자리다(라벨) — 체크 상자는 16px 그대로. -->
             <label class="ft-checkbox-hit"><input type="checkbox" tabindex="-1" aria-label=${t('selectAllRows')}
@@ -3544,7 +3559,7 @@ export class FlexTable extends LitElement {
 
     const rowNumHeader = this.showRowNumbers
       ? html`<div class="ft-row-num-header"
-            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${hdrH}px; z-index: 4;">#</div>` : '';
+            style="position: absolute; top: 0; inset-inline-start: ${sl + prefixLeft}px; width: 48px; height: ${hdrH}px; z-index: 4;">#</div>` : '';
 
     // --- Header cells (pinned outside range + visible range) ---
     const headerCells = [];
@@ -3558,7 +3573,7 @@ export class FlexTable extends LitElement {
     }
 
     const dropIndicator = this._columnGestures.dragIndicatorLeft != null
-      ? html`<div class="ft-drop-indicator" style="left:${this._columnGestures.dragIndicatorLeft}px"></div>`
+      ? html`<div class="ft-drop-indicator" style="inset-inline-start: ${this._columnGestures.dragIndicatorLeft}px"></div>`
       : '';
 
     if (this.error || this.data.length === 0 || this._visibleRowCount === 0) {
@@ -3718,13 +3733,13 @@ export class FlexTable extends LitElement {
     let prefixLeft = 0;
     const checkboxFooter = this.selectable
       ? html`<div class="ft-footer-cell ft-checkbox-cell"
-            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${rowH}px; z-index: 2;"></div>`
+            style="position: absolute; top: 0; inset-inline-start: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${rowH}px; z-index: 2;"></div>`
       : '';
     if (this.selectable) prefixLeft += this._checkboxColWidth;
 
     const rowNumFooter = this.showRowNumbers
       ? html`<div class="ft-footer-cell ft-row-num"
-            style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2;"></div>`
+            style="position: absolute; top: 0; inset-inline-start: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2;"></div>`
       : '';
 
     // Footer cells (pinned outside range + visible range)
@@ -3733,8 +3748,8 @@ export class FlexTable extends LitElement {
       const col = cols[pi];
       const width = this._getColWidth(col);
       const pStyle = col.pinned === 'right'
-        ? `position: absolute; top: 0; left: ${this._getPinnedRightLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
-        : `position: absolute; top: 0; left: ${sl + this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
+        ? `position: absolute; top: 0; inset-inline-start: ${this._getPinnedRightLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`
+        : `position: absolute; top: 0; inset-inline-start: ${sl + this._getPinnedLeft(pi)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
       footerCells.push(html`
         <div class="ft-footer-cell ft-pinned" role="gridcell" aria-colindex=${pi + 1} style=${pStyle}>
           ${this._footerContent(col)}</div>
@@ -3749,11 +3764,11 @@ export class FlexTable extends LitElement {
       const isPinned = isPinnedLeft || isPinnedRight;
       let cellStyle: string;
       if (isPinnedLeft) {
-        cellStyle = `position: absolute; top: 0; left: ${sl + this._getPinnedLeft(i)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
+        cellStyle = `position: absolute; top: 0; inset-inline-start: ${sl + this._getPinnedLeft(i)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
       } else if (isPinnedRight) {
         cellStyle = `position: absolute; top: 0; right: ${-sl + this._getPinnedRight(i)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
       } else {
-        cellStyle = `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
+        cellStyle = `inset-inline-start: ${left}px; width: ${width}px; height: ${rowH}px;`;
       }
       footerCells.push(html`
         <div class="ft-footer-cell ${isPinned ? 'ft-pinned' : ''}" role="gridcell" aria-colindex=${i + 1} style=${cellStyle}>
@@ -3785,7 +3800,7 @@ export class FlexTable extends LitElement {
     let prefixLeft = 0;
     const checkboxCell = this.selectable ? html`
       <div class="ft-checkbox-cell"
-        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${rowH}px; z-index: 2;">
+        style="position: absolute; top: 0; inset-inline-start: ${sl + prefixLeft}px; width: ${this._checkboxColWidth}px; height: ${rowH}px; z-index: 2;">
         <!-- 행 체크박스는 Tab 정지점이 아니다 — 그리드(호스트)가 하나의 정지점이고 행 선택은 Shift+Space 다.
              렌더된 행마다 정지점이면 표 하나를 지나는 데 Tab 이 행 수만큼 든다. -->
         <label class="ft-checkbox-hit"><input type="checkbox" tabindex="-1" aria-label=${t('selectRow')}
@@ -3800,7 +3815,7 @@ export class FlexTable extends LitElement {
     const isDraggingRow = this._rowReorder.isDragging(index);
     const rowNumCell = this.showRowNumbers ? html`
       <div class="ft-row-num ${isDraggingRow ? 'ft-col-dragging' : ''}"
-        style="position: absolute; top: 0; left: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2; cursor: ${this.editable ? 'grab' : 'pointer'};"
+        style="position: absolute; top: 0; inset-inline-start: ${sl + prefixLeft}px; width: 48px; height: ${rowH}px; z-index: 2; cursor: ${this.editable ? 'grab' : 'pointer'};"
         ${delegate('mousedown', (e: MouseEvent) => this._rowReorder.onNumMouseDown(e, index))}
         ${delegate('click', () => this._cursor.rowNumberClick(index, this.visibleColumns.length - 1))}>${dataIndex + 1}</div>
     ` : '';
@@ -3880,11 +3895,11 @@ export class FlexTable extends LitElement {
 
     let cellStyle: string;
     if (isPinnedLeft) {
-      cellStyle = `position: absolute; top: 0; left: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
+      cellStyle = `position: absolute; top: 0; inset-inline-start: ${this._scrollLeft + this._getPinnedLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
     } else if (isPinnedRight) {
-      cellStyle = `position: absolute; top: 0; left: ${this._getPinnedRightLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
+      cellStyle = `position: absolute; top: 0; inset-inline-start: ${this._getPinnedRightLeft(colIndex)}px; width: ${width}px; height: ${rowH}px; z-index: 2;`;
     } else {
-      cellStyle = `left: ${left}px; width: ${width}px; height: ${rowH}px;`;
+      cellStyle = `inset-inline-start: ${left}px; width: ${width}px; height: ${rowH}px;`;
     }
 
     const readonly = !this._isCellEditable(col, row);

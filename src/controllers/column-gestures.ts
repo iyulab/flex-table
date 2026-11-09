@@ -5,6 +5,8 @@ import { MIN_COL_WIDTH, naturalWidths } from '../core/column-width.js';
 /** What the column gestures need from the table — the controller owns the drag and resize state, the table owns the rest. */
 export interface ColumnGesturesContext {
   host: HTMLElement;
+  /** 읽는 방향이 오른쪽→왼쪽인가 — 화면 방향을 쓰는 키 · 끌기 · 스크롤 좌표가 읽는다(없으면 왼쪽→오른쪽). */
+  isRtl?(): boolean;
   root(): ShadowRoot | null;
   /** The visible columns, in display order. */
   columns(): ColumnDefinition[];
@@ -75,7 +77,8 @@ export class ColumnGestures {
 
     const onMouseMove = (ev: MouseEvent) => {
       if (!this.resizing) return;
-      const delta = ev.clientX - this.resizing.startX;
+      // 손잡이는 열의 끝 가장자리에 있다 — 끝 쪽으로 끌면 넓어진다(RTL 은 왼쪽으로 끌면 넓어진다).
+      const delta = (ev.clientX - this.resizing.startX) * ((this.ctx.isRtl?.() ?? false) ? -1 : 1);
       const minW = col.minWidth ?? MIN_COL_WIDTH;
       const newWidth = Math.max(minW, this.resizing.startWidth + delta);
       this.ctx.widths.set(col.key, newWidth);
@@ -176,7 +179,8 @@ export class ColumnGestures {
     const rect = this.ctx.host.getBoundingClientRect();
     const scrollLeft = this.ctx.scrollLeft();
     const cols = this.ctx.columns();
-    const mouseX = e.clientX - rect.left + scrollLeft;
+    // 열 오프셋과 같은 좌표계 — 시작 가장자리에서의 거리(RTL 은 오른쪽 가장자리 기준).
+    const mouseX = ((this.ctx.isRtl?.() ?? false) ? rect.right - e.clientX : e.clientX - rect.left) + scrollLeft;
 
     let targetIndex = cols.length;
     for (let i = 0; i < cols.length; i++) {
