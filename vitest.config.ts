@@ -51,7 +51,7 @@ export default defineConfig({
         // copy 를 내지 않아 다른 경로를 탄다) · 날짜 편집기(headless WebKit 프레임에서 달력 입력 클릭이 «보이게 스크롤» 에서 멈춘다) · IME(CDP).
         test: {
           name: 'webkit',
-          include: ['keyboard', 'editor-focus-once', 'edit-follows-row', 'selection-color'].map((name) => `tests/browser/${name}.browser.test.ts`),
+          include: ['keyboard', 'editor-focus-once', 'edit-follows-row', 'selection-color', 'rtl-grid', 'rtl-grid-gestures'].map((name) => `tests/browser/${name}.browser.test.ts`),
           browser: {
             enabled: true,
             provider: playwright({ contextOptions: { viewport: { width: 1600, height: 1200 } } }),
