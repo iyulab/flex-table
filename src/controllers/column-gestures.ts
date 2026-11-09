@@ -188,11 +188,14 @@ export class ColumnGestures {
       if (mouseX < midpoint) { targetIndex = i; break; }
     }
 
+    // 놓을 자리의 경계(끌기 전 열 배열 기준) — 드롭 표지는 이 경계에 선다. 앞으로 끌 때 `targetIndex` 는 끌린 열이 빠진 배열의
+    // 자리라 한 칸 줄어드는데, 표지는 아직 끌기 전 열 위치로 그리므로 줄이기 전 값을 쓴다(안 그러면 표지가 한 열 일찍 선다).
+    const slot = targetIndex;
     if (this.colDrag.colIndex < targetIndex) targetIndex--;
 
     this.colDrag.targetIndex = targetIndex;
-    const indicatorColIndex = targetIndex < cols.length ? targetIndex : cols.length - 1;
-    const indicatorOffset = targetIndex < cols.length
+    const indicatorColIndex = slot < cols.length ? slot : cols.length - 1;
+    const indicatorOffset = slot < cols.length
       ? (this.ctx.colLeftOffsets()[indicatorColIndex] ?? 0)
       : (this.ctx.colLeftOffsets()[indicatorColIndex] ?? 0) + this.ctx.colWidth(cols[indicatorColIndex]);
     this.dragIndicatorLeft = indicatorOffset - scrollLeft + this.ctx.prefixWidth();

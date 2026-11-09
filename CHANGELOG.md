@@ -9,6 +9,10 @@
 
 ### Fixed
 
+- **The drop marker of a dragged column no longer stands one column early.** Dragging a column toward the end drew the marker at
+  the start of the column before the slot the column would land in (the marker used the slot number counted without the dragged
+  column, but was placed on the old column positions). Dragging toward the start was right. The marker now stands on the boundary
+  where the column will be dropped in both directions.
 - **The grid mirrors in a right-to-left page.** Columns run from the right, a start-side pinned column stays at the right edge and
   an end-side one at the left edge while the grid scrolls, the virtual column range follows the scroll position, and the keys
   follow the screen: the left arrow goes to the next column (the header row too), Alt+left widens the column, dragging the
