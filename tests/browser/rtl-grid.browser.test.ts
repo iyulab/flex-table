@@ -26,7 +26,7 @@ const COLUMNS = [
 let table: FlexTable;
 afterEach(() => { table?.remove(); document.documentElement.dir = 'ltr'; });
 
-async function mount(dir: 'ltr' | 'rtl'): Promise<FlexTable> {
+async function mount(dir: 'ltr' | 'rtl', prefix = false): Promise<FlexTable> {
   document.documentElement.dir = dir;
   table = document.createElement('flex-table') as FlexTable;
   table.setAttribute('layout', 'table');
@@ -35,6 +35,12 @@ async function mount(dir: 'ltr' | 'rtl'): Promise<FlexTable> {
   table.style.height = '300px';
   document.body.appendChild(table);
   table.editable = true;
+  if (prefix) {
+    // 접두 칸(체크박스 · 행 번호)과 푸터 — 같은 논리 좌표로 놓이는 자리.
+    table.selectable = true;
+    table.showRowNumbers = true;
+    table.footerData = { a: 'Σ' };
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (table as any).columns = COLUMNS;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,6 +70,7 @@ function viewport() {
   return rtl ? { left: B.left + bar, right: B.right } : { left: B.left, right: B.right - bar };
 }
 const startOf = (r: { left: number; right: number }, dir: 'ltr' | 'rtl') => (dir === 'ltr' ? r.left : r.right);
+const endOf = (r: { left: number; right: number }, dir: 'ltr' | 'rtl') => (dir === 'ltr' ? r.right : r.left);
 
 async function scrollToEnd(dir: 'ltr' | 'rtl') {
   table.scrollLeft = dir === 'ltr' ? 100000 : -100000;
@@ -143,5 +150,22 @@ describe.each(['ltr', 'rtl'] as const)('RTL — flex-table (%s)', (dir) => {
     const V = viewport();
     expect(c.left, `${dir}: 활성 셀 [${c.left}..${c.right}] · 보이는 영역 [${V.left}..${V.right}]`).toBeGreaterThanOrEqual(V.left - 2);
     expect(c.right).toBeLessThanOrEqual(V.right + 2);
+  });
+
+  it('접두 칸(체크박스 · 행 번호)과 푸터 접두 칸도 끝까지 스크롤해도 시작 가장자리에 붙는다', async () => {
+    await mount(dir, true);
+    await scrollToEnd(dir);
+    const V = viewport();
+    const check = table.shadowRoot!.querySelector<HTMLElement>('.ft-row .ft-checkbox-cell')!;
+    const num = table.shadowRoot!.querySelector<HTMLElement>('.ft-row .ft-row-num')!;
+    const footerNum = table.shadowRoot!.querySelector<HTMLElement>('.ft-footer .ft-row-num')!;
+    expect(check && num && footerNum, '접두 칸 셋이 그려진다').toBeTruthy();
+    const C = check.getBoundingClientRect();
+    expect(Math.abs(startOf(C, dir) - startOf(V, dir)), `${dir}: 체크박스 칸 ${startOf(C, dir)} · 시작 가장자리 ${startOf(V, dir)}`).toBeLessThan(2);
+    // 행 번호 칸은 체크박스 칸 바로 다음(읽는 방향)이다.
+    const N = num.getBoundingClientRect();
+    expect(Math.abs(startOf(N, dir) - endOf(C, dir)), `${dir}: 행 번호 칸이 체크박스 칸에 이어진다`).toBeLessThan(2);
+    const F = footerNum.getBoundingClientRect();
+    expect(Math.abs(startOf(F, dir) - startOf(N, dir)), `${dir}: 푸터 접두 칸이 본문 접두 칸과 같은 자리`).toBeLessThan(2);
   });
 });

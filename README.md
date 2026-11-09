@@ -99,6 +99,13 @@ difference between the "100,000+ rows" claim in Features and a page that stalls.
 Small fixed data sets are fine unconstrained — the point is that the virtual-scroll guarantee is a
 guarantee about a *constrained* host. `height-model.browser.test.ts` pins both sides of this.
 
+## Right-to-left
+
+Under `dir="rtl"` the grid mirrors: columns run from the right, a start-side pinned column stays at the right edge, and the keys
+follow the screen (the left arrow goes to the next column, Alt+left widens the column; dragging a resize handle toward the end edge
+widens it). Left-to-right rendering is unchanged. `scrollLeft` on the element follows the browser convention (zero at the start
+edge, negative toward the end in a right-to-left page).
+
 ## Properties
 
 | Property | Attribute | Type | Default | Description |
