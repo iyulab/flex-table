@@ -72,18 +72,26 @@ describe('치수·위계 축', () => {
   describe('★--ft-row-height 가 가상화 계산에 실제로 들어간다', () => {
     let el: FlexTable;
 
+    let declaration: HTMLStyleElement | undefined;
     beforeEach(() => {
-      document.documentElement.style.removeProperty('--ft-row-height');
+      declaration = undefined;
     });
     afterEach(() => {
       el?.remove();
-      document.documentElement.style.removeProperty('--ft-row-height');
+      declaration?.remove();
     });
 
-    /** 문서 스코프 선언 → 붙이기 → 첫 렌더 완료. 소비자가 실제로 쓰는 경로다. */
+    /**
+     * 문서 스코프 선언 → 붙이기 → 첫 렌더 완료. 소비자가 실제로 쓰는 경로다 — README 가 가르치는 `flex-table { --ft-row-height: … }`.
+     * ⚠선언은 `:root` 가 아니라 **요소를 겨눈 규칙**이어야 한다: 컴포넌트 자신의 `:host { --ft-row-height: 32px }` 가 호스트에
+     * 직접 선언돼 있어 상속으로 내려온 `:root` 값은 이긴다(실제 브라우저의 캐스케이드도 같다). jsdom 31 은 그 `:host` 규칙을
+     * 호스트에 적용하므로 `:root` 인라인 선언은 24px 이 아니라 32px 로 읽혔다.
+     */
     const mount = async (rowHeightToken?: string) => {
       if (rowHeightToken) {
-        document.documentElement.style.setProperty('--ft-row-height', rowHeightToken);
+        declaration = document.createElement('style');
+        declaration.textContent = `flex-table { --ft-row-height: ${rowHeightToken}; }`;
+        document.head.appendChild(declaration);
       }
       el = document.createElement('flex-table') as FlexTable;
       el.columns = [{ key: 'a', label: 'A' }];
