@@ -1,6 +1,7 @@
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import litPlugin from 'eslint-plugin-lit';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
   {
@@ -18,6 +19,8 @@ export default [
     plugins: {
       '@typescript-eslint': tsPlugin,
       lit: litPlugin,
+      // 게시되는 React 훅(`useArraySource` · `useODataSource`)의 규칙. 훅이 없는 파일에서는 발화하지 않으므로 대상을 열거하지 않고 src 전체에 건다.
+      'react-hooks': reactHooks,
     },
     rules: {
       // TypeScript
@@ -32,6 +35,9 @@ export default [
       'lit/no-legacy-template-syntax': 'error',
       'lit/no-useless-template-literals': 'warn',
       'lit/attribute-names': 'warn',
+
+      // React hooks
+      ...reactHooks.configs['recommended-latest'].rules,
 
       // General
       'no-console': 'warn',
