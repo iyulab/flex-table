@@ -23,8 +23,10 @@ async function mount(rowHeight: string): Promise<void> {
 }
 
 function gaps(el: HTMLElement): { top: number; bottom: number } {
-  const text = [...el.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim())
-    ?? el.querySelector('*')?.firstChild;
+  // The value sits in a `<bdi>` (it keeps its own direction) — find the first text with a character in it, wherever it is.
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let text: Node | null = walker.nextNode();
+  while (text && !text.textContent!.trim()) text = walker.nextNode();
   const range = document.createRange();
   range.selectNodeContents(text ?? el);
   const t = range.getBoundingClientRect();

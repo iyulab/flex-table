@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **A cell value keeps its own direction in a right-to-left page.** The text of a cell is data the app put there. A line of Latin
+  letters in a right-to-left page (a company name, a part number) had the page as its paragraph direction, so its full stop and a
+  leading sign jumped to the other end: «Blue Harbor Co.» read «.Blue Harbor Co». Each cell value — and each card value and
+  title — is now isolated (`<bdi>`): it reads in its own direction and stands where the cell puts it (the start edge, as the
+  alignment says). A left-to-right page is drawn as before. Text typed in a cell editor is not changed.
+
 ### Added
 
 - **`enter-move` — where Enter goes after it commits a cell edit.** `down` (the default, unchanged) moves to the cell below;

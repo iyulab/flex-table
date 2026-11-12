@@ -1951,11 +1951,11 @@ export class FlexTable extends LitElement {
           @change=${(e: Event) => this._onRowCheckboxChange(e, i)}></label>` : nothing}
         <div class="ft-card-body">
           ${custom !== undefined ? custom : html`
-            ${title ? html`<div class="ft-card-title" part="card-title">${renderCell(getCellValue(row, title.key), row, title)}</div>` : nothing}
+            ${title ? html`<div class="ft-card-title" part="card-title"><bdi>${renderCell(getCellValue(row, title.key), row, title)}</bdi></div>` : nothing}
             ${rest.length ? html`<dl class="ft-card-fields" part="card-fields">
               ${rest.map(col => {
                 const value = getCellValue(row, col.key);
-                return cardFieldShown(col, value) ? html`<div class="ft-card-field"><dt>${col.label}</dt><dd>${renderCell(value, row, col)}</dd></div>` : nothing;
+                return cardFieldShown(col, value) ? html`<div class="ft-card-field"><dt>${col.label}</dt><dd><bdi>${renderCell(value, row, col)}</bdi></dd></div>` : nothing;
               })}
             </dl>` : nothing}`}
         </div>
@@ -3993,7 +3993,7 @@ export class FlexTable extends LitElement {
         ${delegate<MouseEvent>('click', (e, cell) => this._cursor.click(e, rowIndex, colIndex, cell))}
         @dblclick=${() => this._cursor.doubleClick(rowIndex, colIndex)}>
         ${commentTooltip}
-        ${renderCell(getCellValue(row, col.key), row, col)}
+        <bdi>${renderCell(getCellValue(row, col.key), row, col)}</bdi>
       </div>
     `;
   }
