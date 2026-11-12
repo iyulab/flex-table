@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **Text columns sort by the app locale, with digit runs read as numbers.** A column of text (`type: 'text'`, or one
+  without a type whose values are strings) was compared with the browser's default string comparison: `A-10` stood before
+  `A-2`, and whether Hangul came before or after Latin followed each user's browser language, so one table ordered
+  differently for two users. It now uses `compareText` from `@iyulab/components` — `A-2` before `A-10`, `9` before `10`,
+  case and accents compare as the same letter (equal rows keep their input order), and the locale is `Locale.get()` (`<html
+  lang>`, then the browser language, then `en`; `Locale.set('ko')` puts Hangul before Latin). Strings are still never read as
+  numbers: `'1.5'` stays before `'1.25'` in a text column; declare `type: 'number'` to sort by value. Needs
+  `@iyulab/components` 3.1.0 or newer (the peer range moves with it).
+
 ## [0.79.0] - 2026-11-11
 
 ### Documentation

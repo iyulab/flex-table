@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { Locale } from '@iyulab/components/dist/utilities/Locale.js';
 import { computeSortedIndices, toggleSort } from './sorting.js';
 import type { SortCriteria } from './sorting.js';
 import type { ColumnDefinition, DataRow } from '../models/types.js';
@@ -101,11 +102,33 @@ describe('computeSortedIndices', () => {
     expect(computeSortedIndices(rows, [{ key: 'amount', direction: 'asc' }], [])).toEqual([1, 2, 0]);
   });
 
-  it('keeps text order for an undeclared column of strings and for a declared text column of numbers', () => {
-    const rows: DataRow[] = [{ code: '10' }, { code: '9' }];
+  it('never reads strings as numbers — an undeclared column of strings and a declared text column stay text', () => {
+    // As numbers 1.5 > 1.25; as text (digit runs compared as numbers, like a version) 1.5 < 1.25. Reading the
+    // strings as numbers would flip this pair.
+    const rows: DataRow[] = [{ code: '1.5' }, { code: '1.25' }];
     expect(computeSortedIndices(rows, [{ key: 'code', direction: 'asc' }], [])).toEqual([0, 1]);
     const typed: ColumnDefinition[] = [{ key: 'n', label: 'N', type: 'text' }];
-    expect(computeSortedIndices([{ n: 10 }, { n: 9 }], [{ key: 'n', direction: 'asc' }], typed)).toEqual([0, 1]);
+    expect(computeSortedIndices([{ n: '1.5' }, { n: '1.25' }], [{ key: 'n', direction: 'asc' }], typed)).toEqual([0, 1]);
+  });
+
+  it('orders digit runs inside text as numbers — A-2 before A-10', () => {
+    const rows: DataRow[] = [{ code: 'A-10' }, { code: 'A-2' }, { code: 'A-1' }, { code: '10' }, { code: '9' }];
+    // '9'(4) '10'(3) A-1(2) A-2(1) A-10(0) — digits before letters, and each digit run compared as a number
+    expect(computeSortedIndices(rows, [{ key: 'code', direction: 'asc' }], [])).toEqual([4, 3, 2, 1, 0]);
+  });
+
+  it('puts Hangul before or after Latin by the app locale, not the browser locale', () => {
+    const rows: DataRow[] = [{ name: 'banana' }, { name: '가나다' }, { name: 'Apple' }];
+    const asc = [{ key: 'name', direction: 'asc' as const }];
+    const prev = Locale.get();
+    try {
+      Locale.set('en');
+      expect(computeSortedIndices(rows, asc, [])).toEqual([2, 0, 1]); // Apple · banana · 가나다
+      Locale.set('ko');
+      expect(computeSortedIndices(rows, asc, [])).toEqual([1, 2, 0]); // 가나다 · Apple · banana
+    } finally {
+      Locale.set(prev);
+    }
   });
 
   it('should handle empty data', () => {

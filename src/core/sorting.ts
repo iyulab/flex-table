@@ -1,6 +1,7 @@
 import type { ColumnDefinition, DataRow } from '../models/types.js';
 import { getCellValue } from './cell-value.js';
 import { readCellDate } from './date-value.js';
+import { compareText } from '@iyulab/components/dist/utilities/collation.js';
 
 /**
  * Sort direction.
@@ -94,8 +95,8 @@ function compareValues(a: unknown, b: unknown, type: string): number {
       const db = readCellDate(b)?.getTime() ?? NaN;
       return (isNaN(da) ? 0 : da) - (isNaN(db) ? 0 : db);
     }
-    default: // text
-      return String(a).localeCompare(String(b));
+    default: // text — 앱 로캘의 숫자 인식 순서(`A-2` < `A-10`) · 브라우저 로캘이 아니다
+      return compareText(String(a), String(b));
   }
 }
 

@@ -99,12 +99,25 @@ describe('computeArrayView — 정렬', () => {
     });
     expect(withoutColumns.data.map((r) => r.id)).toEqual([3, 1, 2]); // 타입 미지정 — 값의 형(숫자)으로 비교
 
-    const asText = computeArrayView(rows, {
+    // 정한 타입이 이긴다 — 값은 숫자지만 text 로 정하면 글자로 비교한다. 글자 비교는 숫자 덩어리를 수로 읽으므로(`2` < `10`)
+    // 정수로는 두 길이 갈리지 않는다: 소수는 «글자 1.5 → 1 . 5 < 1 . 25» 로 읽혀 값 비교(1.25 < 1.5)와 반대가 된다.
+    const decimals: Row[] = [
+      { id: 1, name: 'A', price: 1.5, category: 'x' },
+      { id: 2, name: 'B', price: 1.25, category: 'x' },
+      { id: 3, name: 'C', price: 1.125, category: 'x' },
+    ];
+    const asNumber = computeArrayView(decimals, {
+      ...BASE,
+      sortCriteria: [{ key: 'price', direction: 'asc' }],
+      columns,
+    });
+    expect(asNumber.data.map((r) => r.id)).toEqual([3, 2, 1]); // 값 비교
+    const asText = computeArrayView(decimals, {
       ...BASE,
       sortCriteria: [{ key: 'price', direction: 'asc' }],
       columns: [{ key: 'price', label: 'Price', type: 'text' }],
     });
-    expect(asText.data.map((r) => r.id)).toEqual([2, 3, 1]); // "10" < "2" < "9" — 정한 타입이 이긴다
+    expect(asText.data.map((r) => r.id)).toEqual([1, 2, 3]); // 글자 비교
   });
 
   it('검색 후 정렬한다(순서: 검색 → 정렬 → 페이지)', () => {
