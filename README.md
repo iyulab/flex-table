@@ -116,6 +116,7 @@ edge, negative toward the end in a right-to-left page).
 | `showRowNumbers` | `show-row-numbers` | `boolean` | `false` | Show row number column |
 | `theme` | `theme` | `'light' \| 'dark'` | auto | Force theme; auto-detects `prefers-color-scheme` |
 | `editable` | `editable` | `boolean` | `true` | Global read-only mode when `false` — the built-in cell menu then has no «Insert row» or «Delete row». Defaults to `true` — a purely read-only grid should set this explicitly rather than relying on per-column `editable: false` alone, since it's also what makes Enter fire `row-activate` (see [Events](#events)) instead of entering edit mode |
+| `enterMove` | `enter-move` | `'down' \| 'next' \| 'none'` | `'down'` | Where the selection goes after **Enter** commits a cell edit: the cell below (default), the next cell in reading order as Tab goes (onto the next row at the end of a row; the left side in a right-to-left page), or nowhere — the Excel setting "After pressing Enter, move selection". The last cell stays selected |
 | `showFilters` | `show-filters` | `boolean` | `false` | Offer the built-in filter dropdowns through each column menu («Filter…») |
 | `layout` | `layout` | `'auto' \| 'table' \| 'cards'` | `'auto'` | Rows as a grid or as cards — `auto` draws cards on a phone-width screen or where the columns do not fit a narrower place (see *Narrow screens*) |
 | `cardBreakpoint` | `card-breakpoint` | `number` | `600` | The width (px) below which `auto` considers cards |

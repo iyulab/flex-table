@@ -215,6 +215,16 @@ export class FlexTable extends LitElement {
   showFilters: boolean = false;
 
   /**
+   * Where the selection goes after **Enter** commits a cell edit: `down` (the default — the cell below, as in a spreadsheet),
+   * `next` (the next cell in reading order, as Tab goes — to the right in a left-to-right page, to the left in a right-to-left
+   * one; at the end of a row it continues at the start of the next row) or `none` (the selection stays on the edited cell).
+   * At the last cell the selection stays. A value that is not one of these is read as `down`. Choosing an autocomplete
+   * suggestion moves the same way.
+   */
+  @property({ attribute: 'enter-move' })
+  enterMove: 'down' | 'next' | 'none' = 'down';
+
+  /**
    * How rows are drawn. `auto` (the default) draws the grid, and a list of cards where a grid does not suit: on a screen
    * narrower than `cardBreakpoint` (a phone), or in a place narrower than that where the columns do not fit. A grid that
    * fits a narrow place stays a grid on a wide screen. `table` and `cards` choose one and say the app has decided;
@@ -2312,7 +2322,7 @@ export class FlexTable extends LitElement {
       e.preventDefault();
       e.stopPropagation();
       this._commitEdit();
-      this._selection.moveDown();
+      this._moveAfterEnter();
       this._syncActiveCell();
     } else if (e.key === 'Tab') {
       e.preventDefault();
@@ -2347,8 +2357,15 @@ export class FlexTable extends LitElement {
   private _selectAutocompleteCandidate(value: string): void {
     this._autocompleteState = null;
     this._applyEdit(value);
-    this._selection.moveDown();
+    this._moveAfterEnter();
     this._syncActiveCell();
+  }
+
+  /** Move the selection the way `enterMove` says after an Enter commit (the next cell in reading order is Tab's move). */
+  private _moveAfterEnter(): void {
+    if (this.enterMove === 'none') return;
+    if (this.enterMove === 'next') this._selection.moveNext();
+    else this._selection.moveDown();
   }
 
   private _syncActiveCell(): void {

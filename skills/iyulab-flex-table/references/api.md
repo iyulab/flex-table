@@ -12,6 +12,7 @@ All names below are members of the `FlexTable` class (`<flex-table>`).
 | `showRowNumbers` | `show-row-numbers` | `boolean` | `false` | Sticky row-number column |
 | `theme` | `theme` | `'light' \| 'dark' \| undefined` | auto | Auto follows `prefers-color-scheme` |
 | `editable` | `editable` | `boolean` | `true` | `false` = read-only grid; Enter then fires `row-activate` |
+| `enterMove` | `enter-move` | `'down' \| 'next' \| 'none'` | `'down'` | Where the selection goes after **Enter** commits a cell edit: the cell below (default), the next cell in reading order as Tab goes (onto the next row at the end of a row; the left side in a right-to-left page), or nowhere — the Excel setting "After pressing Enter, move selection". The last cell stays selected |
 | `showFilters` | `show-filters` | `boolean` | `false` | Adds **Filter…** to each column menu |
 | `layout` | `layout` | `'auto' \| 'table' \| 'cards'` | `'auto'` | `auto` draws cards where a grid does not suit: a screen narrower than `cardBreakpoint` (a phone), or a narrower place whose columns do not fit. A grid that fits stays a grid; a table with editable columns stays a grid. `table` · `cards` say the app has decided — under `auto` the table notes a fallback once in the console |
 | `cardBreakpoint` | `card-breakpoint` | `number` | `600` | The width (px) below which `auto` considers cards |

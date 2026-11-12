@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`enter-move` — where Enter goes after it commits a cell edit.** `down` (the default, unchanged) moves to the cell below;
+  `next` moves to the next cell in reading order as Tab does (onto the start of the next row at the end of a row, and to the left in a
+  right-to-left page); `none` keeps the selection on the edited cell. It is the spreadsheet setting «after pressing Enter, move the
+  selection», for entering a row's values from one side to the other. The last cell stays selected, a value that is not one of
+  the three reads as `down`, and choosing an autocomplete suggestion moves the same way. Property `enterMove`, attribute `enter-move`.
+
 ### Changed
 
 - **Text columns sort by the app locale, with digit runs read as numbers.** A column of text (`type: 'text'`, or one
