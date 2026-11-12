@@ -16,6 +16,11 @@
 
 ### Added
 
+- **`custom-elements.json` — a Custom Elements Manifest for every element.** The package ships `dist/custom-elements.json`
+  (`@iyulab/flex-table/dist/custom-elements.json`, declared in the `customElements` field of `package.json`) so editors,
+  documentation tools and AI agents can read each element's attributes, properties, events, slots and CSS parts without
+  parsing the source. It is generated at build time (`npm run analyze`) and lists the events an element raises through
+  `this.fire()` or `dispatchEvent()` with the type of their `detail`.
 - **`enter-move` — where Enter goes after it commits a cell edit.** `down` (the default, unchanged) moves to the cell below;
   `next` moves to the next cell in reading order as Tab does (onto the start of the next row at the end of a row, and to the left in a
   right-to-left page); `none` keeps the selection on the edited cell. It is the spreadsheet setting «after pressing Enter, move the

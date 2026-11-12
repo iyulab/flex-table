@@ -83,6 +83,8 @@ const OVERSCAN = 5;
 const UNCONSTRAINED_WARN_ROWS = 200;
 
 /**
+ * A lightweight, schema-agnostic data grid for large datasets, cell-level editing and spreadsheet-grade interaction.
+ *
  * @csspart base - The grid's box and scroll container: outline, surface and both scrollbars. The host takes the size
  *   (`height`, `flex`); `scrollTop`, `scrollLeft`, `scrollTo` and the `scroll` event on the host reach this element.
  * @csspart cards - The list of cards that replaces the grid on narrow screens (`layout`)

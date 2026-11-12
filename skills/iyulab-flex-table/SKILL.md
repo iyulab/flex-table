@@ -144,3 +144,7 @@ Server paging from OData or an in-memory array uses the same binding — see `re
 - [references/api.md](references/api.md) — properties, column definition, methods, events
 - [references/react.md](references/react.md) — `FlexTableReact`, `useODataSource`, `useArraySource`, pure OData/array helpers
 - [references/styling.md](references/styling.md) — CSS custom properties, density, keyboard shortcuts, localization
+
+## Machine-readable reference
+
+The element surface is also published as a Custom Elements Manifest: the file named by the `customElements` field of this package's `package.json` (`dist/custom-elements.json`). It lists every element's attributes, properties, events (with the type of their `detail`), slots, CSS parts and CSS custom properties, generated from the source at build time. Read it instead of parsing the source when you need the exact surface of an element.
