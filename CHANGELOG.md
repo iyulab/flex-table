@@ -8,7 +8,11 @@
   letters in a right-to-left page (a company name, a part number) had the page as its paragraph direction, so its full stop and a
   leading sign jumped to the other end: «Blue Harbor Co.» read «.Blue Harbor Co». Each cell value — and each card value and
   title — is now isolated (`<bdi>`): it reads in its own direction and stands where the cell puts it (the start edge, as the
-  alignment says). A left-to-right page is drawn as before. Text typed in a cell editor is not changed.
+  alignment says). A left-to-right page is drawn as before. Text typed in a text cell editor is not changed.
+- **A number typed into a number cell editor or a number filter keeps its sign in front in a right-to-left page.** Both are text
+  inputs (the browser's own number handling does not apply), and in a right-to-left page they took the page as their paragraph
+  direction: `-1234.5` read `1234.5-`. The inputs are now left-to-right; where the text sits does not move (the editor keeps the
+  number's end edge, the filter keeps the start edge). A left-to-right page is drawn as before.
 
 ### Added
 

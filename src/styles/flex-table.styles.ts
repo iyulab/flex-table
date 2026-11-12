@@ -331,6 +331,10 @@ export const flexTableStyles = css`
   }
 
   .ft-editor-number { text-align: end; }
+  /* 숫자 편집기는 text 입력이라(브라우저의 숫자 입력 기본이 안 닿는다) 오른쪽에서 왼쪽으로 쓰는 페이지의 문단 방향을 받으면
+     부호가 줄 끝으로 가 «-1234.5» 가 «1234.5-» 로 읽힌다. 입력은 왼쪽에서 오른쪽으로 두고 자리는 그대로 둔다 — 입력의 방향이
+     ltr 이면 start 가 왼쪽이고, 이 페이지에서 숫자의 끝 가장자리(end)가 왼쪽이다. */
+  :host(:dir(rtl)) .ft-editor-number { direction: ltr; text-align: start; }
 
   /* 날짜 편집기(u-date-picker) — 텍스트 편집기와 같은 자리·여백·초점선으로 셀을 채운다. 테두리는
      셀의 것이고, 달력은 피커 자신의 팝오버다. */
@@ -788,6 +792,9 @@ export const flexTableStyles = css`
   .ft-num-cond-input {
     flex: 1;
   }
+  /* 숫자 조건 값도 같은 이유로 왼쪽에서 오른쪽으로 읽힌다(위 편집기와 같다). 자리는 페이지의 시작 가장자리(오른쪽) 그대로 —
+     입력의 방향이 ltr 이면 end 가 오른쪽이다. */
+  :host(:dir(rtl)) .ft-num-cond-input { direction: ltr; text-align: end; }
 
   .ft-filter-empty-row {
     margin-top: 6px;
