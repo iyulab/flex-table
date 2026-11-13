@@ -13,6 +13,11 @@
   inputs (the browser's own number handling does not apply), and in a right-to-left page they took the page as their paragraph
   direction: `-1234.5` read `1234.5-`. The inputs are now left-to-right; where the text sits does not move (the editor keeps the
   number's end edge, the filter keeps the start edge). A left-to-right page is drawn as before.
+- **Mounting a `flex-table` no longer logs Lit's «scheduled an update after an update completed» in a development build.**
+  The table reads its own box and the density tokens after the first draw (they exist only once the styles are adopted), which
+  draws it once more — expected, and the warning's own stated exception — but every app saw the warning in its console. The
+  element now turns it off, with the reason in a comment. Later size changes are still handled outside the update, by the resize observer.
+
 
 ### Added
 

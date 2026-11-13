@@ -96,6 +96,14 @@ const UNCONSTRAINED_WARN_ROWS = 200;
 export class FlexTable extends LitElement {
   static styles = flexTableStyles;
 
+  // Lit 개발 모드의 «갱신 뒤 갱신» 경고(`change-in-update`)를 이 요소에서 끈다 — 첫 그림 뒤의 둘째 갱신이 본질이라서다: 호스트의 상자
+  // (뷰포트 크기)와 밀도 토큰(`--ft-row-height` 등)은 스타일이 채택되고 그려진 뒤에야 읽을 수 있고(`firstUpdated`), 그 값으로 가상화 구간이 다시
+  // 정해진다. 경고 문구 자신이 «다음 갱신이 이전 갱신의 부수 효과로만 예약될 수 있으면 예외» 라고 적는 경우다. 이후의 크기 변화는
+  // `ResizeObserver` 가 갱신 밖에서 처리한다(`updated()` 에서 재면 무한 루프 — connectedCallback 주석). 개발 빌드에만 있는 정적 메서드라 옵셔널 호출.
+  static {
+    this.disableWarning?.('change-in-update');
+  }
+
   @property({ type: Array })
   columns: ColumnDefinition[] = [];
 
