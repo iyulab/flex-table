@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import '../../src/index.js';
 import type { FlexTable } from '../../src/flex-table.js';
+import { MOD } from './modifier';
 
 /**
  * flex-table keyboard contract — the README's «Keyboard Shortcuts» table, key by key.
@@ -126,9 +127,9 @@ describe('flex-table keyboard — editing', () => {
     await at(2, 1);
     await press('{Shift>}{ArrowRight}{/Shift}{Delete}');
     expect([table.data[2].b, table.data[2].c]).toEqual(['', '']);
-    await press('{Control>}z{/Control}');
+    await press(`{${MOD}>}z{/${MOD}}`);
     expect([table.data[2].b, table.data[2].c]).toEqual(['b2', 'c2']);
-    await press('{Control>}{Shift>}z{/Shift}{/Control}');
+    await press(`{${MOD}>}{Shift>}z{/Shift}{/${MOD}}`);
     expect([table.data[2].b, table.data[2].c]).toEqual(['', '']);
   });
 
@@ -200,7 +201,7 @@ describe('flex-table keyboard — header and column menu', () => {
 
   it('Ctrl+Click on a header selects the whole column', async () => {
     await mount();
-    await userEvent.click(header(2), { modifiers: ['Control'] });
+    await userEvent.click(header(2), { modifiers: [MOD] });
     await settle();
     expect(selectedCount(), 'every row of column C').toBe(8);
     const cells = Array.from(table.shadowRoot!.querySelectorAll('.ft-cell.ft-selected'));

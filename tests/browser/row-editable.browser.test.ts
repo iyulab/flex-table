@@ -3,6 +3,7 @@ import { userEvent } from 'vitest/browser';
 import '../../src/index.js';
 import type { FlexTable } from '../../src/flex-table.js';
 import type { DataRow } from '../../src/models/types.js';
+import { MOD } from './modifier';
 
 /**
  * Whether a cell may change, decided per row — `editable: (row, col) => boolean`.
@@ -126,9 +127,9 @@ describe('flex-table — a locked cell takes no write from a block edit', () => 
     await mount();
     await at(0, 0);
     await press('{Shift>}{ArrowDown}{ArrowDown}{ArrowDown}{/Shift}');
-    await press('{Control>}c{/Control}');
+    await press(`{${MOD}>}c{/${MOD}}`);
     await at(0, 1);
-    await press('{Control>}v{/Control}');
+    await press(`{${MOD}>}v{/${MOD}}`);
     expect(columnB()).toEqual(['a0', 'b1', 'a2', 'b3']);
   });
 
@@ -142,7 +143,7 @@ describe('flex-table — a locked cell takes no write from a block edit', () => 
   it('cut copies the whole block and clears only the open cells', async () => {
     await mount();
     await selectB();
-    await press('{Control>}x{/Control}');
+    await press(`{${MOD}>}x{/${MOD}}`);
     await new Promise((r) => setTimeout(r, 60));
     expect(columnB()).toEqual(['', 'b1', '', 'b3']);
   });
@@ -171,9 +172,9 @@ describe('flex-table — a column-wide editable: false holds against every editi
     await press('{Delete}');
     expect(columnB()).toEqual(['b0', 'b1', 'b2', 'b3']);
     await at(0, 0);
-    await press('{Control>}c{/Control}');
+    await press(`{${MOD}>}c{/${MOD}}`);
     await at(0, 1);
-    await press('{Control>}v{/Control}');
+    await press(`{${MOD}>}v{/${MOD}}`);
     expect(table.data[0].b).toBe('b0');
   });
 });

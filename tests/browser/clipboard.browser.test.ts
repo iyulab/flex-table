@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import '../../src/index.js';
 import type { FlexTable } from '../../src/flex-table.js';
+import { MOD } from './modifier';
 
 /**
  * Copy, cut and paste — pressed with real keys, so the browser runs its own clipboard commands.
@@ -85,7 +86,7 @@ describe('flex-table clipboard — keys', () => {
     const clip = recordClipboard();
     const events = recordTableEvents();
     await selectBlock();
-    await press('{Control>}c{/Control}');
+    await press(`{${MOD}>}c{/${MOD}}`);
     expect(clip).toEqual([{ type: 'copy', text: 'b1\tc1\nb2\tc2', prevented: true }]);
     expect(events).toEqual(['clipboard-copy']);
     expect([table.data[1].b, table.data[2].c]).toEqual(['b1', 'c2']);
@@ -96,11 +97,11 @@ describe('flex-table clipboard — keys', () => {
     const clip = recordClipboard();
     const events = recordTableEvents();
     await selectBlock();
-    await press('{Control>}x{/Control}');
+    await press(`{${MOD}>}x{/${MOD}}`);
     expect(clip).toEqual([{ type: 'cut', text: 'b1\tc1\nb2\tc2', prevented: true }]);
     expect(events).toEqual(['clipboard-cut']);
     expect([table.data[1].b, table.data[1].c, table.data[2].b, table.data[2].c]).toEqual(['', '', '', '']);
-    await press('{Control>}z{/Control}');
+    await press(`{${MOD}>}z{/${MOD}}`);
     expect([table.data[1].b, table.data[2].c]).toEqual(['b1', 'c2']);
   });
 
@@ -113,7 +114,7 @@ describe('flex-table clipboard — keys', () => {
       const clip = recordClipboard();
       const events = recordTableEvents();
       await selectBlock();
-      await press('{Control>}x{/Control}');
+      await press(`{${MOD}>}x{/${MOD}}`);
       expect(clip.map((c) => c.text)).toEqual(['b1\tc1\nb2\tc2']);
       expect(events).toEqual(['clipboard-cut']);
     } finally {
@@ -126,7 +127,7 @@ describe('flex-table clipboard — keys', () => {
     const clip = recordClipboard();
     const events = recordTableEvents();
     await selectBlock();
-    await press('{Control>}x{/Control}');
+    await press(`{${MOD}>}x{/${MOD}}`);
     expect(clip.map((c) => c.text)).toEqual(['b1\tc1\nb2\tc2']);
     expect(events).toEqual(['clipboard-copy']);
     expect(table.data[1].b).toBe('b1');
@@ -136,10 +137,10 @@ describe('flex-table clipboard — keys', () => {
     await mount();
     const events = recordTableEvents();
     await selectBlock();
-    await press('{Control>}c{/Control}');
+    await press(`{${MOD}>}c{/${MOD}}`);
     await userEvent.click(cell(4, 0));
     await settle();
-    await press('{Control>}v{/Control}');
+    await press(`{${MOD}>}v{/${MOD}}`);
     expect(events).toContain('clipboard-paste');
     expect([table.data[4].a, table.data[4].b, table.data[5].a, table.data[5].b]).toEqual(['b1', 'c1', 'b2', 'c2']);
   });
@@ -151,7 +152,7 @@ describe('flex-table clipboard — keys', () => {
     const clip = recordClipboard();
     await selectBlock();
     table.shadowRoot!.querySelector<HTMLInputElement>('.ft-checkbox-cell input[type="checkbox"]')!.focus();
-    await press('{Control>}c{/Control}');
+    await press(`{${MOD}>}c{/${MOD}}`);
     expect(clip.map((c) => c.text)).toEqual(['b1\tc1\nb2\tc2']);
   });
 
@@ -161,7 +162,7 @@ describe('flex-table clipboard — keys', () => {
     const events = recordTableEvents();
     await userEvent.click(cell(1, 1));
     await settle();
-    await press('{F2}{Control>}a{/Control}{Control>}c{/Control}');
+    await press(`{F2}{${MOD}>}a{/${MOD}}{${MOD}>}c{/${MOD}}`);
     expect(clip).toEqual([{ type: 'copy', text: '', prevented: false }]);
     expect(events).toEqual([]);
   });
@@ -178,7 +179,7 @@ describe('flex-table clipboard — where the browser fires no copy event (Safari
     try {
       const events = recordTableEvents();
       await selectBlock();
-      await press('{Control>}x{/Control}');
+      await press(`{${MOD}>}x{/${MOD}}`);
       await new Promise((r) => setTimeout(r, 30));
       expect(written).toEqual(['b1\tc1\nb2\tc2']);
       expect(events).toEqual(['clipboard-cut']);
@@ -198,7 +199,7 @@ describe('flex-table clipboard — where the browser fires no copy event (Safari
     try {
       const events = recordTableEvents();
       await selectBlock();
-      await press('{Control>}x{/Control}');
+      await press(`{${MOD}>}x{/${MOD}}`);
       await new Promise((r) => setTimeout(r, 30));
       expect(events).toEqual(['clipboard-error']);
       expect([table.data[1].b, table.data[2].c]).toEqual(['b1', 'c2']);
